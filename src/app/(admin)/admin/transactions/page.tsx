@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { mockTransactions } from '@/lib/placeholder-data';
+import { mockTransactions, mockUsers } from '@/lib/placeholder-data';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ export default function AdminTransactionsPage() {
               {mockTransactions.concat(mockTransactions).map((tx, index) => (
                 <TableRow key={`${tx.id}-${index}`}>
                   <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
-                   <TableCell>user@example.com</TableCell>
+                   <TableCell>{mockUsers[index % mockUsers.length].email}</TableCell>
                   <TableCell className="font-medium">{tx.description}</TableCell>
                   <TableCell>
                     <Badge variant={tx.type === 'Credit' ? 'default' : 'secondary'} className={cn(tx.type === 'Credit' && 'bg-green-500/20 text-green-700 border-transparent')}>{tx.type}</Badge>

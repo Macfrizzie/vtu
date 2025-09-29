@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, CreditCard, DollarSign, AlertCircle } from 'lucide-react';
-import { adminStats, mockTransactions } from '@/lib/placeholder-data';
+import { adminStats, mockTransactions, mockUsers } from '@/lib/placeholder-data';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -35,9 +35,9 @@ export default function AdminDashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockTransactions.slice(0, 5).map((tx) => (
+              {mockTransactions.slice(0, 5).map((tx, index) => (
                 <TableRow key={tx.id}>
-                    <TableCell>user@example.com</TableCell>
+                    <TableCell>{mockUsers[index % mockUsers.length].email}</TableCell>
                     <TableCell className="font-medium">{tx.description}</TableCell>
                     <TableCell className={cn('text-right font-semibold', tx.type === 'Credit' ? 'text-green-600' : 'text-red-600')}>
                         {tx.type === 'Credit' ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
