@@ -1,23 +1,45 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { mockTransactions } from '@/lib/placeholder-data';
 import { cn } from '@/lib/utils';
 import { Copy, Loader2 } from 'lucide-react';
 import { useUser } from '@/context/user-context';
-import { fundWallet } from '@/lib/firebase/firestore';
+import { fundWallet, getUserTransactions } from '@/lib/firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import type { Transaction } from '@/lib/types';
 
 
 export default function WalletPage() {
     const { user, userData, loading, forceRefetch } = useUser();
     const { toast } = useToast();
     const [isFunding, setIsFunding] = useState(false);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [transactionsLoading, setTransactionsLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchTransactions() {
+            if (!user) return;
+            setTransactionsLoading(true);
+            try {
+                const userTransactions = await getUserTransactions(user.uid);
+                setTransactions(userTransactions);
+            } catch (error) {
+                console.error("Failed to fetch transactions:", error);
+            } finally {
+                setTransactionsLoading(false);
+            }
+        }
+
+        if (user) {
+            fetchTransactions();
+        }
+    }, [user]);
+
 
     const handleFundWallet = async () => {
         if (!user) {
@@ -27,9 +49,8 @@ export default function WalletPage() {
 
         setIsFunding(true);
         try {
-            // Pass user details to fundWallet in case the doc needs to be created
             await fundWallet(user.uid, 5000, user.email, userData?.fullName); 
-            forceRefetch(); // Refetch user data to update balance
+            forceRefetch();
             toast({ title: 'Success!', description: '₦5,000 has been added to your wallet.' });
         } catch (error) {
             console.error(error);
@@ -101,6 +122,11 @@ export default function WalletPage() {
           <CardTitle>Transaction History</CardTitle>
         </CardHeader>
         <CardContent>
+          {transactionsLoading ? (
+             <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -112,7 +138,7 @@ export default function WalletPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockTransactions.map((tx) => (
+              {transactions.map((tx) => (
                 <TableRow key={tx.id}>
                   <TableCell>{new Date(tx.date).toLocaleDateString()}</TableCell>
                   <TableCell className="font-medium">{tx.description}</TableCell>
@@ -131,6 +157,7 @@ export default function WalletPage() {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
     </div>
