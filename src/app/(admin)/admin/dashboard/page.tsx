@@ -2,11 +2,13 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, CreditCard, DollarSign, AlertCircle, Loader2 } from 'lucide-react';
-import { adminStats } from '@/lib/placeholder-data';
+import { Users, CreditCard, DollarSign, AlertTriangle, Loader2, AlertCircle } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import type { Transaction, User, Service } from '@/lib/types';
 import { getTransactions, getAllUsers, getServices } from '@/lib/firebase/firestore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function AdminDashboardPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -35,16 +37,16 @@ export default function AdminDashboardPage() {
         fetchData();
     }, []);
 
-    const totalRevenue = useMemo(() => {
-        if (transactions.length === 0) {
-            return 0;
-        }
-        return transactions.reduce((total, tx) => {
-            if (tx.type === 'Debit') {
-                return total + Math.abs(tx.amount);
-            }
-            return total;
-        }, 0);
+    const { totalRevenue, pendingTransactions, recentTransactions } = useMemo(() => {
+        const totalRevenue = transactions
+            .filter(tx => tx.type === 'Debit')
+            .reduce((total, tx) => total + Math.abs(tx.amount), 0);
+
+        const pendingTransactions = transactions.filter(tx => tx.status === 'Pending').length;
+
+        const recentTransactions = transactions.slice(0, 5);
+
+        return { totalRevenue, pendingTransactions, recentTransactions };
     }, [transactions]);
 
   return (
@@ -58,7 +60,7 @@ export default function AdminDashboardPage() {
         <StatCard title="Total Users" value={loading ? '...' : users.length.toLocaleString()} icon={<Users className="h-4 w-4 text-muted-foreground" />} />
         <StatCard title="Total Transactions" value={loading ? '...' : transactions.length.toLocaleString()} icon={<CreditCard className="h-4 w-4 text-muted-foreground" />} />
         <StatCard title="Total Revenue (Debits)" value={loading ? '...' : `₦${totalRevenue.toLocaleString()}`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
-        <StatCard title="Pending Issues" value={adminStats.pendingIssues.toString()} icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />} />
+        <StatCard title="Pending Transactions" value={loading ? '...' : pendingTransactions.toString()} icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />} variant={pendingTransactions > 0 ? 'destructive' : 'default'} />
       </div>
 
        {loading && (
@@ -67,15 +69,76 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* The charts have been removed from here. We can add other components later. */}
-      
+      {!loading && (
+        <div className="grid gap-8 lg:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Real-time Transaction Monitoring</CardTitle>
+                    <CardDescription>The 5 most recent transactions on the platform.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead className="text-right">Amount</TableHead>
+                                <TableHead className="text-center">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {recentTransactions.map((tx) => (
+                                <TableRow key={tx.id}>
+                                    <TableCell>
+                                        <div className="font-medium">{tx.userEmail?.split('@')[0] || 'N/A'}</div>
+                                        <div className="text-xs text-muted-foreground">{new Date(tx.date).toLocaleTimeString()}</div>
+                                    </TableCell>
+                                    <TableCell>{tx.description}</TableCell>
+                                    <TableCell className={cn('text-right font-semibold', tx.type === 'Credit' ? 'text-green-600' : 'text-red-600')}>
+                                        {tx.type === 'Credit' ? '+' : '-'}₦{Math.abs(tx.amount).toLocaleString()}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                         <Badge variant={tx.status === 'Successful' ? 'default' : tx.status === 'Pending' ? 'secondary' : 'destructive'} className={cn(tx.status === 'Successful' && 'bg-green-500 hover:bg-green-600')}>
+                                            {tx.status}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Alerts & Warnings</CardTitle>
+                    <CardDescription>Important system notifications will appear here.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Low API Balance</AlertTitle>
+                        <CardDescription>
+                            Your balance with provider 'Some-API-Provider' is low.
+                        </CardDescription>
+                    </Alert>
+                     <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>System Nominal</AlertTitle>
+                        <CardDescription>
+                           All systems are running smoothly. No other warnings.
+                        </CardDescription>
+                    </Alert>
+                </CardContent>
+            </Card>
+        </div>
+      )}
     </div>
   );
 }
 
-function StatCard({ title, value, icon }: { title: string, value: string, icon: React.ReactNode }) {
+function StatCard({ title, value, icon, variant = 'default' }: { title: string, value: string, icon: React.ReactNode, variant?: 'default' | 'destructive' }) {
     return (
-        <Card>
+        <Card className={cn(variant === 'destructive' && 'bg-destructive/10 border-destructive text-destructive-foreground')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
                 {icon}
