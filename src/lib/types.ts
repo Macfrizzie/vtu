@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   name: string;
@@ -9,11 +10,13 @@ export type User = {
 
 export type Transaction = {
   id: string;
-  date: string;
+  date: Date;
   description: string;
   amount: number;
   type: 'Credit' | 'Debit';
   status: 'Successful' | 'Pending' | 'Failed';
+  userId: string;
+  userEmail?: string;
 };
 
 export type Service = {

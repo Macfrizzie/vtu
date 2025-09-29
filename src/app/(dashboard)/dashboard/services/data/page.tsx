@@ -111,7 +111,8 @@ export default function DataPage() {
 
     setIsPurchasing(true);
     try {
-      await purchaseService(user.uid, selectedPlan.price);
+      const description = `${selectedPlan.label.split('(')[0]} for ${values.phone}`;
+      await purchaseService(user.uid, selectedPlan.price, description, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
@@ -235,5 +236,3 @@ export default function DataPage() {
     </div>
   );
 }
-
-    

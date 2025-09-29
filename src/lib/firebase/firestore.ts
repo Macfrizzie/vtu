@@ -1,8 +1,10 @@
 
 'use server';
 
-import { getFirestore, doc, getDoc, updateDoc, increment, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { app } from './client-app';
+import type { Transaction } from '../types';
+
 
 const db = getFirestore(app);
 
@@ -33,31 +35,82 @@ export async function getUserData(uid: string): Promise<UserData | null> {
 export async function fundWallet(uid: string, amount: number, email?: string | null, fullName?: string | null) {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
+    let userEmail = email;
 
     if (!userSnap.exists()) {
-        // If the user document doesn't exist, create it.
         await setDoc(userRef, {
             uid,
             email: email || 'No Email',
             fullName: fullName || 'No Name',
             role: 'User',
             createdAt: new Date(),
-            walletBalance: amount // Start with the funding amount
+            walletBalance: amount
         });
     } else {
-        // If it exists, just increment the balance.
+        userEmail = userSnap.data().email;
         await updateDoc(userRef, {
             walletBalance: increment(amount)
         });
     }
+    
+    // Log the transaction
+    await addDoc(collection(db, 'transactions'), {
+        userId: uid,
+        userEmail: userEmail,
+        description: 'Wallet Funding',
+        amount: amount,
+        type: 'Credit',
+        status: 'Successful',
+        date: new Date(),
+    });
 }
 
-export async function purchaseService(uid: string, amount: number) {
+export async function purchaseService(uid: string, amount: number, description: string, userEmail: string) {
     const userRef = doc(db, 'users', uid);
     
-    // We assume the document exists since this is a protected action.
-    // A check for insufficient balance should happen on the client.
-    return updateDoc(userRef, {
+    await updateDoc(userRef, {
         walletBalance: increment(-amount)
     });
+
+    // Log the transaction
+    await addDoc(collection(db, 'transactions'), {
+        userId: uid,
+        userEmail: userEmail,
+        description: description,
+        amount: -amount,
+        type: 'Debit',
+        status: 'Successful',
+        date: new Date(),
+    });
+}
+
+
+export async function getTransactions(): Promise<Transaction[]> {
+    const transactionsCol = collection(db, 'transactions');
+    const q = query(transactionsCol, orderBy('date', 'desc'));
+    const transactionSnapshot = await getDocs(q);
+    const transactionList = transactionSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            date: data.date.toDate(),
+        } as Transaction;
+    });
+    return transactionList;
+}
+
+export async function getUserTransactions(uid: string): Promise<Transaction[]> {
+    const transactionsCol = collection(db, 'transactions');
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const transactionSnapshot = await getDocs(q);
+    const transactionList = transactionSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            date: data.date.toDate(),
+        } as Transaction;
+    });
+    return transactionList;
 }

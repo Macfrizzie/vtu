@@ -79,7 +79,8 @@ export default function ElectricityPage() {
 
     setIsPurchasing(true);
     try {
-      await purchaseService(user.uid, values.amount);
+      const description = `${values.disco.toUpperCase()} Electricity payment for ${values.meterNumber}`;
+      await purchaseService(user.uid, values.amount, description, user.email!);
       forceRefetch();
       toast({
         title: 'Payment Successful!',

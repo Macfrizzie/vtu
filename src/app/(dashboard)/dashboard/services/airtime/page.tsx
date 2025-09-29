@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -74,7 +75,8 @@ export default function AirtimePage() {
 
     setIsPurchasing(true);
     try {
-      await purchaseService(user.uid, values.amount);
+      const description = `${values.network.toUpperCase()} Airtime Purchase for ${values.phone}`;
+      await purchaseService(user.uid, values.amount, description, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
