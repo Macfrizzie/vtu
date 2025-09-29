@@ -18,7 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChangedHelper(user => {
-            if (!user && protectedRoutes.includes(pathname)) {
+            if (!user && protectedRoutes.find(route => pathname.startsWith(route))) {
                 router.push('/login');
             }
         });
