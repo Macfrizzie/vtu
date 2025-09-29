@@ -3,7 +3,7 @@
 import {
   getAuth,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
+  signInWithEmailAndPassword as firebaseSignIn,
   onAuthStateChanged,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
@@ -33,7 +33,7 @@ export async function signUpWithEmailAndPassword(email: string, password: string
 }
 
 export function signInWithEmailAndPassword(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
+  return firebaseSignIn(auth, email, password);
 }
 
 export function onAuthStateChangedHelper(callback: (user: any) => void) {
