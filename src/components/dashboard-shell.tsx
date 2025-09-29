@@ -78,7 +78,7 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
           </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <div className="flex flex-col w-full min-h-screen">
         <header className="sticky top-0 z-40 w-full border-b bg-background">
           <div className="container flex h-16 items-center space-x-4 sm:justify-between sm:space-x-0">
             <div className="flex gap-2 items-center">
@@ -96,7 +96,7 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
         <main className="flex-1 p-4 md:p-8">
             {children}
         </main>
-      </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }
