@@ -9,6 +9,8 @@ import { getTransactions, getAllUsers, getServices } from '@/lib/firebase/firest
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 export default function AdminDashboardPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -117,16 +119,16 @@ export default function AdminDashboardPage() {
                     <Alert variant="destructive">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Low API Balance</AlertTitle>
-                        <CardDescription>
+                        <AlertDescription>
                             Your balance with provider 'Some-API-Provider' is low.
-                        </CardDescription>
+                        </AlertDescription>
                     </Alert>
                      <Alert>
                         <AlertCircle className="h-4 w-4" />
                         <AlertTitle>System Nominal</AlertTitle>
-                        <CardDescription>
+                        <AlertDescription>
                            All systems are running smoothly. No other warnings.
-                        </CardDescription>
+                        </AlertDescription>
                     </Alert>
                 </CardContent>
             </Card>
