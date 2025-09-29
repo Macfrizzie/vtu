@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -130,12 +129,12 @@ export default function DashboardPage() {
             </div>
             {fundWalletImage && (
               <Image
-                src="https://img.clerk.com/preview.png"
-                alt="Fund wallet illustration"
+                src={fundWalletImage.imageUrl}
+                alt={fundWalletImage.description}
                 width={150}
                 height={100}
                 className="absolute -right-8 -top-4 z-0"
-                data-ai-hint="credit card illustration"
+                data-ai-hint={fundWalletImage.imageHint}
               />
             )}
           </CardContent>
