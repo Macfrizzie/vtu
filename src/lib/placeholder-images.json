@@ -1,3 +1,28 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero",
+      "description": "Hero image for VTU Boss landing page",
+      "imageUrl": "https://images.unsplash.com/photo-1556742521-9713bf272865?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxkaWdpdGFsJTIwcGF5bWVudHxlbnwwfHx8fDE3NTkxMTMxMTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "digital payment"
+    },
+    {
+      "id": "feature-wallet",
+      "description": "Image for wallet feature section",
+      "imageUrl": "https://images.unsplash.com/photo-1726607288637-a646ddd3814a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxtb2JpbGUlMjB3YWxsZXR8ZW58MHx8fHwxNzU5MTEzMTEwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mobile wallet"
+    },
+    {
+      "id": "feature-services",
+      "description": "Image for services feature section",
+      "imageUrl": "https://images.unsplash.com/photo-1676151863834-b9b162faa8ab?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxiaWxsJTIwcGF5bWVudHxlbnwwfHx8fDE3NTkxMTMxMTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "bill payment"
+    },
+    {
+      "id": "feature-api",
+      "description": "Image for API feature section",
+      "imageUrl": "https://images.unsplash.com/photo-1719427098803-94907e911284?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxhcGklMjBpbnRlZ3JhdGlvbnxlbnwwfHx8fDE3NTkwNDE4MTd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "api integration"
+    }
+  ]
 }
