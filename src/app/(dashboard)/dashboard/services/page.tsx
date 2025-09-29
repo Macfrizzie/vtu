@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Phone, Wifi, Zap, Tv, MessageSquare, HelpCircle } from 'lucide-react';
+import { Loader2, Phone, Wifi, Zap, Tv, Ticket, CreditCard, Gamepad2, HelpCircle } from 'lucide-react';
 import { getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -14,14 +14,19 @@ const getServiceIcon = (serviceName: string) => {
   if (name.includes('airtime')) return <Phone className="h-8 w-8 text-primary" />;
   if (name.includes('data')) return <Wifi className="h-8 w-8 text-primary" />;
   if (name.includes('electric')) return <Zap className="h-8 w-8 text-primary" />;
-  if (name.includes('dstv') || name.includes('subscription')) return <Tv className="h-8 w-8 text-primary" />;
-  if (name.includes('sms')) return <MessageSquare className="h-8 w-8 text-primary" />;
+  if (name.includes('cable') || name.includes('dstv')) return <Tv className="h-8 w-8 text-primary" />;
+  if (name.includes('epin')) return <Ticket className="h-8 w-8 text-primary" />;
+  if (name.includes('card')) return <CreditCard className="h-8 w-8 text-primary" />;
+  if (name.includes('betting')) return <Gamepad2 className="h-8 w-8 text-primary" />;
   return <HelpCircle className="h-8 w-8 text-primary" />;
 };
 
 const getServiceUrl = (service: Service) => {
     const name = service.name.toLowerCase();
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
+    
+    if (service.status === 'Inactive') return '#';
+
     if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
     if (name.includes('data')) return `/dashboard/services/data${query}`;
     if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
@@ -64,11 +69,11 @@ export default function ServicesPage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {services.map((service) => (
                     <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
-                        <Card className="hover:bg-secondary transition-colors">
-                            <CardContent className="flex flex-col items-center justify-center p-6 gap-4">
+                        <Card className="hover:bg-secondary transition-colors h-full">
+                            <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
                                 {getServiceIcon(service.name)}
                                 <span className="text-center font-medium">{service.name}</span>
-                                {service.status === 'Inactive' && <div className="text-xs text-destructive">Coming Soon</div>}
+                                {service.status === 'Inactive' && <div className="text-xs text-destructive font-semibold absolute bottom-2">Coming Soon</div>}
                             </CardContent>
                         </Card>
                     </Link>

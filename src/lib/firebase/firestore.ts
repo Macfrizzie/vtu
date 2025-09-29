@@ -42,11 +42,14 @@ async function checkAndSeedServices() {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'MTN Airtime', provider: 'MTN NG', status: 'Active', fee: 0 },
-            { name: 'Airtel Data', provider: 'Airtel NG', status: 'Active', fee: 1.5 },
-            { name: 'Ikeja Electric', provider: 'IKEDC', status: 'Active', fee: 100 },
-            { name: 'DSTV Subscription', provider: 'MultiChoice', status: 'Inactive', fee: 50 },
-            { name: 'Bulk SMS', provider: 'BulkSMS NG', status: 'Active', fee: 0.1 },
+            { name: 'Airtime Top-up', provider: 'MTN NG', status: 'Active', fee: 0 },
+            { name: 'Data Bundles', provider: 'Airtel NG', status: 'Active', fee: 1.5 },
+            { name: 'Electricity Bill', provider: 'IKEDC', status: 'Active', fee: 100 },
+            { name: 'Cable TV', provider: 'DSTV', status: 'Inactive', fee: 50 },
+            { name: 'E-pins', provider: 'WAEC', status: 'Inactive', fee: 10 },
+            { name: 'Data Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
+            { name: 'Recharge Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
+            { name: 'Betting Wallet', provider: 'Bet9ja', status: 'Inactive', fee: 25 },
         ];
         initialServices.forEach(service => {
             const docRef = doc(servicesRef);
@@ -178,6 +181,7 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 export async function getServices(): Promise<Service[]> {
+    await checkAndSeedServices();
     const servicesCol = collection(db, 'services');
     const serviceSnapshot = await getDocs(servicesCol);
     const serviceList = serviceSnapshot.docs.map(doc => {
