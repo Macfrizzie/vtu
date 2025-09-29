@@ -22,6 +22,7 @@ export default function AdminUserDetailPage({ params }: { params: { userId: stri
 
   useEffect(() => {
     async function fetchData() {
+      if (!userId) return;
       setLoading(true);
       try {
         const [userData, userTransactions] = await Promise.all([

@@ -157,7 +157,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -167,6 +167,9 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
+    
+    // Sort transactions by date descending on the server-side
+    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
 
     return transactionList;
 }
