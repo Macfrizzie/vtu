@@ -16,6 +16,7 @@ import {
   Ticket,
   Gamepad2,
   HelpCircle,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,7 +87,6 @@ const getTransactionIcon = (description: string) => {
 export default function DashboardPage() {
     const { user, userData, loading } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [services, setServices] = useState<Service[]>([]);
     const [quickLinks, setQuickLinks] = useState<React.ReactNode[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
 
