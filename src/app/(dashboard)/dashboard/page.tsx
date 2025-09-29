@@ -192,38 +192,42 @@ export default function DashboardPage() {
         <Carousel className="w-full">
             <CarouselContent>
                 <CarouselItem>
-                    <Card className="relative overflow-hidden rounded-xl bg-secondary/50 p-6 shadow-none">
-                    <CardContent className="p-0">
-                        <div className="relative z-10">
-                        <h3 className="text-lg font-semibold">Fund Wallet with Card</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            Add money to your wallet using your credit or debit card.
-                        </p>
-                        </div>
-                        {fundWalletImage && (
-                        <Image
-                            src={fundWalletImage.imageUrl}
-                            alt={fundWalletImage.description}
-                            width={150}
-                            height={100}
-                            className="absolute -right-8 -top-4 z-0"
-                            data-ai-hint={fundWalletImage.imageHint}
-                        />
-                        )}
-                    </CardContent>
-                    </Card>
+                    <Link href="/dashboard/wallet">
+                        <Card className="relative overflow-hidden rounded-xl bg-secondary/50 p-6 shadow-none">
+                        <CardContent className="p-0">
+                            <div className="relative z-10">
+                            <h3 className="text-lg font-semibold">Fund Wallet with Card</h3>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Add money to your wallet using your credit or debit card.
+                            </p>
+                            </div>
+                            {fundWalletImage && (
+                            <Image
+                                src={fundWalletImage.imageUrl}
+                                alt={fundWalletImage.description}
+                                width={150}
+                                height={100}
+                                className="absolute -right-8 -top-4 z-0"
+                                data-ai-hint={fundWalletImage.imageHint}
+                            />
+                            )}
+                        </CardContent>
+                        </Card>
+                    </Link>
                 </CarouselItem>
                 <CarouselItem>
-                    <Card className="relative overflow-hidden rounded-xl bg-blue-500/10 p-6 shadow-none">
-                    <CardContent className="p-0">
-                        <div className="relative z-10">
-                        <h3 className="text-lg font-semibold text-blue-800">Refer & Earn</h3>
-                        <p className="mt-1 text-sm text-blue-700/80">
-                            Invite your friends and earn rewards when they transact.
-                        </p>
-                        </div>
-                    </CardContent>
-                    </Card>
+                   <Link href="#">
+                        <Card className="relative overflow-hidden rounded-xl bg-blue-500/10 p-6 shadow-none">
+                        <CardContent className="p-0">
+                            <div className="relative z-10">
+                            <h3 className="text-lg font-semibold text-blue-800">Refer & Earn</h3>
+                            <p className="mt-1 text-sm text-blue-700/80">
+                                Invite your friends and earn rewards when they transact.
+                            </p>
+                            </div>
+                        </CardContent>
+                        </Card>
+                    </Link>
                 </CarouselItem>
             </CarouselContent>
         </Carousel>
@@ -281,5 +285,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     
