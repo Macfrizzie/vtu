@@ -15,6 +15,7 @@ import type { Transaction } from '@/lib/types';
 import Link from 'next/link';
 
 export default function AdminUserDetailPage({ params }: { params: { userId: string } }) {
+  const { userId } = params;
   const [user, setUser] = useState<UserData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,8 +25,8 @@ export default function AdminUserDetailPage({ params }: { params: { userId: stri
       setLoading(true);
       try {
         const [userData, userTransactions] = await Promise.all([
-          getUserData(params.userId),
-          getUserTransactions(params.userId),
+          getUserData(userId),
+          getUserTransactions(userId),
         ]);
 
         if (!userData) {
@@ -42,7 +43,7 @@ export default function AdminUserDetailPage({ params }: { params: { userId: stri
       }
     }
     fetchData();
-  }, [params.userId]);
+  }, [userId]);
 
   if (loading) {
     return (
