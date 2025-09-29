@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -38,13 +39,23 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
     let userEmail = email;
 
     if (!userSnap.exists()) {
+        if (!email || !fullName) {
+             // In a real app, you might want to fetch this from auth or handle it differently
+            const authUser = await getAuth(app).getUser(uid);
+            userEmail = authUser.email;
+            fullName = authUser.displayName;
+        }
+
         await setDoc(userRef, {
             uid,
-            email: email || 'No Email',
-            fullName: fullName || 'No Name',
+            email: userEmail,
+            fullName: fullName,
             role: 'User',
             createdAt: new Date(),
-            walletBalance: amount
+            walletBalance: 0,
+        });
+        await updateDoc(userRef, {
+            walletBalance: increment(amount)
         });
     } else {
         userEmail = userSnap.data().email;
@@ -102,7 +113,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid));
     const transactionSnapshot = await getDocs(q);
     const transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -112,5 +123,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
-    return transactionList;
+    // Sort by date in descending order in the code
+    return transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
 }
