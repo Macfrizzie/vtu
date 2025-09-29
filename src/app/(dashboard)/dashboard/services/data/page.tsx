@@ -30,11 +30,12 @@ import {
 } from '@/components/ui/select';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { purchaseService } from '@/lib/firebase/firestore';
+import { useSearchParams } from 'next/navigation';
 
-const dataPlans = {
+const dataPlans: { [key: string]: { id: string; label: string; price: number }[] } = {
   mtn: [
     { id: 'mtn-1gb', label: '1GB - 30 Days (₦300)', price: 300 },
     { id: 'mtn-2gb', label: '2.5GB - 30 Days (₦500)', price: 500 },
@@ -57,6 +58,13 @@ const dataPlans = {
   ],
 };
 
+const networkMapping: { [key: string]: keyof typeof dataPlans } = {
+  'mtn ng': 'mtn',
+  'airtel ng': 'airtel',
+  'glo ng': 'glo',
+  '9mobile ng': '9mobile',
+};
+
 const formSchema = z.object({
   network: z.enum(['mtn', 'glo', 'airtel', '9mobile']),
   phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number.'),
@@ -69,6 +77,8 @@ export default function DataPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const searchParams = useSearchParams();
+  const provider = searchParams.get('provider');
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -76,6 +86,16 @@ export default function DataPage() {
       phone: '',
     },
   });
+
+  useEffect(() => {
+    if (provider) {
+      const networkKey = provider.toLowerCase();
+      const network = networkMapping[networkKey];
+      if (network) {
+        form.setValue('network', network);
+      }
+    }
+  }, [provider, form]);
 
   const selectedNetwork = form.watch('network');
   const availablePlans = selectedNetwork ? dataPlans[selectedNetwork] : [];
@@ -166,7 +186,7 @@ export default function DataPage() {
                         field.onChange(value);
                         form.resetField('dataPlan');
                       }}
-                      defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -205,7 +225,7 @@ export default function DataPage() {
                     <FormLabel>Data Plan</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      value={field.value}
                       disabled={!selectedNetwork}
                     >
                       <FormControl>

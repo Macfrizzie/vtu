@@ -31,9 +31,19 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { purchaseService } from '@/lib/firebase/firestore';
+import { useSearchParams } from 'next/navigation';
+
+const discoMapping: { [key: string]: string } = {
+    'ikedc': 'ikeja',
+    'ekedc': 'eko',
+    'aedc': 'abuja',
+    'ibedc': 'ibadan',
+    'kedco': 'kano',
+    'phed': 'portharcourt',
+};
 
 const formSchema = z.object({
   disco: z.string().min(1, 'Please select a distributor.'),
@@ -48,6 +58,8 @@ export default function ElectricityPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const searchParams = useSearchParams();
+  const provider = searchParams.get('provider');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -57,6 +69,17 @@ export default function ElectricityPage() {
       amount: 1000,
     },
   });
+
+  useEffect(() => {
+    if (provider) {
+        const discoKey = provider.toLowerCase();
+        const disco = discoMapping[discoKey];
+        if (disco) {
+            form.setValue('disco', disco);
+        }
+    }
+  }, [provider, form]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user || !userData) {
@@ -131,7 +154,7 @@ export default function ElectricityPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Distributor (Disco)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select your electricity distributor" />
