@@ -55,8 +55,8 @@ async function checkAndSeedServices() {
         { name: 'Cable TV', provider: 'DSTV', status: 'Inactive', fee: 50 },
         { name: 'E-pins', provider: 'WAEC', status: 'Inactive', fee: 10 },
         { name: 'Data Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
-        { name: 'Recharge Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
-        { name: 'Betting Wallet', provider: 'Bet9ja', status: 'Inactive', fee: 25 },
+        { name: 'Rechargecard sales', provider: 'Various', status: 'Inactive', fee: 2 },
+        { name: 'Betting', provider: 'Bet9ja', status: 'Inactive', fee: 25 },
     ];
 
     const missingServices = initialServices.filter(service => !existingServices.includes(service.name));
@@ -210,4 +210,19 @@ export async function getServices(): Promise<Service[]> {
 export async function addService(service: Omit<Service, 'id'>) {
     const servicesRef = collection(db, 'services');
     await addDoc(servicesRef, service);
+}
+
+export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalance'>) {
+  const usersRef = collection(db, 'users');
+  // In a real app, this would be more complex, likely involving Firebase Auth
+  // For now, we just add to the collection.
+  await addDoc(usersRef, {
+    fullName: user.name,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    walletBalance: 0,
+    createdAt: new Date(),
+    lastLogin: new Date(),
+  });
 }
