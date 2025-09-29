@@ -1,12 +1,44 @@
+
+'use client';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { mockTransactions } from '@/lib/placeholder-data';
 import { cn } from '@/lib/utils';
-import { Copy } from 'lucide-react';
+import { Copy, Loader2 } from 'lucide-react';
+import { useUser } from '@/context/user-context';
+import { fundWallet } from '@/lib/firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function WalletPage() {
+    const { user, userData, loading, forceRefetch } = useUser();
+    const { toast } = useToast();
+    const [isFunding, setIsFunding] = useState(false);
+
+    const handleFundWallet = async () => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'You must be logged in to fund your wallet.' });
+            return;
+        }
+
+        setIsFunding(true);
+        try {
+            await fundWallet(user.uid, 5000); // Simulate adding N5000
+            forceRefetch(); // Refetch user data to update balance
+            toast({ title: 'Success!', description: '₦5,000 has been added to your wallet.' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Funding Failed', description: 'Could not add funds to your wallet.' });
+        } finally {
+            setIsFunding(false);
+        }
+    };
+
+
   return (
     <div className="space-y-8">
       <div>
@@ -20,7 +52,11 @@ export default function WalletPage() {
             <CardTitle>Current Balance</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-5xl font-extrabold text-primary">₦25,450.75</p>
+            {loading ? (
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            ) : (
+                <p className="text-5xl font-extrabold text-primary">₦{userData?.walletBalance?.toLocaleString() || '0.00'}</p>
+            )}
           </CardContent>
         </Card>
 
@@ -49,10 +85,11 @@ export default function WalletPage() {
             </div>
              <div className="rounded-lg border bg-secondary p-4">
               <p className="text-sm font-medium text-muted-foreground">Account Name</p>
-              <p className="text-lg font-semibold">VTUBOSS - JOHN DOE</p>
+              <p className="text-lg font-semibold">VTUBOSS - {userData?.fullName?.toUpperCase() || '...'}</p>
             </div>
-            <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                Fund with Paystack
+            <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleFundWallet} disabled={isFunding}>
+                {isFunding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Fund with Paystack (Simulated)
             </Button>
           </CardContent>
         </Card>

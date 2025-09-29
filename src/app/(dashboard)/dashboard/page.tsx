@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -10,6 +11,7 @@ import {
   Zap,
   Phone,
   MoreHorizontal,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { DstvLogo, KudaLogo, MtnLogo } from '@/components/icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useUser } from '@/context/user-context';
 
 const fundWalletImage = PlaceHolderImages.find(
   img => img.id === 'feature-wallet'
@@ -25,7 +28,7 @@ const fundWalletImage = PlaceHolderImages.find(
 const quickLinks = [
   { name: 'Airtime', icon: <Phone size={24} />, href: '#' },
   { name: 'Data', icon: <Wifi size={24} />, href: '#' },
-  { name: 'Electricity', icon: <Zap size={24} />, href: '#' },
+  { name: 'Electricity', icon: <Zap size-={24} />, href: '#' },
   { name: 'More', icon: <MoreHorizontal size={24} />, href: '#' },
 ];
 
@@ -69,16 +72,18 @@ const transactions = [
 ];
 
 export default function DashboardPage() {
+    const { user, userData, loading } = useUser();
+
   return (
     <div className="p-0">
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12">
-            <AvatarImage src="https://i.pravatar.cc/150?u=a042581f4e29026704d" />
-            <AvatarFallback>A</AvatarFallback>
+            <AvatarImage src={user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`} />
+            <AvatarFallback>{userData?.fullName?.[0] || user?.email?.[0] || 'U'}</AvatarFallback>
           </Avatar>
           <h1 className="text-xl font-semibold text-foreground">
-            Welcome, Alex
+             Welcome, {loading ? '...' : userData?.fullName?.split(' ')[0] || 'User'}
           </h1>
         </div>
         <Button variant="ghost" size="icon" className="text-muted-foreground">
@@ -90,7 +95,11 @@ export default function DashboardPage() {
         <p className="mb-2 text-sm text-muted-foreground">Available Balance</p>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <p className="text-4xl font-bold">₦10,000</p>
+            {loading ? (
+                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            ) : (
+                <p className="text-4xl font-bold">₦{userData?.walletBalance?.toLocaleString() || '0.00'}</p>
+            )}
             <Button variant="ghost" size="icon">
               <Eye size={24} className="text-muted-foreground" />
             </Button>
