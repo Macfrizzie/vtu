@@ -7,18 +7,6 @@ import { adminStats } from '@/lib/placeholder-data';
 import { useEffect, useState, useMemo } from 'react';
 import type { Transaction, User, Service } from '@/lib/types';
 import { getTransactions, getAllUsers, getServices } from '@/lib/firebase/firestore';
-import { RevenueChart, ServiceBreakdownPieChart } from './charts';
-import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
-
-const chartConfig = {
-  revenue: {
-    label: 'Revenue',
-  },
-  services: {
-    label: 'Services',
-  },
-} satisfies ChartConfig;
-
 
 export default function AdminDashboardPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -47,42 +35,16 @@ export default function AdminDashboardPage() {
         fetchData();
     }, []);
 
-    const { dailyRevenue, totalRevenue, serviceBreakdown } = useMemo(() => {
+    const totalRevenue = useMemo(() => {
         if (transactions.length === 0) {
-            return { dailyRevenue: [], totalRevenue: 0, serviceBreakdown: [] };
+            return 0;
         }
-
-        const revenueByDay: { [key: string]: number } = {};
-        const breakdown: { [key: string]: number } = {};
-        let total = 0;
-
-        transactions.forEach(tx => {
+        return transactions.reduce((total, tx) => {
             if (tx.type === 'Debit') {
-                const date = new Date(tx.date).toLocaleDateString('en-CA'); // YYYY-MM-DD
-                const amount = Math.abs(tx.amount);
-                
-                // For daily revenue
-                if (!revenueByDay[date]) revenueByDay[date] = 0;
-                revenueByDay[date] += amount;
-
-                // For service breakdown
-                const serviceName = tx.description.split(' ')[0].toUpperCase();
-                if (!breakdown[serviceName]) breakdown[serviceName] = 0;
-                breakdown[serviceName]++;
-
-                total += amount;
+                return total + Math.abs(tx.amount);
             }
-        });
-        
-        const sortedRevenue = Object.entries(revenueByDay)
-            .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
-            .map(([date, revenue]) => ({ date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric'}), revenue: Math.round(revenue) }));
-
-        const sortedBreakdown = Object.entries(breakdown)
-            .map(([name, count]) => ({ name, count }))
-            .sort((a,b) => b.count - a.count);
-
-        return { dailyRevenue: sortedRevenue.slice(-30), totalRevenue: total, serviceBreakdown: sortedBreakdown };
+            return total;
+        }, 0);
     }, [transactions]);
 
   return (
@@ -99,42 +61,14 @@ export default function AdminDashboardPage() {
         <StatCard title="Pending Issues" value={adminStats.pendingIssues.toString()} icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />} />
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Revenue Analytics</CardTitle>
-            <CardDescription>Daily revenue from service purchases over the last 30 days.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center items-center h-80">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-              <ChartContainer config={chartConfig} className="w-full h-[350px]">
-                <RevenueChart data={dailyRevenue} />
-              </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-         <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Service Breakdown</CardTitle>
-            <CardDescription>A breakdown of transactions by service type.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {loading ? (
-              <div className="flex justify-center items-center h-80">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-                <ChartContainer config={chartConfig} className="w-full h-[350px]">
-                    <ServiceBreakdownPieChart data={serviceBreakdown} />
-                </ChartContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+       {loading && (
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )}
+
+      {/* The charts have been removed from here. We can add other components later. */}
+      
     </div>
   );
 }
