@@ -51,3 +51,13 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
         });
     }
 }
+
+export async function purchaseService(uid: string, amount: number) {
+    const userRef = doc(db, 'users', uid);
+    
+    // We assume the document exists since this is a protected action.
+    // A check for insufficient balance should happen on the client.
+    return updateDoc(userRef, {
+        walletBalance: increment(-amount)
+    });
+}
