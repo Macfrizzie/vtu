@@ -25,9 +25,11 @@ export async function getUserData(uid: string): Promise<UserData | null> {
 
     if (userSnap.exists()) {
         const data = userSnap.data();
+        // Convert Firestore Timestamp to JavaScript Date object
+        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
         return {
             ...data,
-            createdAt: data.createdAt.toDate(),
+            createdAt: createdAt,
         } as UserData;
     } else {
         return null;
@@ -61,6 +63,7 @@ async function checkAndSeedServices() {
             batch.set(docRef, service);
         });
         await batch.commit();
+        console.log(`Seeded ${missingServices.length} new services.`);
     }
 }
 
@@ -149,7 +152,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -159,9 +162,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
-
-    // Sort transactions by date in descending order (newest first)
-    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
 }
@@ -172,7 +172,7 @@ export async function getAllUsers(): Promise<User[]> {
     const userSnapshot = await getDocs(q);
     return userSnapshot.docs.map(doc => {
         const data = doc.data();
-        const lastLoginDate = data.lastLogin ? data.lastLogin.toDate() : (data.createdAt ? data.createdAt.toDate() : new Date());
+        const lastLoginDate = data.lastLogin?.toDate ? data.lastLogin.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date());
         return {
             id: doc.id,
             name: data.fullName,

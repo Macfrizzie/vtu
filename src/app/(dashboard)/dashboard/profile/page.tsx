@@ -58,7 +58,7 @@ export default function ProfilePage() {
           )}
 
           <div className="flex justify-end pt-4">
-            <Button>Edit Profile</Button>
+            <Button disabled>Edit Profile</Button>
           </div>
         </CardContent>
       </Card>
