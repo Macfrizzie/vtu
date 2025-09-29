@@ -25,7 +25,7 @@ export default function AdminDashboardPage() {
                     getTransactions(),
                     getAllUsers(),
                 ]);
-                setTransactions(allTransactions.slice(0, 5));
+                setTransactions(allTransactions);
                 setUsers(allUsers as User[]);
             } catch (error) {
                 console.error("Failed to fetch admin data:", error);
@@ -45,7 +45,7 @@ export default function AdminDashboardPage() {
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard title="Total Users" value={loading ? '...' : users.length.toLocaleString()} icon={<Users className="h-4 w-4 text-muted-foreground" />} />
-        <StatCard title="Total Transactions" value={loading ? '...' : adminStats.totalTransactions.toLocaleString()} icon={<CreditCard className="h-4 w-4 text-muted-foreground" />} />
+        <StatCard title="Total Transactions" value={loading ? '...' : transactions.length.toLocaleString()} icon={<CreditCard className="h-4 w-4 text-muted-foreground" />} />
         <StatCard title="Total Revenue" value={loading ? '...' : `₦${adminStats.totalRevenue.toLocaleString()}`} icon={<DollarSign className="h-4 w-4 text-muted-foreground" />} />
         <StatCard title="Pending Issues" value={adminStats.pendingIssues.toString()} icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />} />
       </div>
@@ -70,7 +70,7 @@ export default function AdminDashboardPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {transactions.map((tx) => (
+                {transactions.slice(0, 5).map((tx) => (
                     <TableRow key={tx.id}>
                         <TableCell>{tx.userEmail || 'N/A'}</TableCell>
                         <TableCell className="font-medium">{tx.description}</TableCell>
