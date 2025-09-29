@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { signUpWithEmailAndPassword } from '@/lib/firebase/auth';
 import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 const formSchema = z.object({
   fullName: z.string().min(3, { message: 'Full name must be at least 3 characters.' }),
@@ -33,6 +34,7 @@ const formSchema = z.object({
 export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,9 +46,8 @@ export default function SignupPage() {
     },
   });
 
-  const { isSubmitting } = form.formState;
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
     try {
       await signUpWithEmailAndPassword(values.email, values.password, values.fullName);
       toast({
@@ -61,6 +62,8 @@ export default function SignupPage() {
         title: 'Uh oh! Something went wrong.',
         description: error.message || 'There was a problem with your request.',
       });
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -136,8 +139,8 @@ export default function SignupPage() {
             />
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Account
             </Button>
             <div className="text-sm text-muted-foreground">
