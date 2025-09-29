@@ -38,21 +38,26 @@ export async function getUserData(uid: string): Promise<UserData | null> {
 async function checkAndSeedServices() {
     const servicesRef = collection(db, 'services');
     const snapshot = await getDocs(query(servicesRef));
+    
+    const existingServices = snapshot.docs.map(doc => doc.data().name);
 
-    if (snapshot.empty) {
+    const initialServices: Omit<Service, 'id'>[] = [
+        { name: 'Airtime Top-up', provider: 'MTN NG', status: 'Active', fee: 0 },
+        { name: 'Data Bundles', provider: 'Airtel NG', status: 'Active', fee: 1.5 },
+        { name: 'Electricity Bill', provider: 'IKEDC', status: 'Active', fee: 100 },
+        { name: 'Cable TV', provider: 'DSTV', status: 'Inactive', fee: 50 },
+        { name: 'E-pins', provider: 'WAEC', status: 'Inactive', fee: 10 },
+        { name: 'Data Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
+        { name: 'Recharge Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
+        { name: 'Betting Wallet', provider: 'Bet9ja', status: 'Inactive', fee: 25 },
+    ];
+
+    const missingServices = initialServices.filter(service => !existingServices.includes(service.name));
+
+    if (missingServices.length > 0) {
         const batch = writeBatch(db);
-        const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'Airtime Top-up', provider: 'MTN NG', status: 'Active', fee: 0 },
-            { name: 'Data Bundles', provider: 'Airtel NG', status: 'Active', fee: 1.5 },
-            { name: 'Electricity Bill', provider: 'IKEDC', status: 'Active', fee: 100 },
-            { name: 'Cable TV', provider: 'DSTV', status: 'Inactive', fee: 50 },
-            { name: 'E-pins', provider: 'WAEC', status: 'Inactive', fee: 10 },
-            { name: 'Data Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
-            { name: 'Recharge Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
-            { name: 'Betting Wallet', provider: 'Bet9ja', status: 'Inactive', fee: 25 },
-        ];
-        initialServices.forEach(service => {
-            const docRef = doc(servicesRef);
+        missingServices.forEach(service => {
+            const docRef = doc(collection(db, 'services'));
             batch.set(docRef, service);
         });
         await batch.commit();
