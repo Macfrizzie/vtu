@@ -26,10 +26,10 @@ const fundWalletImage = PlaceHolderImages.find(
 );
 
 const quickLinks = [
-  { name: 'Airtime', icon: <Phone size={24} />, href: '#' },
-  { name: 'Data', icon: <Wifi size={24} />, href: '#' },
-  { name: 'Electricity', icon: <Zap size-={24} />, href: '#' },
-  { name: 'More', icon: <MoreHorizontal size={24} />, href: '#' },
+  { name: 'Airtime', icon: <Phone size={24} />, href: '/dashboard/services/airtime' },
+  { name: 'Data', icon: <Wifi size={24} />, href: '/dashboard/services/data' },
+  { name: 'Electricity', icon: <Zap size={24} />, href: '/dashboard/services/electricity' },
+  { name: 'More', icon: <MoreHorizontal size={24} />, href: '/dashboard/services' },
 ];
 
 const transactions = [
