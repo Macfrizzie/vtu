@@ -25,6 +25,13 @@ import type { Transaction } from '@/lib/types';
 import { getUserTransactions } from '@/lib/firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel"
 
 const fundWalletImage = PlaceHolderImages.find(
   img => img.id === 'feature-wallet'
@@ -41,7 +48,7 @@ const getTransactionIcon = (description: string) => {
     const desc = description.toLowerCase();
     if (desc.includes('mtn')) return <MtnLogo className="h-6 w-6" />;
     if (desc.includes('dstv')) return <DstvLogo className="h-8 w-8" />;
-    if (desc.includes('electricity')) return <KudaLogo className="h-8 w-8" />; // Placeholder
+    if (desc.includes('electric')) return <KudaLogo className="h-8 w-8" />; // Placeholder
     if (desc.includes('wallet funding')) return (
          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
             <Plus size={20} className="text-blue-600" />
@@ -129,34 +136,44 @@ export default function DashboardPage() {
       </section>
 
       <section className="mb-8">
-        <Card className="relative overflow-hidden rounded-xl bg-secondary/50 p-6 shadow-none">
-          <CardContent className="p-0">
-            <div className="relative z-10">
-              <h3 className="text-lg font-semibold">Fund Wallet with Card</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add money to your wallet using your credit or debit card.
-              </p>
-            </div>
-            {fundWalletImage && (
-              <Image
-                src={fundWalletImage.imageUrl}
-                alt={fundWalletImage.description}
-                width={150}
-                height={100}
-                className="absolute -right-8 -top-4 z-0"
-                data-ai-hint={fundWalletImage.imageHint}
-              />
-            )}
-          </CardContent>
-        </Card>
-        <div className="mt-4 flex justify-center">
-          <div className="flex gap-1.5">
-            <span className="h-1.5 w-4 rounded-full bg-primary" />
-            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
-            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
-            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
-          </div>
-        </div>
+        <Carousel className="w-full">
+            <CarouselContent>
+                <CarouselItem>
+                    <Card className="relative overflow-hidden rounded-xl bg-secondary/50 p-6 shadow-none">
+                    <CardContent className="p-0">
+                        <div className="relative z-10">
+                        <h3 className="text-lg font-semibold">Fund Wallet with Card</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Add money to your wallet using your credit or debit card.
+                        </p>
+                        </div>
+                        {fundWalletImage && (
+                        <Image
+                            src={fundWalletImage.imageUrl}
+                            alt={fundWalletImage.description}
+                            width={150}
+                            height={100}
+                            className="absolute -right-8 -top-4 z-0"
+                            data-ai-hint={fundWalletImage.imageHint}
+                        />
+                        )}
+                    </CardContent>
+                    </Card>
+                </CarouselItem>
+                <CarouselItem>
+                    <Card className="relative overflow-hidden rounded-xl bg-blue-500/10 p-6 shadow-none">
+                    <CardContent className="p-0">
+                        <div className="relative z-10">
+                        <h3 className="text-lg font-semibold text-blue-800">Refer & Earn</h3>
+                        <p className="mt-1 text-sm text-blue-700/80">
+                            Invite your friends and earn rewards when they transact.
+                        </p>
+                        </div>
+                    </CardContent>
+                    </Card>
+                </CarouselItem>
+            </CarouselContent>
+        </Carousel>
       </section>
 
       <section>
