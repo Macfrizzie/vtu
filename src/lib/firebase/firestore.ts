@@ -36,6 +36,11 @@ export async function getUserData(uid: string): Promise<UserData | null> {
     }
 }
 
+export async function updateUserData(uid: string, data: { fullName: string }) {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, data);
+}
+
 // Helper to check if initial services have been created
 async function checkAndSeedServices() {
     const servicesRef = collection(db, 'services');

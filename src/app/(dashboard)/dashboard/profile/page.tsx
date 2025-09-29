@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Loader2, User, Mail, Wallet, Calendar } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ProfilePage() {
   const { user, userData, loading } = useUser();
@@ -58,7 +59,9 @@ export default function ProfilePage() {
           )}
 
           <div className="flex justify-end pt-4">
-            <Button disabled>Edit Profile</Button>
+            <Button asChild>
+              <Link href="/dashboard/profile/edit">Edit Profile</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
