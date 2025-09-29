@@ -12,6 +12,10 @@ import {
   Phone,
   MoreHorizontal,
   Loader2,
+  Tv,
+  Ticket,
+  Gamepad2,
+  HelpCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,28 +25,46 @@ import { DstvLogo, KudaLogo, MtnLogo } from '@/components/icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser } from '@/context/user-context';
 import { useEffect, useState } from 'react';
-import type { Transaction } from '@/lib/types';
-import { getUserTransactions } from '@/lib/firebase/firestore';
+import type { Transaction, Service } from '@/lib/types';
+import { getUserTransactions, getServices } from '@/lib/firebase/firestore';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
 } from "@/components/ui/carousel"
 
 const fundWalletImage = PlaceHolderImages.find(
   img => img.id === 'feature-wallet'
 );
 
-const quickLinks = [
-  { name: 'Airtime', icon: <Phone size={24} />, href: '/dashboard/services/airtime' },
-  { name: 'Data', icon: <Wifi size={24} />, href: '/dashboard/services/data' },
-  { name: 'Electricity', icon: <Zap size={24} />, href: '/dashboard/services/electricity' },
-  { name: 'More', icon: <MoreHorizontal size={24} />, href: '/dashboard/services' },
-];
+const getServiceUrl = (service: Service) => {
+    const name = service.name.toLowerCase();
+    const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
+    
+    if (service.status === 'Inactive') return '#';
+
+    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
+    if (name.includes('data')) return `/dashboard/services/data${query}`;
+    if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
+    // Add more mappings here as new service pages are created
+    return '#';
+}
+
+
+const getServiceIcon = (serviceName: string) => {
+    const name = serviceName.toLowerCase();
+    if (name.includes('airtime')) return <Phone size={24} />;
+    if (name.includes('data')) return <Wifi size={24} />;
+    if (name.includes('electric')) return <Zap size={24} />;
+    if (name.includes('cable') || name.includes('dstv')) return <Tv size={24} />;
+    if (name.includes('epin')) return <Ticket size={24} />;
+    if (name.includes('card')) return <CreditCard size={24} />;
+    if (name.includes('betting')) return <Gamepad2 size={24} />;
+    return <HelpCircle size={24} />;
+};
+
 
 const getTransactionIcon = (description: string) => {
     const desc = description.toLowerCase();
@@ -64,22 +86,51 @@ const getTransactionIcon = (description: string) => {
 export default function DashboardPage() {
     const { user, userData, loading } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [transactionsLoading, setTransactionsLoading] = useState(true);
+    const [services, setServices] = useState<Service[]>([]);
+    const [quickLinks, setQuickLinks] = useState<React.ReactNode[]>([]);
+    const [dataLoading, setDataLoading] = useState(true);
+
 
     useEffect(() => {
-        async function fetchTransactions() {
+        async function fetchData() {
             if (!user) return;
-            setTransactionsLoading(true);
+            setDataLoading(true);
             try {
-                const userTransactions = await getUserTransactions(user.uid);
+                const [userTransactions, allServices] = await Promise.all([
+                    getUserTransactions(user.uid),
+                    getServices()
+                ]);
                 setTransactions(userTransactions.slice(0, 4)); // Get first 4 recent
+                
+                const activeServices = allServices.filter(s => s.status === 'Active');
+                const links = activeServices.slice(0, 3).map(service => (
+                    <Link href={getServiceUrl(service)} key={service.id}>
+                        <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
+                            <div className="text-muted-foreground">{getServiceIcon(service.name)}</div>
+                            <span className="text-xs font-medium">{service.name.split(' ')[0]}</span>
+                        </div>
+                    </Link>
+                ));
+
+                if (allServices.length > 3) {
+                    links.push(
+                        <Link href="/dashboard/services" key="more">
+                            <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
+                                <div className="text-muted-foreground"><MoreHorizontal size={24} /></div>
+                                <span className="text-xs font-medium">More</span>
+                            </div>
+                        </Link>
+                    );
+                }
+                setQuickLinks(links);
+
             } catch (error) {
-                console.error("Failed to fetch transactions:", error);
+                console.error("Failed to fetch dashboard data:", error);
             } finally {
-                setTransactionsLoading(false);
+                setDataLoading(false);
             }
         }
-        fetchTransactions();
+        fetchData();
     }, [user]);
 
   return (
@@ -124,14 +175,16 @@ export default function DashboardPage() {
       <section className="mb-8">
         <h2 className="mb-4 font-semibold text-foreground">Quick Links</h2>
         <div className="grid grid-cols-4 gap-3">
-          {quickLinks.map(link => (
-            <Link href={link.href} key={link.name}>
-              <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                <div className="text-muted-foreground">{link.icon}</div>
-                <span className="text-xs font-medium">{link.name}</span>
-              </div>
-            </Link>
-          ))}
+            {dataLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center animate-pulse">
+                        <div className="h-6 w-6 bg-muted rounded-md"></div>
+                        <div className="h-3 w-10 bg-muted rounded-md"></div>
+                    </div>
+                ))
+            ) : (
+                quickLinks
+            )}
         </div>
       </section>
 
@@ -186,7 +239,7 @@ export default function DashboardPage() {
             View all <ArrowRight size={16} className="ml-1" />
           </Link>
         </div>
-        {transactionsLoading ? (
+        {dataLoading ? (
             <div className="flex justify-center items-center h-40">
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
@@ -228,3 +281,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
