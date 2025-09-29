@@ -11,6 +11,8 @@ import { LogOut } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
 import {
@@ -66,6 +68,9 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="sm:max-w-xs">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Admin Menu</SheetTitle>
+              </SheetHeader>
               <nav className="grid gap-6 text-lg font-medium">
                 <Link
                   href="#"
