@@ -1,10 +1,12 @@
 
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
 import { app } from './client-app';
 import type { Transaction, Service, User } from '../types';
+import { getAuth } from 'firebase-admin/auth';
 
 
 const db = getFirestore(app);
@@ -66,9 +68,9 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
 
     if (!userSnap.exists()) {
         if (!email || !fullName) {
-            const authUser = await getAuth(app).getUser(uid);
-            userEmail = authUser.email;
-            fullName = authUser.displayName;
+             const authUser = await getAuth(app).getUser(uid);
+             userEmail = authUser.email;
+             fullName = authUser.displayName;
         }
 
         await setDoc(userRef, {
@@ -140,7 +142,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
     const transactionSnapshot = await getDocs(q);
     const transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -150,8 +152,7 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
-    // Sort by date in descending order in the code
-    return transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return transactionList;
 }
 
 export async function getAllUsers(): Promise<User[]> {
@@ -184,4 +185,9 @@ export async function getServices(): Promise<Service[]> {
         } as Service;
     });
     return serviceList;
+}
+
+export async function addService(service: Omit<Service, 'id'>) {
+    const servicesRef = collection(db, 'services');
+    await addDoc(servicesRef, service);
 }
