@@ -2,9 +2,9 @@
 
 'use server';
 
-import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction } from '../types';
+import type { Transaction, Service, User } from '../types';
 
 
 const db = getFirestore(app);
@@ -33,14 +33,39 @@ export async function getUserData(uid: string): Promise<UserData | null> {
     }
 }
 
+// Helper to check if initial services have been created
+async function checkAndSeedServices() {
+    const servicesRef = collection(db, 'services');
+    const q = query(servicesRef, where('name', '==', 'MTN Airtime'));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        const batch = writeBatch(db);
+        const initialServices: Omit<Service, 'id'>[] = [
+            { name: 'MTN Airtime', provider: 'MTN NG', status: 'Active', fee: 0 },
+            { name: 'Airtel Data', provider: 'Airtel NG', status: 'Active', fee: 1.5 },
+            { name: 'Ikeja Electric', provider: 'IKEDC', status: 'Active', fee: 100 },
+            { name: 'DSTV Subscription', provider: 'MultiChoice', status: 'Inactive', fee: 50 },
+            { name: 'Bulk SMS', provider: 'BulkSMS NG', status: 'Active', fee: 0.1 },
+        ];
+        initialServices.forEach(service => {
+            const docRef = doc(servicesRef);
+            batch.set(docRef, service);
+        });
+        await batch.commit();
+    }
+}
+
 export async function fundWallet(uid: string, amount: number, email?: string | null, fullName?: string | null) {
+    // Seed services if they don't exist
+    await checkAndSeedServices();
+    
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     let userEmail = email;
 
     if (!userSnap.exists()) {
         if (!email || !fullName) {
-             // In a real app, you might want to fetch this from auth or handle it differently
             const authUser = await getAuth(app).getUser(uid);
             userEmail = authUser.email;
             fullName = authUser.displayName;
@@ -129,13 +154,12 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     return transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
 }
 
-export async function getAllUsers() {
+export async function getAllUsers(): Promise<User[]> {
     const usersCol = collection(db, 'users');
     const q = query(usersCol, orderBy('createdAt', 'desc'));
     const userSnapshot = await getDocs(q);
     return userSnapshot.docs.map(doc => {
         const data = doc.data();
-        // Ensure lastLogin exists before calling toDate()
         const lastLoginDate = data.lastLogin ? data.lastLogin.toDate() : (data.createdAt ? data.createdAt.toDate() : new Date());
         return {
             id: doc.id,
@@ -145,6 +169,19 @@ export async function getAllUsers() {
             status: data.status,
             lastLogin: lastLoginDate,
             walletBalance: data.walletBalance,
-        };
+        } as User;
     });
+}
+
+export async function getServices(): Promise<Service[]> {
+    const servicesCol = collection(db, 'services');
+    const serviceSnapshot = await getDocs(servicesCol);
+    const serviceList = serviceSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+        } as Service;
+    });
+    return serviceList;
 }
