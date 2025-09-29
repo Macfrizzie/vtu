@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword as firebaseSignIn,
   onAuthStateChanged,
   updateProfile,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
@@ -42,4 +43,8 @@ export function signInWithEmailAndPassword(email: string, password: string) {
 
 export function onAuthStateChangedHelper(callback: (user: any) => void) {
   return onAuthStateChanged(auth, callback);
+}
+
+export function sendPasswordResetEmail(email: string) {
+  return firebaseSendPasswordResetEmail(auth, email);
 }
