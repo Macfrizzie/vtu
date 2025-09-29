@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getAllUsers, addUser } from '@/lib/firebase/firestore';
 import type { User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const userFormSchema = z.object({
   name: z.string().min(3, 'Full name must be at least 3 characters.'),
@@ -34,6 +35,7 @@ export default function AdminUsersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof userFormSchema>>({
     resolver: zodResolver(userFormSchema),
@@ -80,10 +82,14 @@ export default function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     return users.filter(user =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
+  
+  const handleRowClick = (userId: string) => {
+    router.push(`/admin/users/${userId}`);
+  };
 
   return (
     <div className="space-y-8">
@@ -211,7 +217,7 @@ export default function AdminUsersPage() {
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} onClick={() => handleRowClick(user.id)} className="cursor-pointer">
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.role}</TableCell>
@@ -231,13 +237,13 @@ export default function AdminUsersPage() {
                    <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                           <span className="sr-only">Open menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRowClick(user.id)}>View Details</DropdownMenuItem>
                         <DropdownMenuItem>Edit User</DropdownMenuItem>
                         <DropdownMenuItem className="text-red-500">Delete User</DropdownMenuItem>
                       </DropdownMenuContent>

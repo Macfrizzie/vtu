@@ -8,6 +8,7 @@ export type User = {
   status: 'Active' | 'Pending' | 'Blocked';
   lastLogin: Date;
   walletBalance: number;
+  createdAt: Date;
 };
 
 export type Transaction = {

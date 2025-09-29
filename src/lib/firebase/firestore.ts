@@ -157,7 +157,7 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -167,9 +167,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
-    
-    // Sort transactions by date in descending order (newest first)
-    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
 
     return transactionList;
 }
@@ -181,6 +178,7 @@ export async function getAllUsers(): Promise<User[]> {
     return userSnapshot.docs.map(doc => {
         const data = doc.data();
         const lastLoginDate = data.lastLogin?.toDate ? data.lastLogin.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date());
+        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
         return {
             id: doc.id,
             name: data.fullName,
@@ -189,6 +187,7 @@ export async function getAllUsers(): Promise<User[]> {
             status: data.status,
             lastLogin: lastLoginDate,
             walletBalance: data.walletBalance,
+            createdAt: createdAt
         } as User;
     });
 }
@@ -212,7 +211,7 @@ export async function addService(service: Omit<Service, 'id'>) {
     await addDoc(servicesRef, service);
 }
 
-export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalance'>) {
+export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalance' | 'createdAt'>) {
   const usersRef = collection(db, 'users');
   // In a real app, this would be more complex, likely involving Firebase Auth
   // For now, we just add to the collection.
