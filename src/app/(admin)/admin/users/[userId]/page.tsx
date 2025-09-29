@@ -14,8 +14,7 @@ import type { UserData } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import Link from 'next/link';
 
-export default function AdminUserDetailPage({ params }: { params: { userId: string } }) {
-  const { userId } = params;
+export default function AdminUserDetailPage({ params: { userId } }: { params: { userId: string } }) {
   const [user, setUser] = useState<UserData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
