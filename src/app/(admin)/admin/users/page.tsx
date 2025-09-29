@@ -1,15 +1,39 @@
+
+'use client';
+
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { mockUsers } from '@/lib/placeholder-data';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Filter, UserPlus } from 'lucide-react';
+import { Filter, UserPlus, MoreHorizontal, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal } from 'lucide-react';
+import { getAllUsers } from '@/lib/firebase/firestore';
+import type { User } from '@/lib/types';
+
 
 export default function AdminUsersPage() {
+    const [users, setUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchUsers() {
+            setLoading(true);
+            try {
+                const allUsers = await getAllUsers();
+                setUsers(allUsers as User[]);
+            } catch (error) {
+                console.error("Failed to fetch users:", error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        fetchUsers();
+    }, []);
+
   return (
     <div className="space-y-8">
       <div>
@@ -32,23 +56,30 @@ export default function AdminUsersPage() {
           </div>
         </CardHeader>
         <CardContent>
+           {loading ? (
+             <div className="flex justify-center items-center h-60">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Wallet Balance</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead>Last Login</TableHead>
                 <TableHead><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockUsers.map((user) => (
+              {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.role}</TableCell>
+                  <TableCell>₦{user.walletBalance.toLocaleString()}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant={user.status === 'Active' ? 'default' : user.status === 'Pending' ? 'secondary' : 'destructive'} className={cn(user.status === 'Active' && 'bg-green-500 hover:bg-green-600')}>
                       {user.status}
@@ -74,8 +105,10 @@ export default function AdminUsersPage() {
               ))}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
+

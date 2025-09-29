@@ -1,11 +1,13 @@
 
+
 export type User = {
   id: string;
   name: string;
   email: string;
   role: 'Customer' | 'Vendor' | 'Admin';
   status: 'Active' | 'Pending' | 'Blocked';
-  lastLogin: string;
+  lastLogin: Date;
+  walletBalance: number;
 };
 
 export type Transaction = {

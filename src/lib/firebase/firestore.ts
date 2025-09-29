@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -53,6 +54,8 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
             role: 'User',
             createdAt: new Date(),
             walletBalance: 0,
+            lastLogin: new Date(),
+            status: 'Active',
         });
         await updateDoc(userRef, {
             walletBalance: increment(amount)
@@ -125,4 +128,22 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     });
     // Sort by date in descending order in the code
     return transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
+}
+
+export async function getAllUsers() {
+    const usersCol = collection(db, 'users');
+    const q = query(usersCol, orderBy('createdAt', 'desc'));
+    const userSnapshot = await getDocs(q);
+    return userSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            name: data.fullName,
+            email: data.email,
+            role: data.role,
+            status: data.status,
+            lastLogin: data.lastLogin.toDate(),
+            walletBalance: data.walletBalance,
+        };
+    });
 }
