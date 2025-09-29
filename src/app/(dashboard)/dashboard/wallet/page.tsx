@@ -27,7 +27,8 @@ export default function WalletPage() {
 
         setIsFunding(true);
         try {
-            await fundWallet(user.uid, 5000); // Simulate adding N5000
+            // Pass user details to fundWallet in case the doc needs to be created
+            await fundWallet(user.uid, 5000, user.email, userData?.fullName); 
             forceRefetch(); // Refetch user data to update balance
             toast({ title: 'Success!', description: '₦5,000 has been added to your wallet.' });
         } catch (error) {
@@ -85,7 +86,7 @@ export default function WalletPage() {
             </div>
              <div className="rounded-lg border bg-secondary p-4">
               <p className="text-sm font-medium text-muted-foreground">Account Name</p>
-              <p className="text-lg font-semibold">VTUBOSS - {userData?.fullName?.toUpperCase() || '...'}</p>
+              <p className="text-lg font-semibold">VTUBOSS - {userData?.fullName?.toUpperCase() || user?.displayName?.toUpperCase() || '...'}</p>
             </div>
             <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleFundWallet} disabled={isFunding}>
                 {isFunding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

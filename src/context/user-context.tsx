@@ -27,25 +27,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChangedHelper(async (userAuth) => {
-      setLoading(true);
-      if (userAuth) {
+    const fetchUser = async (userAuth: User) => {
         setUser(userAuth);
         const fetchedUserData = await getUserData(userAuth.uid);
         setUserData(fetchedUserData);
+        setLoading(false);
+    }
+
+    const unsubscribe = onAuthStateChangedHelper(async (userAuth) => {
+      if (userAuth) {
+        setLoading(true);
+        await fetchUser(userAuth);
       } else {
         setUser(null);
         setUserData(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
+    // Handle initial load if user is already logged in
+    if (user && refetchTrigger > 0) {
+        setLoading(true);
+        fetchUser(user);
+    }
+
+
     return () => unsubscribe();
-  }, [refetchTrigger]);
+  }, [refetchTrigger, user]);
 
   const value = { user, userData, loading, forceRefetch };
 
-  if (loading) {
+  if (loading && user === null) { // Only show global loader on initial auth check
       return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />

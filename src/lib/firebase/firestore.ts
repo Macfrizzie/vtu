@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getFirestore, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, increment, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
 
 const db = getFirestore(app);
@@ -20,15 +20,34 @@ export async function getUserData(uid: string): Promise<UserData | null> {
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
-        return userSnap.data() as UserData;
+        const data = userSnap.data();
+        return {
+            ...data,
+            createdAt: data.createdAt.toDate(),
+        } as UserData;
     } else {
         return null;
     }
 }
 
-export async function fundWallet(uid: string, amount: number) {
+export async function fundWallet(uid: string, amount: number, email?: string | null, fullName?: string | null) {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-        walletBalance: increment(amount)
-    });
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+        // If the user document doesn't exist, create it.
+        await setDoc(userRef, {
+            uid,
+            email: email || 'No Email',
+            fullName: fullName || 'No Name',
+            role: 'User',
+            createdAt: new Date(),
+            walletBalance: amount // Start with the funding amount
+        });
+    } else {
+        // If it exists, just increment the balance.
+        await updateDoc(userRef, {
+            walletBalance: increment(amount)
+        });
+    }
 }
