@@ -19,11 +19,12 @@ const getServiceIcon = (serviceName: string) => {
   return <HelpCircle className="h-8 w-8 text-primary" />;
 };
 
-const getServiceUrl = (serviceName: string) => {
-    const name = serviceName.toLowerCase();
-    if (name.includes('airtime')) return '/dashboard/services/airtime';
-    if (name.includes('data')) return '/dashboard/services/data';
-    if (name.includes('electric')) return '/dashboard/services/electricity';
+const getServiceUrl = (service: Service) => {
+    const name = service.name.toLowerCase();
+    const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
+    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
+    if (name.includes('data')) return `/dashboard/services/data${query}`;
+    if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
     // Add more mappings here as new service pages are created
     return '#';
 }
@@ -62,7 +63,7 @@ export default function ServicesPage() {
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {services.map((service) => (
-                    <Link href={getServiceUrl(service.name)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
+                    <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4">
                                 {getServiceIcon(service.name)}

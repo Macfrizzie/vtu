@@ -30,9 +30,11 @@ import {
 } from '@/components/ui/select';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { purchaseService } from '@/lib/firebase/firestore';
+import { useSearchParams } from 'next/navigation';
+import { MtnLogo } from '@/components/icons';
 
 const formSchema = z.object({
   network: z.string().min(1, 'Please select a network.'),
@@ -40,10 +42,28 @@ const formSchema = z.object({
   amount: z.coerce.number().min(50, 'Amount must be at least ₦50.'),
 });
 
+const networkMapping: { [key: string]: string } = {
+  'mtn ng': 'mtn',
+  'airtel ng': 'airtel',
+  'glo ng': 'glo',
+  '9mobile ng': '9mobile',
+};
+
+const networkOptions = [
+    { value: 'mtn', label: 'MTN'},
+    { value: 'glo', label: 'Glo'},
+    { value: 'airtel', label: 'Airtel'},
+    { value: '9mobile', label: '9mobile'},
+]
+
 export default function AirtimePage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const searchParams = useSearchParams();
+  const provider = searchParams.get('provider');
+  const serviceName = searchParams.get('name');
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -53,6 +73,17 @@ export default function AirtimePage() {
       amount: 100,
     },
   });
+
+  useEffect(() => {
+    if (provider) {
+        const networkKey = provider.toLowerCase();
+        const network = networkMapping[networkKey];
+        if (network) {
+            form.setValue('network', network);
+        }
+    }
+  }, [provider, form]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user || !userData) {
@@ -82,7 +113,11 @@ export default function AirtimePage() {
         title: 'Purchase Successful!',
         description: `₦${values.amount.toLocaleString()} airtime for ${values.phone} was purchased successfully.`,
       });
-      form.reset();
+      form.reset({
+        network: '',
+        phone: '',
+        amount: 100,
+      });
     } catch (error) {
       console.error(error);
       toast({
@@ -98,7 +133,7 @@ export default function AirtimePage() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Buy Airtime</h1>
+        <h1 className="text-3xl font-bold">{serviceName || 'Buy Airtime'}</h1>
         <p className="text-muted-foreground">
           Top up airtime for any network quickly and easily.
         </p>
@@ -127,17 +162,22 @@ export default function AirtimePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Network</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a network" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="mtn">MTN</SelectItem>
-                        <SelectItem value="glo">Glo</SelectItem>
-                        <SelectItem value="airtel">Airtel</SelectItem>
-                        <SelectItem value="9mobile">9mobile</SelectItem>
+                        {networkOptions.map(opt => (
+                           <SelectItem key={opt.value} value={opt.value}>
+                                <div className="flex items-center gap-2">
+                                    {/* In a real app, you'd have logos for all networks */}
+                                    {opt.value === 'mtn' && <MtnLogo className="h-5 w-5" />}
+                                    <span>{opt.label}</span>
+                                </div>
+                           </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
