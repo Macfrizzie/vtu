@@ -20,6 +20,11 @@ import Image from 'next/image';
 import { DstvLogo, KudaLogo, MtnLogo } from '@/components/icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser } from '@/context/user-context';
+import { useEffect, useState } from 'react';
+import type { Transaction } from '@/lib/types';
+import { getUserTransactions } from '@/lib/firebase/firestore';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const fundWalletImage = PlaceHolderImages.find(
   img => img.id === 'feature-wallet'
@@ -32,47 +37,43 @@ const quickLinks = [
   { name: 'More', icon: <MoreHorizontal size={24} />, href: '/dashboard/services' },
 ];
 
-const transactions = [
-  {
-    icon: <MtnLogo className="h-6 w-6" />,
-    title: 'Airtime Top Up',
-    time: '11:25 AM',
-    date: '28th, June 2024',
-    amount: '- ₦1,200',
-    type: 'debit',
-  },
-  {
-    icon: (
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-        <Plus size={20} className="text-blue-600" />
-      </div>
-    ),
-    title: 'Fund Wallet',
-    time: '11:25 AM',
-    date: '28th, June 2024',
-    amount: '+ ₦1,200',
-    type: 'credit',
-  },
-  {
-    icon: <DstvLogo className="h-8 w-8" />,
-    title: 'TV Subscription',
-    time: '11:25 AM',
-    date: '28th, June 2024',
-    amount: '- ₦1,200',
-    type: 'debit',
-  },
-  {
-    icon: <KudaLogo className="h-8 w-8" />,
-    title: 'Electricity',
-    time: '11:25 AM',
-    date: '28th, June 2024',
-    amount: '- ₦1,200',
-    type: 'debit',
-  },
-];
+const getTransactionIcon = (description: string) => {
+    const desc = description.toLowerCase();
+    if (desc.includes('mtn')) return <MtnLogo className="h-6 w-6" />;
+    if (desc.includes('dstv')) return <DstvLogo className="h-8 w-8" />;
+    if (desc.includes('electricity')) return <KudaLogo className="h-8 w-8" />; // Placeholder
+    if (desc.includes('wallet funding')) return (
+         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+            <Plus size={20} className="text-blue-600" />
+        </div>
+    );
+    return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
+            <Zap size={20} className="text-gray-600" />
+        </div>
+    );
+}
 
 export default function DashboardPage() {
     const { user, userData, loading } = useUser();
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [transactionsLoading, setTransactionsLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchTransactions() {
+            if (!user) return;
+            setTransactionsLoading(true);
+            try {
+                const userTransactions = await getUserTransactions(user.uid);
+                setTransactions(userTransactions.slice(0, 4)); // Get first 4 recent
+            } catch (error) {
+                console.error("Failed to fetch transactions:", error);
+            } finally {
+                setTransactionsLoading(false);
+            }
+        }
+        fetchTransactions();
+    }, [user]);
 
   return (
     <div className="p-0">
@@ -168,32 +169,44 @@ export default function DashboardPage() {
             View all <ArrowRight size={16} className="ml-1" />
           </Link>
         </div>
-        <div className="space-y-4">
-          {transactions.map((tx, index) => (
-            <Card key={index} className="rounded-xl p-4 shadow-none">
-              <CardContent className="flex items-center justify-between p-0">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center">
-                    {tx.icon}
-                  </div>
-                  <div>
-                    <p className="font-semibold">{tx.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {tx.time} {tx.date}
+        {transactionsLoading ? (
+            <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        ) : transactions.length === 0 ? (
+            <div className="text-center text-muted-foreground py-10">
+                <p>No transactions yet.</p>
+                <p className="text-sm">Make a purchase or fund your wallet to see activity.</p>
+            </div>
+        ) : (
+            <div className="space-y-4">
+            {transactions.map((tx) => (
+                <Card key={tx.id} className="rounded-xl p-4 shadow-none">
+                <CardContent className="flex items-center justify-between p-0">
+                    <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center">
+                        {getTransactionIcon(tx.description)}
+                    </div>
+                    <div>
+                        <p className="font-semibold">{tx.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {new Date(tx.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} {' '}
+                            {new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                    </div>
+                    </div>
+                    <p
+                    className={cn('font-semibold',
+                        tx.type === 'Credit' ? 'text-green-600' : ''
+                    )}
+                    >
+                     {tx.type === 'Credit' ? '+' : '-'} ₦{Math.abs(tx.amount).toLocaleString()}
                     </p>
-                  </div>
-                </div>
-                <p
-                  className={`font-semibold ${
-                    tx.type === 'credit' ? 'text-green-600' : ''
-                  }`}
-                >
-                  {tx.amount}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+                </Card>
+            ))}
+            </div>
+        )}
       </section>
     </div>
   );
