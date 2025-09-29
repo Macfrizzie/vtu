@@ -11,7 +11,6 @@ interface RevenueData {
 
 export function RevenueChart({ data }: { data: RevenueData[] }) {
   return (
-    <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data}>
         <XAxis
           dataKey="date"
@@ -36,7 +35,6 @@ export function RevenueChart({ data }: { data: RevenueData[] }) {
         />
         <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
       </BarChart>
-    </ResponsiveContainer>
   );
 }
 
@@ -50,7 +48,6 @@ const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ff4
 
 export function ServiceBreakdownPieChart({ data }: { data: ServiceBreakdownData[] }) {
     return (
-        <ResponsiveContainer width="100%" height={350}>
             <PieChart>
                 <Pie
                     data={data}
@@ -80,7 +77,5 @@ export function ServiceBreakdownPieChart({ data }: { data: ServiceBreakdownData[
                 <Tooltip content={<ChartTooltipContent hideLabel />} />
                 <Legend iconSize={10} />
             </PieChart>
-        </ResponsiveContainer>
     );
 }
-

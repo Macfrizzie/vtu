@@ -8,6 +8,17 @@ import { useEffect, useState, useMemo } from 'react';
 import type { Transaction, User, Service } from '@/lib/types';
 import { getTransactions, getAllUsers, getServices } from '@/lib/firebase/firestore';
 import { RevenueChart, ServiceBreakdownPieChart } from './charts';
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart';
+
+const chartConfig = {
+  revenue: {
+    label: 'Revenue',
+  },
+  services: {
+    label: 'Services',
+  },
+} satisfies ChartConfig;
+
 
 export default function AdminDashboardPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -100,7 +111,9 @@ export default function AdminDashboardPage() {
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : (
-              <RevenueChart data={dailyRevenue} />
+              <ChartContainer config={chartConfig} className="w-full h-[350px]">
+                <RevenueChart data={dailyRevenue} />
+              </ChartContainer>
             )}
           </CardContent>
         </Card>
@@ -115,7 +128,9 @@ export default function AdminDashboardPage() {
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
             ) : (
-              <ServiceBreakdownPieChart data={serviceBreakdown} />
+                <ChartContainer config={chartConfig} className="w-full h-[350px]">
+                    <ServiceBreakdownPieChart data={serviceBreakdown} />
+                </ChartContainer>
             )}
           </CardContent>
         </Card>
