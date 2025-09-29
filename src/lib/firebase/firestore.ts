@@ -37,8 +37,7 @@ export async function getUserData(uid: string): Promise<UserData | null> {
 // Helper to check if initial services have been created
 async function checkAndSeedServices() {
     const servicesRef = collection(db, 'services');
-    const q = query(servicesRef, where('name', '==', 'MTN Airtime'));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(query(servicesRef));
 
     if (snapshot.empty) {
         const batch = writeBatch(db);
@@ -105,6 +104,7 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
 }
 
 export async function purchaseService(uid: string, amount: number, description: string, userEmail: string) {
+    await checkAndSeedServices();
     const userRef = doc(db, 'users', uid);
     
     await updateDoc(userRef, {
@@ -141,9 +141,9 @@ export async function getTransactions(): Promise<Transaction[]> {
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid));
     const transactionSnapshot = await getDocs(q);
-    const transactionList = transactionSnapshot.docs.map(doc => {
+    let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
             id: doc.id,
@@ -151,6 +151,10 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
+
+    // Sort transactions by date in descending order (newest first)
+    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
+    
     return transactionList;
 }
 
