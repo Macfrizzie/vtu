@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -136,13 +135,15 @@ export async function getAllUsers() {
     const userSnapshot = await getDocs(q);
     return userSnapshot.docs.map(doc => {
         const data = doc.data();
+        // Ensure lastLogin exists before calling toDate()
+        const lastLoginDate = data.lastLogin ? data.lastLogin.toDate() : (data.createdAt ? data.createdAt.toDate() : new Date());
         return {
             id: doc.id,
             name: data.fullName,
             email: data.email,
             role: data.role,
             status: data.status,
-            lastLogin: data.lastLogin.toDate(),
+            lastLogin: lastLoginDate,
             walletBalance: data.walletBalance,
         };
     });
