@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,11 +13,15 @@ import { Filter, Loader2 } from 'lucide-react';
 import { useUser } from '@/context/user-context';
 import { getUserTransactions } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function HistoryPage() {
   const { user } = useUser();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
   useEffect(() => {
     async function fetchTransactions() {
@@ -35,6 +40,24 @@ export default function HistoryPage() {
     fetchTransactions();
   }, [user]);
 
+  const filteredTransactions = useMemo(() => {
+      return transactions.filter(tx => {
+          const searchMatch = !searchTerm || 
+              tx.description.toLowerCase().includes(searchTerm.toLowerCase());
+
+          const statusMatch = statusFilter.length === 0 || statusFilter.includes(tx.status);
+          const typeMatch = typeFilter.length === 0 || typeFilter.includes(tx.type);
+
+          return searchMatch && statusMatch && typeMatch;
+      });
+  }, [searchTerm, transactions, statusFilter, typeFilter]);
+
+  const toggleFilter = (filterList: string[], setFilterList: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+      setFilterList(current => 
+          current.includes(value) ? current.filter(item => item !== value) : [...current, value]
+      );
+  }
+
   return (
     <div className="space-y-8">
       <div>
@@ -47,10 +70,43 @@ export default function HistoryPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <CardTitle>All Transactions</CardTitle>
             <div className="flex gap-2">
-              <Input placeholder="Search transactions..." className="max-w-sm" />
-              <Button variant="outline">
-                <Filter className="mr-2 h-4 w-4" /> Filter
-              </Button>
+              <Input 
+                placeholder="Search by description..." 
+                className="max-w-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+               <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        <Filter className="mr-2 h-4 w-4" /> Filter
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {['Successful', 'Pending', 'Failed'].map(status => (
+                        <DropdownMenuCheckboxItem
+                            key={status}
+                            checked={statusFilter.includes(status)}
+                            onCheckedChange={() => toggleFilter(statusFilter, setStatusFilter, status)}
+                        >
+                            {status}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                    <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {['Credit', 'Debit'].map(type => (
+                        <DropdownMenuCheckboxItem
+                            key={type}
+                            checked={typeFilter.includes(type)}
+                            onCheckedChange={() => toggleFilter(typeFilter, setTypeFilter, type)}
+                        >
+                            {type}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+               </DropdownMenu>
             </div>
           </div>
         </CardHeader>
@@ -71,9 +127,14 @@ export default function HistoryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.map((tx) => (
-                  <TableRow key={tx.id}>
-                    <TableCell>{new Date(tx.date).toLocaleString()}</TableCell>
+                {filteredTransactions.map((tx) => (
+                   <TableRow key={tx.id} className="relative hover:bg-muted">
+                    <TableCell>
+                       <Link href={`/dashboard/history/${tx.id}`} className="absolute inset-0 z-10">
+                          <span className="sr-only">View Transaction</span>
+                        </Link>
+                      {new Date(tx.date).toLocaleString()}
+                    </TableCell>
                     <TableCell className="font-medium">{tx.description}</TableCell>
                     <TableCell>
                       <Badge variant={tx.type === 'Credit' ? 'default' : 'secondary'} className={cn(tx.type === 'Credit' && 'bg-green-500/20 text-green-700 border-transparent')}>{tx.type}</Badge>
