@@ -366,8 +366,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
 
 export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
     const providersCol = collection(db, 'apiProviders');
-    const q = query(providersCol, where('status', '==', 'Active'));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(providersCol);
     return snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
 }
 
