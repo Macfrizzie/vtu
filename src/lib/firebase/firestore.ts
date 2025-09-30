@@ -4,21 +4,11 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
 const db = getFirestore(app);
-
-export type UserData = {
-    uid: string;
-    email: string;
-    fullName: string;
-    role: 'Customer' | 'Vendor' | 'Admin';
-    createdAt: Date;
-    walletBalance: number;
-    status: 'Active' | 'Pending' | 'Blocked';
-};
 
 export async function getUserData(uid: string): Promise<UserData | null> {
     const userRef = doc(db, 'users', uid);
@@ -53,8 +43,8 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'Airtime Top-up', provider: 'mtn', status: 'Active', fees: { Customer: 1, Vendor: 0.5, Admin: 0 } },
-            { name: 'Data Bundles', provider: 'airtel', status: 'Active', fees: { Customer: 1.5, Vendor: 1, Admin: 0 } },
+            { name: 'Airtime Top-up', provider: 'mtn-airtime', status: 'Active', fees: { Customer: 1, Vendor: 0.5, Admin: 0 } },
+            { name: 'Data Bundles', provider: 'mtn-data', status: 'Active', fees: { Customer: 1.5, Vendor: 1, Admin: 0 } },
             { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fees: { Customer: 100, Vendor: 50, Admin: 0 } },
             { name: 'Cable TV', provider: 'dstv', status: 'Active', fees: { Customer: 50, Vendor: 25, Admin: 0 } },
             { name: 'E-pins', provider: 'waec', status: 'Active', fees: { Customer: 10, Vendor: 5, Admin: 0 } },
@@ -199,6 +189,10 @@ export async function purchaseService(uid: string, baseAmount: number, descripti
         }
     }
     
+    if (userData.walletBalance < totalAmount) {
+        throw new Error("Insufficient wallet balance.");
+    }
+    
     await updateDoc(userRef, {
         walletBalance: increment(-totalAmount)
     });
@@ -255,7 +249,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -266,9 +260,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
         } as Transaction;
     });
     
-    // Sort transactions by date descending on the server-side
-    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
-
     return transactionList;
 }
 
@@ -282,6 +273,7 @@ export async function getAllUsers(): Promise<User[]> {
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
         return {
             id: doc.id,
+            uid: data.uid,
             name: data.fullName,
             email: data.email,
             role: data.role,
@@ -291,6 +283,11 @@ export async function getAllUsers(): Promise<User[]> {
             createdAt: createdAt
         } as User;
     });
+}
+
+export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor' | 'Admin'; status: 'Active' | 'Pending' | 'Blocked' }) {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, data);
 }
 
 export async function getServices(): Promise<Service[]> {
@@ -323,7 +320,7 @@ export async function updateServiceStatus(id: string, status: 'Active' | 'Inacti
 }
 
 
-export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalance' | 'createdAt'>) {
+export async function addUser(user: Omit<User, 'id' | 'uid' | 'lastLogin' | 'walletBalance' | 'createdAt'>) {
   const usersRef = collection(db, 'users');
   // In a real app, this would be more complex, likely involving Firebase Auth
   // For now, we just add to the collection.

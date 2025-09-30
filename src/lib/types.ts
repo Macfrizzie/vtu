@@ -2,6 +2,7 @@
 
 export type User = {
   id: string;
+  uid: string;
   name: string;
   email: string;
   role: 'Customer' | 'Vendor' | 'Admin';
@@ -10,6 +11,18 @@ export type User = {
   walletBalance: number;
   createdAt: Date;
 };
+
+export type UserData = {
+    uid: string;
+    email: string;
+    fullName: string;
+    role: 'Customer' | 'Vendor' | 'Admin';
+    createdAt: Date;
+    walletBalance: number;
+    status: 'Active' | 'Pending' | 'Blocked';
+    lastLogin: Date;
+};
+
 
 export type Transaction = {
   id: string;
@@ -27,7 +40,7 @@ export type Service = {
     name: string;
     provider: string; // e.g., 'mtn', 'dstv', 'ikedc'
     status: 'Active' | 'Inactive';
-    fees: { // Changed from fee to fees
+    fees: {
         Customer: number;
         Vendor: number;
         Admin: number;

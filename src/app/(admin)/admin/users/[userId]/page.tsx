@@ -11,9 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getUserData, getUserTransactions, manualFundWallet, manualDeductFromWallet } from '@/lib/firebase/firestore';
+import { getUserData, getUserTransactions, manualFundWallet, manualDeductFromWallet, updateUser } from '@/lib/firebase/firestore';
 import type { UserData, Transaction } from '@/lib/types';
-import { Loader2, ArrowLeft, PiggyBank, Landmark, PlusCircle, MinusCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, PiggyBank, Landmark, PlusCircle, MinusCircle, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -21,10 +21,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/context/user-context';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const walletFormSchema = z.object({
   amount: z.coerce.number().min(1, 'Amount must be at least 1.'),
+});
+
+const editUserFormSchema = z.object({
+  role: z.enum(['Customer', 'Vendor', 'Admin']),
+  status: z.enum(['Active', 'Pending', 'Blocked']),
 });
 
 
@@ -34,7 +40,8 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
   const [user, setUser] = useState<UserData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isWalletDialogOpen, setIsWalletDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [dialogAction, setDialogAction] = useState<'fund' | 'deduct' | null>(null);
   const { toast } = useToast();
 
@@ -60,10 +67,24 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
     fetchData();
   }, [userId]);
 
-  const form = useForm<z.infer<typeof walletFormSchema>>({
+  const walletForm = useForm<z.infer<typeof walletFormSchema>>({
     resolver: zodResolver(walletFormSchema),
     defaultValues: { amount: 0 },
   });
+  
+  const editUserForm = useForm<z.infer<typeof editUserFormSchema>>({
+    resolver: zodResolver(editUserFormSchema),
+  });
+
+  useEffect(() => {
+    if (user) {
+        editUserForm.reset({
+            role: user.role,
+            status: user.status,
+        });
+    }
+  }, [user, editUserForm]);
+
 
   const handleWalletAction = async (values: z.infer<typeof walletFormSchema>) => {
     if (!adminUser || !dialogAction) return;
@@ -77,12 +98,24 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
         toast({ title: 'Success', description: `Successfully deducted ₦${values.amount} from user wallet.` });
       }
       await fetchData(); // Refetch data to show updated balance
-      setIsDialogOpen(false);
-      form.reset();
+      setIsWalletDialogOpen(false);
+      walletForm.reset();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Action Failed', description: error.message });
     }
   };
+  
+  const handleEditUser = async (values: z.infer<typeof editUserFormSchema>) => {
+    try {
+      await updateUser(userId, values);
+      toast({ title: 'Success', description: `User profile has been updated.` });
+      await fetchData(); // Refetch data to show updated role/status
+      setIsEditUserDialogOpen(false);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update user profile.' });
+    }
+  }
+
 
   const getInitials = (name: string | undefined | null) => {
     if (!name) return 'U';
@@ -121,15 +154,79 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
             Back to All Users
           </Link>
         </Button>
-        <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20">
-            <AvatarImage src={`https://i.pravatar.cc/150?u=${user.uid}`} />
-            <AvatarFallback className="text-2xl">{getInitials(user.fullName)}</AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-3xl font-bold">{user.fullName}</h1>
-            <p className="text-muted-foreground">{user.email}</p>
-          </div>
+        <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+            <Avatar className="h-20 w-20">
+                <AvatarImage src={`https://i.pravatar.cc/150?u=${user.uid}`} />
+                <AvatarFallback className="text-2xl">{getInitials(user.fullName)}</AvatarFallback>
+            </Avatar>
+            <div>
+                <h1 className="text-3xl font-bold">{user.fullName}</h1>
+                <p className="text-muted-foreground">{user.email}</p>
+            </div>
+            </div>
+            <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline">
+                        <Edit className="mr-2 h-4 w-4"/>
+                        Edit User
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit User Profile</DialogTitle>
+                        <DialogDescription>
+                            Change the user's role and status.
+                        </DialogDescription>
+                    </DialogHeader>
+                     <Form {...editUserForm}>
+                        <form onSubmit={editUserForm.handleSubmit(handleEditUser)} className="space-y-4 py-4">
+                             <FormField
+                                control={editUserForm.control}
+                                name="role"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Role</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                        <SelectItem value="Customer">Customer</SelectItem>
+                                        <SelectItem value="Vendor">Vendor</SelectItem>
+                                        <SelectItem value="Admin">Admin</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={editUserForm.control}
+                                name="status"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Status</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select a status" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                        <SelectItem value="Active">Active</SelectItem>
+                                        <SelectItem value="Pending">Pending</SelectItem>
+                                        <SelectItem value="Blocked">Blocked</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <DialogFooter>
+                                <Button type="submit" disabled={editUserForm.formState.isSubmitting}>
+                                {editUserForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Save Changes
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </div>
       </div>
 
@@ -147,7 +244,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
         <InfoCard label="Member Since" value={new Date(user.createdAt).toLocaleDateString()} />
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
         <Card>
           <CardHeader>
             <CardTitle>Wallet Actions</CardTitle>
@@ -173,10 +270,10 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
               Enter the amount to {dialogAction}. This action will be logged.
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleWalletAction)} className="space-y-4 py-4">
+          <Form {...walletForm}>
+            <form onSubmit={walletForm.handleSubmit(handleWalletAction)} className="space-y-4 py-4">
               <FormField
-                control={form.control}
+                control={walletForm.control}
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
@@ -189,8 +286,8 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
                 )}
               />
               <DialogFooter>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={walletForm.formState.isSubmitting}>
+                  {walletForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {dialogAction === 'fund' ? 'Fund Wallet' : 'Deduct Funds'}
                 </Button>
               </DialogFooter>
