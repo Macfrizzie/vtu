@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +13,8 @@ import { Loader2, ArrowLeft, User, Mail, Wallet, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default function AdminUserDetailPage({ params }: { params: { userId: string } }) {
-  const { userId } = params;
+export default function AdminUserDetailPage({ params }: { params: Promise<{ userId: string }> }) {
+  const { userId } = use(params);
   const [user, setUser] = useState<UserData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
