@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, addService } from '@/lib/firebase/firestore';
+import { getServices, addService, updateService, updateServiceStatus } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,7 +30,9 @@ const serviceFormSchema = z.object({
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -45,7 +47,6 @@ export default function AdminServicesPage() {
   });
 
   async function fetchServices() {
-    setLoading(true);
     try {
       const allServices = await getServices();
       setServices(allServices);
@@ -58,17 +59,27 @@ export default function AdminServicesPage() {
   }
 
   useEffect(() => {
+    setLoading(true);
     fetchServices();
   }, []);
+  
+  useEffect(() => {
+    if (editingService) {
+      form.reset(editingService);
+    } else {
+      form.reset({ name: '', provider: '', fee: 0, status: 'Active' });
+    }
+  }, [editingService, form]);
 
-  async function onSubmit(values: z.infer<typeof serviceFormSchema>) {
+
+  async function onAddSubmit(values: z.infer<typeof serviceFormSchema>) {
     setIsSubmitting(true);
     try {
       await addService(values);
       toast({ title: 'Success!', description: 'Service has been added successfully.' });
       form.reset();
-      setIsDialogOpen(false);
-      await fetchServices(); // Refetch services to show the new one
+      setIsAddDialogOpen(false);
+      await fetchServices();
     } catch (error) {
       console.error("Failed to add service:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to add service.' });
@@ -76,6 +87,41 @@ export default function AdminServicesPage() {
       setIsSubmitting(false);
     }
   }
+  
+  async function onEditSubmit(values: z.infer<typeof serviceFormSchema>) {
+    if (!editingService) return;
+    setIsSubmitting(true);
+    try {
+      await updateService(editingService.id, values);
+      toast({ title: 'Success!', description: 'Service has been updated successfully.' });
+      setEditingService(null);
+      setIsEditDialogOpen(false);
+      await fetchServices();
+    } catch (error) {
+      console.error("Failed to update service:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update service.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const handleStatusToggle = async (service: Service) => {
+    const newStatus = service.status === 'Active' ? 'Inactive' : 'Active';
+    try {
+      await updateServiceStatus(service.id, newStatus);
+      toast({ title: 'Status Updated', description: `${service.name} has been set to ${newStatus}.` });
+      await fetchServices();
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update service status.' });
+    }
+  };
+  
+  const handleEditClick = (service: Service) => {
+    setEditingService(service);
+    setIsEditDialogOpen(true);
+  };
+
 
   return (
     <div className="space-y-8">
@@ -84,9 +130,9 @@ export default function AdminServicesPage() {
           <h1 className="text-3xl font-bold">Service Management</h1>
           <p className="text-muted-foreground">Configure and manage all services and providers.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => form.reset()}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Service
             </Button>
           </DialogTrigger>
@@ -98,7 +144,7 @@ export default function AdminServicesPage() {
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+              <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4 py-4">
                 <FormField
                   control={form.control}
                   name="name"
@@ -119,7 +165,7 @@ export default function AdminServicesPage() {
                     <FormItem>
                       <FormLabel>Provider</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., MTN NG" {...field} />
+                        <Input placeholder="e.g., mtn" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -211,9 +257,11 @@ export default function AdminServicesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>Edit Service</DropdownMenuItem>
-                          <DropdownMenuItem>Manage Pricing</DropdownMenuItem>
-                          <DropdownMenuItem>{service.status === 'Active' ? 'Deactivate' : 'Activate'}</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(service)}>Edit Service</DropdownMenuItem>
+                          <DropdownMenuItem disabled>Manage Pricing</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleStatusToggle(service)}>
+                            {service.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -224,6 +272,89 @@ export default function AdminServicesPage() {
           )}
         </CardContent>
       </Card>
+      
+      {/* Edit Service Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Service</DialogTitle>
+            <DialogDescription>
+              Update the details for this service.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
+               <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Service Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., MTN Data" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="provider"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Provider</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., mtn" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fee"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fee (₦)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="e.g., 50" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Active">Active</SelectItem>
+                          <SelectItem value="Inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

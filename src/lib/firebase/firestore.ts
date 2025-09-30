@@ -57,7 +57,7 @@ async function checkAndSeedServices() {
         { name: 'Airtime Top-up', provider: 'mtn', status: 'Active', fee: 0 },
         { name: 'Data Bundles', provider: 'airtel', status: 'Active', fee: 1.5 },
         { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fee: 100 },
-        { name: 'Cable TV', provider: 'dstv', status: 'Active', fee: 50 },
+        { name: 'Cable TV', provider: 'dstv', status: 'Inactive', fee: 50 },
         { name: 'E-pins', provider: 'waec', status: 'Inactive', fee: 10 },
         { name: 'Data Card Sales', provider: 'various', status: 'Inactive', fee: 2 },
         { name: 'Rechargecard sales', provider: 'various', status: 'Inactive', fee: 2 },
@@ -289,6 +289,17 @@ export async function addService(service: Omit<Service, 'id'>) {
     const servicesRef = collection(db, 'services');
     await addDoc(servicesRef, service);
 }
+
+export async function updateService(id: string, data: Partial<Omit<Service, 'id'>>) {
+    const serviceRef = doc(db, 'services', id);
+    await updateDoc(serviceRef, data);
+}
+
+export async function updateServiceStatus(id: string, status: 'Active' | 'Inactive') {
+    const serviceRef = doc(db, 'services', id);
+    await updateDoc(serviceRef, { status });
+}
+
 
 export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalance' | 'createdAt'>) {
   const usersRef = collection(db, 'users');
