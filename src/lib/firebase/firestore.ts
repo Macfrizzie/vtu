@@ -14,7 +14,7 @@ export type UserData = {
     uid: string;
     email: string;
     fullName: string;
-    role: string;
+    role: 'Customer' | 'Vendor' | 'Admin';
     createdAt: Date;
     walletBalance: number;
     status: 'Active' | 'Pending' | 'Blocked';
@@ -51,29 +51,22 @@ async function checkAndSeedServices() {
     const servicesRef = collection(db, 'services');
     const snapshot = await getDocs(query(servicesRef));
     
-    const existingServices = snapshot.docs.map(doc => doc.data().name);
+    if (snapshot.empty) {
+        const initialServices: Omit<Service, 'id'>[] = [
+            { name: 'Airtime Top-up', provider: 'mtn', status: 'Active', fees: { Customer: 1, Vendor: 0.5, Admin: 0 } },
+            { name: 'Data Bundles', provider: 'airtel', status: 'Active', fees: { Customer: 1.5, Vendor: 1, Admin: 0 } },
+            { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+            { name: 'Cable TV', provider: 'dstv', status: 'Active', fees: { Customer: 50, Vendor: 25, Admin: 0 } },
+            { name: 'E-pins', provider: 'waec', status: 'Active', fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+        ];
 
-    const initialServices: Omit<Service, 'id'>[] = [
-        { name: 'Airtime Top-up', provider: 'mtn', status: 'Active', fee: 0 },
-        { name: 'Data Bundles', provider: 'airtel', status: 'Active', fee: 1.5 },
-        { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fee: 100 },
-        { name: 'Cable TV', provider: 'dstv', status: 'Active', fee: 50 },
-        { name: 'E-pins', provider: 'waec', status: 'Active', fee: 10 },
-        { name: 'Data Card Sales', provider: 'various', status: 'Inactive', fee: 2 },
-        { name: 'Rechargecard sales', provider: 'various', status: 'Inactive', fee: 2 },
-        { name: 'Betting', provider: 'bet9ja', status: 'Inactive', fee: 25 },
-    ];
-
-    const missingServices = initialServices.filter(service => !existingServices.includes(service.name));
-
-    if (missingServices.length > 0) {
         const batch = writeBatch(db);
-        missingServices.forEach(service => {
+        initialServices.forEach(service => {
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, service);
         });
         await batch.commit();
-        console.log(`Seeded ${missingServices.length} new services.`);
+        console.log(`Seeded ${initialServices.length} new services.`);
     }
 }
 
@@ -84,19 +77,20 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     let userEmail = email;
+    let userFullName = fullName;
 
     if (!userSnap.exists()) {
         if (!email || !fullName) {
              const authUser = await getAuth(app).getUser(uid);
              userEmail = authUser.email;
-             fullName = authUser.displayName;
+             userFullName = authUser.displayName;
         }
 
         await setDoc(userRef, {
             uid,
             email: userEmail,
-            fullName: fullName,
-            role: 'User',
+            fullName: userFullName,
+            role: 'Customer',
             createdAt: new Date(),
             walletBalance: 0,
             lastLogin: new Date(),
@@ -172,23 +166,36 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
 }
 
 
-export async function purchaseService(uid: string, baseAmount: number, description: string, userEmail: string, serviceCode?: string) {
+export async function purchaseService(uid: string, baseAmount: number, description: string, userEmail: string, serviceProviderCode: string) {
     await checkAndSeedServices();
     const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+        throw new Error("User not found.");
+    }
+    const userData = userSnap.data() as UserData;
+    const userRole = userData.role;
+
     let totalAmount = baseAmount;
     let finalDescription = description;
+    let serviceFee = 0;
 
-    if (serviceCode) {
-        const servicesRef = collection(db, 'services');
-        const q = query(servicesRef, where('provider', '==', serviceCode));
-        const serviceSnapshot = await getDocs(q);
-        if (!serviceSnapshot.empty) {
-            const serviceDoc = serviceSnapshot.docs[0];
-            const service = serviceDoc.data() as Service;
-            if (service.fee > 0) {
-                totalAmount += service.fee;
-                finalDescription = `${description} (Fee: ₦${service.fee})`;
-            }
+    const servicesRef = collection(db, 'services');
+    const q = query(servicesRef, where('provider', '==', serviceProviderCode));
+    const serviceSnapshot = await getDocs(q);
+
+    if (!serviceSnapshot.empty) {
+        const serviceDoc = serviceSnapshot.docs[0];
+        const service = serviceDoc.data() as Service;
+        
+        if (service.fees && typeof service.fees[userRole] === 'number') {
+            serviceFee = service.fees[userRole];
+        }
+
+        if (serviceFee > 0) {
+            totalAmount += serviceFee;
+            finalDescription = `${description} (Fee: ₦${serviceFee})`;
         }
     }
     
@@ -207,7 +214,6 @@ export async function purchaseService(uid: string, baseAmount: number, descripti
         date: new Date(),
     });
 
-    // We can now call the transaction detail page for the pending transaction
     return newTransactionRef.id;
 }
 

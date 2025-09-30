@@ -23,7 +23,11 @@ import { useToast } from '@/hooks/use-toast';
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
   provider: z.string().min(2, 'Service code must be at least 2 characters (e.g., mtn, dstv).'),
-  fee: z.coerce.number().min(0, 'Fee cannot be negative.'),
+  fees: z.object({
+      Customer: z.coerce.number().min(0, 'Fee cannot be negative.'),
+      Vendor: z.coerce.number().min(0, 'Fee cannot be negative.'),
+      Admin: z.coerce.number().min(0, 'Fee cannot be negative.'),
+  }),
   status: z.enum(['Active', 'Inactive']),
   apiProviderId: z.string().optional(),
 });
@@ -44,7 +48,7 @@ export default function AdminServicesPage() {
     defaultValues: {
       name: '',
       provider: '',
-      fee: 0,
+      fees: { Customer: 0, Vendor: 0, Admin: 0 },
       status: 'Active',
       apiProviderId: '',
     },
@@ -77,17 +81,17 @@ export default function AdminServicesPage() {
       form.reset({
         name: service.name,
         provider: service.provider,
-        fee: service.fee,
+        fees: service.fees || { Customer: 0, Vendor: 0, Admin: 0 },
         status: service.status,
-        apiProviderId: service.apiProviderId || '',
+        apiProviderId: service.apiProviderId || 'none',
       });
     } else {
       form.reset({
         name: '',
         provider: '',
-        fee: 0,
+        fees: { Customer: 0, Vendor: 0, Admin: 0 },
         status: 'Active',
-        apiProviderId: '',
+        apiProviderId: 'none',
       });
     }
     setIsFormOpen(true);
@@ -169,7 +173,7 @@ export default function AdminServicesPage() {
                   <TableHead>Service Name</TableHead>
                   <TableHead>Service Code</TableHead>
                   <TableHead>API Provider</TableHead>
-                  <TableHead className="text-right">Fee (₦)</TableHead>
+                  <TableHead className="text-right">Fee (Customer)</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -180,7 +184,7 @@ export default function AdminServicesPage() {
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell>{service.provider}</TableCell>
                     <TableCell className="text-muted-foreground">{getProviderName(service.apiProviderId)}</TableCell>
-                    <TableCell className="text-right">{service.fee.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">₦{(service.fees?.Customer || 0).toFixed(2)}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={service.status === 'Active' ? 'default' : 'destructive'} className={cn(service.status === 'Active' && 'bg-green-500 hover:bg-green-600')}>
                         {service.status}
@@ -220,7 +224,7 @@ export default function AdminServicesPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                <FormField
                   control={form.control}
                   name="name"
@@ -270,42 +274,72 @@ export default function AdminServicesPage() {
                     </FormItem>
                   )}
                 />
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fee"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Fee (₦)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="e.g., 50" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
+                <div className="space-y-2 rounded-md border p-4">
+                    <h4 className="font-medium">Pricing Tiers (Fees in ₦)</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="fees.Customer"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Customer</FormLabel>
+                                <FormControl>
+                                <Input type="number" placeholder="e.g., 50" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="fees.Vendor"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Vendor</FormLabel>
+                                <FormControl>
+                                <Input type="number" placeholder="e.g., 25" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="fees.Admin"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Admin</FormLabel>
+                                <FormControl>
+                                <Input type="number" placeholder="e.g., 0" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <FormField
                     control={form.control}
                     name="status"
                     render={({ field }) => (
-                      <FormItem>
+                        <FormItem>
                         <FormLabel>Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
+                            <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a status" />
+                                <SelectValue placeholder="Select a status" />
                             </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
+                            </FormControl>
+                            <SelectContent>
                             <SelectItem value="Active">Active</SelectItem>
                             <SelectItem value="Inactive">Inactive</SelectItem>
-                          </SelectContent>
+                            </SelectContent>
                         </Select>
                         <FormMessage />
-                      </FormItem>
+                        </FormItem>
                     )}
-                  />
-                </div>
+                    />
               <DialogFooter>
                  <Button type="button" variant="outline" onClick={handleFormClose} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>

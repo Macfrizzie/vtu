@@ -27,7 +27,11 @@ export type Service = {
     name: string;
     provider: string; // e.g., 'mtn', 'dstv', 'ikedc'
     status: 'Active' | 'Inactive';
-    fee: number;
+    fees: { // Changed from fee to fees
+        Customer: number;
+        Vendor: number;
+        Admin: number;
+    };
     apiProviderId?: string; // ID of the ApiProvider that handles this service
 };
 
