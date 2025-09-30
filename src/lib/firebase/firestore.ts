@@ -1,10 +1,11 @@
 
 
+
 'use server';
 
-import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User } from '../types';
+import type { Transaction, Service, User, ApiProvider } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
@@ -58,7 +59,7 @@ async function checkAndSeedServices() {
         { name: 'Data Bundles', provider: 'airtel', status: 'Active', fee: 1.5 },
         { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fee: 100 },
         { name: 'Cable TV', provider: 'dstv', status: 'Active', fee: 50 },
-        { name: 'E-pins', provider: 'waec', status: 'Inactive', fee: 10 },
+        { name: 'E-pins', provider: 'waec', status: 'Active', fee: 10 },
         { name: 'Data Card Sales', provider: 'various', status: 'Inactive', fee: 2 },
         { name: 'Rechargecard sales', provider: 'various', status: 'Inactive', fee: 2 },
         { name: 'Betting', provider: 'bet9ja', status: 'Inactive', fee: 25 },
@@ -314,4 +315,46 @@ export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalan
     createdAt: new Date(),
     lastLogin: new Date(),
   });
+}
+
+// --- API Provider Functions ---
+
+export async function getApiProviders(): Promise<ApiProvider[]> {
+    const providersCol = collection(db, 'apiProviders');
+    const q = query(providersCol, orderBy('name', 'asc'));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+        // Seed initial data if collection is empty
+        const initialProviders: Omit<ApiProvider, 'id'>[] = [
+            { name: 'VTPass', baseUrl: 'https://api-service.vtpass.com/api', status: 'Active', priority: 'Primary' },
+            { name: 'Shago', baseUrl: 'https://shago.com/api', status: 'Inactive', priority: 'Fallback' },
+        ];
+        const batch = writeBatch(db);
+        initialProviders.forEach(provider => {
+            const docRef = doc(collection(db, 'apiProviders'));
+            batch.set(docRef, provider);
+        });
+        await batch.commit();
+
+        const newSnapshot = await getDocs(q);
+        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
+    }
+    
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
+}
+
+export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
+    const providersRef = collection(db, 'apiProviders');
+    await addDoc(providersRef, provider);
+}
+
+export async function updateApiProvider(id: string, data: Partial<Omit<ApiProvider, 'id'>>) {
+    const providerRef = doc(db, 'apiProviders', id);
+    await updateDoc(providerRef, data);
+}
+
+export async function deleteApiProvider(id: string) {
+    const providerRef = doc(db, 'apiProviders', id);
+    await deleteDoc(providerRef);
 }

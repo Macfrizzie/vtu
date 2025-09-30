@@ -29,3 +29,11 @@ export type Service = {
     status: 'Active' | 'Inactive';
     fee: number;
 };
+
+export type ApiProvider = {
+  id: string;
+  name: string;
+  baseUrl: string;
+  status: 'Active' | 'Inactive';
+  priority: 'Primary' | 'Fallback';
+};
