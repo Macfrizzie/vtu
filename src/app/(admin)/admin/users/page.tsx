@@ -88,7 +88,8 @@ export default function AdminUsersPage() {
   }, [users, searchTerm]);
   
   const handleRowClick = (userId: string) => {
-    router.push(`/admin/users/${userId}`);
+    // router.push(`/admin/users/${userId}`);
+    toast({ title: 'Info', description: 'User detail page is under construction.'});
   };
 
   return (
