@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -169,7 +170,7 @@ function SuggestionBlock({ icon, title, content }: { icon: React.ReactNode, titl
                 <h4 className="text-lg font-semibold">{title}</h4>
             </div>
             <div className="prose prose-sm max-w-none text-muted-foreground rounded-md border bg-secondary/50 p-4">
-                <pre className="bg-transparent p-0 m-0"><code className="font-sans">{content}</code></pre>
+                <pre className="bg-transparent p-0 m-0 whitespace-pre-wrap font-sans">{content}</pre>
             </div>
         </div>
     )

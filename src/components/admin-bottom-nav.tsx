@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Zap, History, Plug } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, History, Plug, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
     { href: '/admin/users', title: 'Users', icon: <Users /> },
     { href: '/admin/services', title: 'Services', icon: <Zap /> },
     { href: '/admin/api-providers', title: 'APIs', icon: <Plug /> },
+    { href: '/admin/api-connector', title: 'AI Tool', icon: <Wand2 /> },
 ];
 
 export function AdminBottomNav() {
@@ -18,7 +19,7 @@ export function AdminBottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 z-50 w-full border-t bg-background/95 backdrop-blur-sm sm:hidden">
-      <div className="grid h-16 grid-cols-4">
+      <div className="grid h-16 grid-cols-5">
         {navItems.map(item => {
           const isActive =
             (pathname.startsWith(item.href) && item.href !== '/admin/dashboard') ||
