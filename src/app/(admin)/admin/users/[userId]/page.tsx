@@ -1,44 +1,88 @@
 
+
 'use client';
 
 import { useEffect, useState, use } from 'react';
+import * as z from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getUserData, getUserTransactions } from '@/lib/firebase/firestore';
+import { getUserData, getUserTransactions, manualFundWallet, manualDeductFromWallet } from '@/lib/firebase/firestore';
 import type { UserData, Transaction } from '@/lib/types';
-import { Loader2, ArrowLeft, User, Mail, Wallet, Calendar } from 'lucide-react';
+import { Loader2, ArrowLeft, PiggyBank, Landmark, PlusCircle, MinusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/context/user-context';
+
+
+const walletFormSchema = z.object({
+  amount: z.coerce.number().min(1, 'Amount must be at least 1.'),
+});
+
 
 export default function AdminUserDetailPage({ params }: { params: Promise<{ userId: string }> }) {
   const { userId } = use(params);
+  const { user: adminUser } = useUser();
   const [user, setUser] = useState<UserData | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogAction, setDialogAction] = useState<'fund' | 'deduct' | null>(null);
+  const { toast } = useToast();
+
+  const fetchData = async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const [userData, userTransactions] = await Promise.all([
+        getUserData(userId as string),
+        getUserTransactions(userId as string),
+      ]);
+      setUser(userData);
+      setTransactions(userTransactions);
+    } catch (error) {
+      console.error('Failed to fetch user details:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch user data.' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchData() {
-      if (!userId) return;
-      setLoading(true);
-      try {
-        const [userData, userTransactions] = await Promise.all([
-          getUserData(userId as string),
-          getUserTransactions(userId as string),
-        ]);
-        setUser(userData);
-        setTransactions(userTransactions);
-      } catch (error) {
-        console.error('Failed to fetch user details:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchData();
   }, [userId]);
+
+  const form = useForm<z.infer<typeof walletFormSchema>>({
+    resolver: zodResolver(walletFormSchema),
+    defaultValues: { amount: 0 },
+  });
+
+  const handleWalletAction = async (values: z.infer<typeof walletFormSchema>) => {
+    if (!adminUser || !dialogAction) return;
+
+    try {
+      if (dialogAction === 'fund') {
+        await manualFundWallet(userId, values.amount, adminUser.uid);
+        toast({ title: 'Success', description: `Successfully funded user wallet with ₦${values.amount}.` });
+      } else {
+        await manualDeductFromWallet(userId, values.amount, adminUser.uid);
+        toast({ title: 'Success', description: `Successfully deducted ₦${values.amount} from user wallet.` });
+      }
+      await fetchData(); // Refetch data to show updated balance
+      setIsDialogOpen(false);
+      form.reset();
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Action Failed', description: error.message });
+    }
+  };
 
   const getInitials = (name: string | undefined | null) => {
     if (!name) return 'U';
@@ -89,12 +133,71 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <InfoCard label="Role" value={user.role} />
-          <InfoCard label="Status" value={user.status} badgeVariant={user.status === 'Active' ? 'default' : user.status === 'Pending' ? 'secondary' : 'destructive'} />
-          <InfoCard label="Wallet Balance" value={`₦${user.walletBalance.toLocaleString()}`} />
-          <InfoCard label="Member Since" value={new Date(user.createdAt).toLocaleDateString()} />
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+        <InfoCard label="Role" value={user.role} />
+        <InfoCard label="Status" value={user.status} badgeVariant={user.status === 'Active' ? 'default' : user.status === 'Pending' ? 'secondary' : 'destructive'} />
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Wallet Balance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">₦{user.walletBalance.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <InfoCard label="Member Since" value={new Date(user.createdAt).toLocaleDateString()} />
       </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Wallet Actions</CardTitle>
+            <CardDescription>Manually fund or deduct from this user's wallet.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-4">
+            <DialogTrigger asChild>
+              <Button onClick={() => setDialogAction('fund')}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Fund Wallet
+              </Button>
+            </DialogTrigger>
+            <DialogTrigger asChild>
+              <Button variant="destructive" onClick={() => setDialogAction('deduct')}>
+                <MinusCircle className="mr-2 h-4 w-4" /> Deduct Funds
+              </Button>
+            </DialogTrigger>
+          </CardContent>
+        </Card>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dialogAction === 'fund' ? 'Fund User Wallet' : 'Deduct From User Wallet'}</DialogTitle>
+            <DialogDescription>
+              Enter the amount to {dialogAction}. This action will be logged.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleWalletAction)} className="space-y-4 py-4">
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount (₦)</FormLabel>
+                    <FormControl>
+                      <Input type="number" placeholder="e.g., 5000" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {dialogAction === 'fund' ? 'Fund Wallet' : 'Deduct Funds'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
