@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import type { Transaction } from '@/lib/types';
 export default function AdminTransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         async function fetchTransactions() {
@@ -33,6 +34,14 @@ export default function AdminTransactionsPage() {
         fetchTransactions();
     }, []);
 
+    const filteredTransactions = useMemo(() => {
+        if (!searchTerm) return transactions;
+        return transactions.filter(tx => 
+            tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            tx.userEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [searchTerm, transactions]);
+
   return (
     <div className="space-y-8">
       <div>
@@ -45,8 +54,13 @@ export default function AdminTransactionsPage() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <CardTitle>All Transactions</CardTitle>
             <div className="flex gap-2">
-              <Input placeholder="Search by description or user..." className="max-w-sm" />
-              <Button variant="outline">
+              <Input 
+                placeholder="Search by description or user..." 
+                className="max-w-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Button variant="outline" disabled>
                 <Filter className="mr-2 h-4 w-4" /> Filter
               </Button>
             </div>
@@ -70,7 +84,7 @@ export default function AdminTransactionsPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {transactions.map((tx) => (
+                {filteredTransactions.map((tx) => (
                     <TableRow key={tx.id}>
                     <TableCell>{new Date(tx.date).toLocaleString()}</TableCell>
                     <TableCell>{tx.userEmail}</TableCell>
