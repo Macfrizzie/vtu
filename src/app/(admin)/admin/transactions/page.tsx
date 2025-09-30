@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +13,6 @@ import { Filter, Loader2 } from 'lucide-react';
 import { getTransactions } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation';
-
 
 export default function AdminTransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -21,7 +20,6 @@ export default function AdminTransactionsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
     const [typeFilter, setTypeFilter] = useState<string[]>([]);
-    const router = useRouter();
 
     useEffect(() => {
         async function fetchTransactions() {
@@ -43,7 +41,7 @@ export default function AdminTransactionsPage() {
         return transactions.filter(tx => {
             const searchMatch = !searchTerm || 
                 tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                tx.userEmail?.toLowerCase().includes(searchTerm.toLowerCase());
+                (tx.userEmail && tx.userEmail.toLowerCase().includes(searchTerm.toLowerCase()));
 
             const statusMatch = statusFilter.length === 0 || statusFilter.includes(tx.status);
             const typeMatch = typeFilter.length === 0 || typeFilter.includes(tx.type);
@@ -57,10 +55,6 @@ export default function AdminTransactionsPage() {
             current.includes(value) ? current.filter(item => item !== value) : [...current, value]
         );
     }
-
-    const handleRowClick = (transactionId: string) => {
-        router.push(`/admin/transactions/${transactionId}`);
-    };
 
   return (
     <div className="space-y-8">
@@ -120,38 +114,45 @@ export default function AdminTransactionsPage() {
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <Table>
-                <TableHeader>
-                <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>User Email</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-                </TableHeader>
-                <TableBody>
-                {filteredTransactions.map((tx) => (
-                    <TableRow key={tx.id} onClick={() => handleRowClick(tx.id)} className="cursor-pointer">
-                    <TableCell>{new Date(tx.date).toLocaleString()}</TableCell>
-                    <TableCell>{tx.userEmail}</TableCell>
-                    <TableCell className="font-medium">{tx.description}</TableCell>
-                    <TableCell>
-                        <Badge variant={tx.type === 'Credit' ? 'default' : 'secondary'} className={cn(tx.type === 'Credit' && 'bg-green-500/20 text-green-700 border-transparent')}>{tx.type}</Badge>
-                    </TableCell>
-                    <TableCell className={cn('text-right font-semibold', tx.type === 'Credit' ? 'text-green-600' : 'text-red-600')}>
-                        {tx.type === 'Credit' ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-center">
-                        <Badge variant={tx.status === 'Successful' ? 'default' : tx.status === 'Pending' ? 'secondary' : 'destructive'} className={cn(tx.status === 'Successful' && 'bg-green-500 hover:bg-green-600')}>
-                        {tx.status}
-                        </Badge>
-                    </TableCell>
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>User Email</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
                     </TableRow>
-                ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                    {filteredTransactions.map((tx) => (
+                        <TableRow key={tx.id} className="relative cursor-pointer hover:bg-muted">
+                            <TableCell>
+                                <Link href={`/admin/transactions/${tx.id}`} className="absolute inset-0 z-10">
+                                    <span className="sr-only">View Transaction</span>
+                                </Link>
+                                {new Date(tx.date).toLocaleString()}
+                            </TableCell>
+                            <TableCell>{tx.userEmail}</TableCell>
+                            <TableCell className="font-medium">{tx.description}</TableCell>
+                            <TableCell>
+                                <Badge variant={tx.type === 'Credit' ? 'default' : 'secondary'} className={cn(tx.type === 'Credit' && 'bg-green-500/20 text-green-700 border-transparent')}>{tx.type}</Badge>
+                            </TableCell>
+                            <TableCell className={cn('text-right font-semibold', tx.type === 'Credit' ? 'text-green-600' : 'text-red-600')}>
+                                {tx.type === 'Credit' ? '+' : ''}₦{Math.abs(tx.amount).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <Badge variant={tx.status === 'Successful' ? 'default' : tx.status === 'Pending' ? 'secondary' : 'destructive'} className={cn(tx.status === 'Successful' && 'bg-green-500 hover:bg-green-600')}>
+                                {tx.status}
+                                </Badge>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </div>
           )}
         </CardContent>
       </Card>
