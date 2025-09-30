@@ -39,13 +39,14 @@ const providerFormSchema = z.object({
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
   requestHeaders: z.string().refine(val => {
+    if (!val) return true; // Allow empty string
     try {
       JSON.parse(val);
       return true;
     } catch (e) {
-      return val === '' || val === '{}';
+      return false;
     }
-  }, { message: 'Request headers must be a valid JSON object.' }).optional(),
+  }, { message: 'Request headers must be a valid JSON object or empty.' }).optional(),
   transactionCharge: z.coerce.number().min(0, 'Transaction charge cannot be negative.'),
   status: z.enum(['Active', 'Inactive']),
   priority: z.enum(['Primary', 'Fallback']),
@@ -77,6 +78,7 @@ export default function AdminApiProvidersPage() {
   });
 
   async function fetchProviders() {
+    setLoading(true);
     try {
       const allProviders = await getApiProviders();
       setProviders(allProviders);
@@ -418,5 +420,3 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
-
-    
