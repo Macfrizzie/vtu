@@ -59,14 +59,10 @@ const packages: { [key: string]: { id: string; label: string; price: number }[] 
   ],
 };
 
-const providerMapping: { [key: string]: keyof typeof packages } = {
-  'dstv': 'dstv',
-  'gotv': 'gotv',
-  'startimes': 'startimes',
-};
+const validProviders = ['dstv', 'gotv', 'startimes'] as const;
 
 const formSchema = z.object({
-  provider: z.enum(['dstv', 'gotv', 'startimes'], { required_error: 'Please select a provider.'}),
+  provider: z.enum(validProviders, { required_error: 'Please select a provider.'}),
   smartCardNumber: z.string().regex(/^\d{10,12}$/, 'Please enter a valid smart card number (10-12 digits).'),
   package: z.string().min(1, 'Please select a package.'),
 });
@@ -90,11 +86,8 @@ export default function CableTvPage() {
   });
 
   useEffect(() => {
-    if (initialProvider) {
-      const providerKey = Object.keys(providerMapping).find(key => initialProvider.includes(key));
-      if (providerKey) {
-        form.setValue('provider', providerKey as keyof typeof packages);
-      }
+    if (initialProvider && validProviders.includes(initialProvider as any)) {
+      form.setValue('provider', initialProvider as FormData['provider']);
     }
   }, [initialProvider, form]);
 
