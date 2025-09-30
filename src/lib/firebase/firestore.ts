@@ -224,6 +224,11 @@ export async function getTransactionById(id: string): Promise<Transaction | null
     }
 }
 
+export async function updateTransactionStatus(id: string, status: 'Successful' | 'Failed') {
+    const transactionRef = doc(db, 'transactions', id);
+    await updateDoc(transactionRef, { status: status });
+}
+
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
     const q = query(transactionsCol, where('userId', '==', uid));

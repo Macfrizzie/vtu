@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, use, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2, Printer, CheckCircle, XCircle } from 'lucide-react';
-import { getTransactionById } from '@/lib/firebase/firestore';
+import { getTransactionById, updateTransactionStatus } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { VtuBossLogo } from '@/components/icons';
@@ -17,6 +18,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
   const { transactionId } = use(params);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
   const fetchTransaction = useCallback(async () => {
@@ -31,21 +33,26 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
     } finally {
       setLoading(false);
     }
-  }, [transactionId]);
+  }, [transactionId, toast]);
 
   useEffect(() => {
     fetchTransaction();
   }, [fetchTransaction]);
 
   const handleStatusUpdate = async (status: 'Successful' | 'Failed') => {
-    // Placeholder for actual update logic
-    toast({ title: 'Simulating Update', description: `Marking transaction as ${status}...`});
-    // In the next step, we will call a Firestore function here.
-    // For now, we just update the local state to show the change.
-    if (transaction) {
-      setTransaction({ ...transaction, status: status });
+    if (!transaction) return;
+    setIsUpdating(true);
+    try {
+        await updateTransactionStatus(transaction.id, status);
+        // We can either refetch or update the state locally
+        setTransaction({ ...transaction, status: status });
+        toast({ title: 'Success!', description: `Transaction has been marked as ${status}.`});
+    } catch (error) {
+        console.error('Failed to update status:', error);
+        toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update transaction status.' });
+    } finally {
+        setIsUpdating(false);
     }
-    toast({ title: 'Success!', description: `Transaction has been marked as ${status}.`});
   };
 
   if (loading) {
@@ -121,12 +128,12 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
                 <p className="text-sm font-semibold text-center">Manual Verification</p>
                 <p className="text-xs text-muted-foreground text-center mb-2">This transaction is pending. Manually update its status below.</p>
                 <div className="flex w-full gap-2">
-                    <Button className="w-full" variant="outline" onClick={() => handleStatusUpdate('Successful')}>
-                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                    <Button className="w-full" variant="outline" onClick={() => handleStatusUpdate('Successful')} disabled={isUpdating}>
+                         {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4 text-green-500" />}
                         Mark as Successful
                     </Button>
-                    <Button className="w-full" variant="destructive" onClick={() => handleStatusUpdate('Failed')}>
-                        <XCircle className="mr-2 h-4 w-4" />
+                    <Button className="w-full" variant="destructive" onClick={() => handleStatusUpdate('Failed')} disabled={isUpdating}>
+                         {isUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
                         Mark as Failed
                     </Button>
                 </div>
