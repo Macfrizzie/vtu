@@ -100,12 +100,18 @@ export default function AdminServicesPage() {
 
   async function onSubmit(values: z.infer<typeof serviceFormSchema>) {
     setIsSubmitting(true);
+    
+    const dataToSubmit = {
+      ...values,
+      apiProviderId: values.apiProviderId === 'none' ? '' : values.apiProviderId,
+    };
+    
     try {
       if (editingService) {
-        await updateService(editingService.id, values);
+        await updateService(editingService.id, dataToSubmit);
         toast({ title: 'Success!', description: 'Service has been updated successfully.' });
       } else {
-        await addService(values);
+        await addService(dataToSubmit);
         toast({ title: 'Success!', description: 'Service has been added successfully.' });
       }
       handleFormClose();
@@ -247,14 +253,14 @@ export default function AdminServicesPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>API Provider</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select an API Provider" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {apiProviders.map(provider => (
                             <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
                           ))}
