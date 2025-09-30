@@ -17,6 +17,7 @@ export type UserData = {
     role: string;
     createdAt: Date;
     walletBalance: number;
+    status: 'Active' | 'Pending' | 'Blocked';
 };
 
 export async function getUserData(uid: string): Promise<UserData | null> {
@@ -27,10 +28,13 @@ export async function getUserData(uid: string): Promise<UserData | null> {
         const data = userSnap.data();
         // Convert Firestore Timestamp to JavaScript Date object
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+        const lastLogin = data.lastLogin?.toDate ? data.lastLogin.toDate() : createdAt;
+
         return {
             ...data,
             uid: userSnap.id,
             createdAt: createdAt,
+            lastLogin: lastLogin
         } as UserData;
     } else {
         return null;
@@ -119,6 +123,54 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
         date: new Date(),
     });
 }
+
+
+export async function manualFundWallet(uid: string, amount: number, adminId: string) {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+        throw new Error("User not found");
+    }
+
+    await updateDoc(userRef, { walletBalance: increment(amount) });
+
+    await addDoc(collection(db, 'transactions'), {
+        userId: uid,
+        userEmail: userSnap.data().email,
+        description: `Manual Wallet Fund by Admin (${adminId})`,
+        amount: amount,
+        type: 'Credit',
+        status: 'Successful',
+        date: new Date(),
+    });
+}
+
+export async function manualDeductFromWallet(uid: string, amount: number, adminId: string) {
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+        throw new Error("User not found");
+    }
+
+     if (userSnap.data().walletBalance < amount) {
+        throw new Error("Insufficient funds for deduction.");
+    }
+
+    await updateDoc(userRef, { walletBalance: increment(-amount) });
+
+    await addDoc(collection(db, 'transactions'), {
+        userId: uid,
+        userEmail: userSnap.data().email,
+        description: `Manual Wallet Deduction by Admin (${adminId})`,
+        amount: -amount,
+        type: 'Debit',
+        status: 'Successful',
+        date: new Date(),
+    });
+}
+
 
 export async function purchaseService(uid: string, amount: number, description: string, userEmail: string) {
     await checkAndSeedServices();
