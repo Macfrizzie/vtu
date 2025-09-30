@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState, use, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +31,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
     } finally {
       setLoading(false);
     }
-  }, [transactionId, toast]);
+  }, [transactionId]);
 
   useEffect(() => {
     fetchTransaction();
