@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { use } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +12,8 @@ import type { Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { VtuBossLogo } from '@/components/icons';
 
-export default function TransactionDetailPage({ params }: { params: Promise<{ transactionId: string }> }) {
-  const { transactionId } = use(params);
+export default function TransactionDetailPage({ params }: { params: { transactionId: string } }) {
+  const { transactionId } = params;
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
 
