@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
       )}
 
       {!loading && (
-        <div className="grid gap-8 md:grid-cols-2">
+        <div className="space-y-8">
           <Card>
             <CardHeader>
               <CardTitle>Real-time Transaction Monitoring</CardTitle>
