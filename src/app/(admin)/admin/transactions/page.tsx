@@ -11,12 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Filter, Loader2 } from 'lucide-react';
 import { getTransactions } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 export default function AdminTransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string[]>([]);
+    const [typeFilter, setTypeFilter] = useState<string[]>([]);
 
     useEffect(() => {
         async function fetchTransactions() {
@@ -35,12 +38,23 @@ export default function AdminTransactionsPage() {
     }, []);
 
     const filteredTransactions = useMemo(() => {
-        if (!searchTerm) return transactions;
-        return transactions.filter(tx => 
-            tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            tx.userEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+        return transactions.filter(tx => {
+            const searchMatch = !searchTerm || 
+                tx.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                tx.userEmail?.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const statusMatch = statusFilter.length === 0 || statusFilter.includes(tx.status);
+            const typeMatch = typeFilter.length === 0 || typeFilter.includes(tx.type);
+
+            return searchMatch && statusMatch && typeMatch;
+        });
+    }, [searchTerm, transactions, statusFilter, typeFilter]);
+
+    const toggleFilter = (filterList: string[], setFilterList: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+        setFilterList(current => 
+            current.includes(value) ? current.filter(item => item !== value) : [...current, value]
         );
-    }, [searchTerm, transactions]);
+    }
 
   return (
     <div className="space-y-8">
@@ -60,9 +74,37 @@ export default function AdminTransactionsPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <Button variant="outline" disabled>
-                <Filter className="mr-2 h-4 w-4" /> Filter
-              </Button>
+               <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        <Filter className="mr-2 h-4 w-4" /> Filter
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {['Successful', 'Pending', 'Failed'].map(status => (
+                        <DropdownMenuCheckboxItem
+                            key={status}
+                            checked={statusFilter.includes(status)}
+                            onCheckedChange={() => toggleFilter(statusFilter, setStatusFilter, status)}
+                        >
+                            {status}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                    <DropdownMenuLabel>Filter by Type</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {['Credit', 'Debit'].map(type => (
+                        <DropdownMenuCheckboxItem
+                            key={type}
+                            checked={typeFilter.includes(type)}
+                            onCheckedChange={() => toggleFilter(typeFilter, setTypeFilter, type)}
+                        >
+                            {type}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+               </DropdownMenu>
             </div>
           </div>
         </CardHeader>
