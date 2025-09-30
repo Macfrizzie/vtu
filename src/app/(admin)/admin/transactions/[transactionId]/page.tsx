@@ -20,7 +20,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchTransaction = async () => {
+  const fetchTransaction = useCallback(async () => {
     if (!transactionId) return;
     setLoading(true);
     try {
@@ -32,11 +32,11 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
     } finally {
       setLoading(false);
     }
-  }
+  }, [transactionId, toast]);
 
   useEffect(() => {
     fetchTransaction();
-  }, [transactionId]);
+  }, [fetchTransaction]);
 
   const handleStatusUpdate = async (status: 'Successful' | 'Failed') => {
     // Placeholder for actual update logic
