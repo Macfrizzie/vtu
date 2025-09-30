@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -343,7 +344,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
 
 export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
     const providersCol = collection(db, 'apiProviders');
-    const q = query(providersCol, where('status', '==', 'Active'), orderBy('name'));
+    const q = query(providersCol, where('status', '==', 'Active'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
 }
