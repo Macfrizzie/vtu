@@ -57,7 +57,7 @@ async function checkAndSeedServices() {
         { name: 'Airtime Top-up', provider: 'mtn', status: 'Active', fee: 0 },
         { name: 'Data Bundles', provider: 'airtel', status: 'Active', fee: 1.5 },
         { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fee: 100 },
-        { name: 'Cable TV', provider: 'dstv', status: 'Inactive', fee: 50 },
+        { name: 'Cable TV', provider: 'dstv', status: 'Active', fee: 50 },
         { name: 'E-pins', provider: 'waec', status: 'Inactive', fee: 10 },
         { name: 'Data Card Sales', provider: 'various', status: 'Inactive', fee: 2 },
         { name: 'Rechargecard sales', provider: 'various', status: 'Inactive', fee: 2 },
@@ -187,7 +187,7 @@ export async function purchaseService(uid: string, amount: number, description: 
         description: description,
         amount: -amount,
         type: 'Debit',
-        status: 'Pending',
+        status: 'Successful',
         date: new Date(),
     });
 
