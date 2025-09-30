@@ -8,6 +8,7 @@ import { UserProvider } from '@/context/user-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { onAuthStateChangedHelper } from '@/lib/firebase/auth';
+import { AdminBottomNav } from '@/components/admin-bottom-nav';
 
 const navItems: NavItem[] = [
     { href: '/admin/dashboard', title: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -36,8 +37,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <UserProvider>
       <DashboardShell navItems={navItems} userRole="Admin">
-          {children}
+          <div className="pb-16 sm:pb-0">{children}</div>
       </DashboardShell>
+      <AdminBottomNav />
     </UserProvider>
   );
 }
