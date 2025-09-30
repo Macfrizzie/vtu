@@ -17,6 +17,7 @@ import {
   Gamepad2,
   HelpCircle,
   CreditCard,
+  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,6 +51,7 @@ const getServiceUrl = (service: Service) => {
     if (name.includes('data')) return `/dashboard/services/data${query}`;
     if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
     if (name.includes('cable')) return `/dashboard/services/cable${query}`;
+    if (name.includes('e-pins')) return `/dashboard/services/education${query}`;
     // Add more mappings here as new service pages are created
     return '#';
 }
@@ -61,7 +63,7 @@ const getServiceIcon = (serviceName: string) => {
     if (name.includes('data')) return <Wifi size={24} />;
     if (name.includes('electric')) return <Zap size={24} />;
     if (name.includes('cable') || name.includes('dstv')) return <Tv size={24} />;
-    if (name.includes('epin')) return <Ticket size={24} />;
+    if (name.includes('e-pins')) return <GraduationCap size={24} />;
     if (name.includes('card')) return <CreditCard size={24} />;
     if (name.includes('betting')) return <Gamepad2 size={24} />;
     return <HelpCircle size={24} />;

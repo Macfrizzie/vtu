@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Phone, Wifi, Zap, Tv, Ticket, CreditCard, Gamepad2, HelpCircle } from 'lucide-react';
+import { Loader2, Phone, Wifi, Zap, Tv, Ticket, CreditCard, Gamepad2, HelpCircle, GraduationCap } from 'lucide-react';
 import { getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,7 @@ const getServiceIcon = (serviceName: string) => {
   if (name.includes('data')) return <Wifi className="h-8 w-8 text-primary" />;
   if (name.includes('electric')) return <Zap className="h-8 w-8 text-primary" />;
   if (name.includes('cable') || name.includes('dstv')) return <Tv className="h-8 w-8 text-primary" />;
-  if (name.includes('epin')) return <Ticket className="h-8 w-8 text-primary" />;
+  if (name.includes('e-pins')) return <GraduationCap className="h-8 w-8 text-primary" />;
   if (name.includes('card')) return <CreditCard className="h-8 w-8 text-primary" />;
   if (name.includes('betting')) return <Gamepad2 className="h-8 w-8 text-primary" />;
   return <HelpCircle className="h-8 w-8 text-primary" />;
@@ -31,6 +31,7 @@ const getServiceUrl = (service: Service) => {
     if (name.includes('data')) return `/dashboard/services/data${query}`;
     if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
     if (name.includes('cable')) return `/dashboard/services/cable${query}`;
+    if (name.includes('e-pins')) return `/dashboard/services/education${query}`;
     // Add more mappings here as new service pages are created
     return '#';
 }
