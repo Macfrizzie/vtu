@@ -25,9 +25,10 @@ export type Transaction = {
 export type Service = {
     id: string;
     name: string;
-    provider: string;
+    provider: string; // e.g., 'mtn', 'dstv', 'ikedc'
     status: 'Active' | 'Inactive';
     fee: number;
+    apiProviderId?: string; // ID of the ApiProvider that handles this service
 };
 
 export type ApiProvider = {
@@ -41,4 +42,5 @@ export type ApiProvider = {
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';
   transactionCharge: number;
+  services?: string[]; // Array of service IDs this provider handles
 };

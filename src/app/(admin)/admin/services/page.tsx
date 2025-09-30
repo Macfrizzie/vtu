@@ -16,24 +16,27 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, addService, updateService, updateServiceStatus } from '@/lib/firebase/firestore';
-import type { Service } from '@/lib/types';
+import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect } from '@/lib/firebase/firestore';
+import type { Service, ApiProvider } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
-  provider: z.string().min(2, 'Provider name must be at least 2 characters.'),
+  provider: z.string().min(2, 'Service code must be at least 2 characters (e.g., mtn, dstv).'),
   fee: z.coerce.number().min(0, 'Fee cannot be negative.'),
   status: z.enum(['Active', 'Inactive']),
+  apiProviderId: z.string().optional(),
 });
+
+type SimpleProvider = Pick<ApiProvider, 'id' | 'name'>;
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
+  const [apiProviders, setApiProviders] = useState<SimpleProvider[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingService, setEditingService] = useState<Service | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof serviceFormSchema>>({
@@ -43,63 +46,73 @@ export default function AdminServicesPage() {
       provider: '',
       fee: 0,
       status: 'Active',
+      apiProviderId: '',
     },
   });
 
-  async function fetchServices() {
+  async function fetchData() {
+    setLoading(true);
     try {
-      const allServices = await getServices();
+      const [allServices, allProviders] = await Promise.all([
+        getServices(),
+        getApiProvidersForSelect(),
+      ]);
       setServices(allServices);
+      setApiProviders(allProviders);
     } catch (error) {
-      console.error("Failed to fetch services:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch services.' });
+      console.error("Failed to fetch data:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch services or providers.' });
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    setLoading(true);
-    fetchServices();
+    fetchData();
   }, []);
-  
-  useEffect(() => {
-    if (editingService) {
-      form.reset(editingService);
+
+  const handleFormOpen = (service: Service | null) => {
+    setEditingService(service);
+    if (service) {
+      form.reset({
+        name: service.name,
+        provider: service.provider,
+        fee: service.fee,
+        status: service.status,
+        apiProviderId: service.apiProviderId || '',
+      });
     } else {
-      form.reset({ name: '', provider: '', fee: 0, status: 'Active' });
+      form.reset({
+        name: '',
+        provider: '',
+        fee: 0,
+        status: 'Active',
+        apiProviderId: '',
+      });
     }
-  }, [editingService, form]);
-
-
-  async function onAddSubmit(values: z.infer<typeof serviceFormSchema>) {
-    setIsSubmitting(true);
-    try {
-      await addService(values);
-      toast({ title: 'Success!', description: 'Service has been added successfully.' });
-      form.reset();
-      setIsAddDialogOpen(false);
-      await fetchServices();
-    } catch (error) {
-      console.error("Failed to add service:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add service.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+    setIsFormOpen(true);
+  };
   
-  async function onEditSubmit(values: z.infer<typeof serviceFormSchema>) {
-    if (!editingService) return;
+  const handleFormClose = () => {
+    setIsFormOpen(false);
+    setEditingService(null);
+  }
+
+  async function onSubmit(values: z.infer<typeof serviceFormSchema>) {
     setIsSubmitting(true);
     try {
-      await updateService(editingService.id, values);
-      toast({ title: 'Success!', description: 'Service has been updated successfully.' });
-      setEditingService(null);
-      setIsEditDialogOpen(false);
-      await fetchServices();
+      if (editingService) {
+        await updateService(editingService.id, values);
+        toast({ title: 'Success!', description: 'Service has been updated successfully.' });
+      } else {
+        await addService(values);
+        toast({ title: 'Success!', description: 'Service has been added successfully.' });
+      }
+      handleFormClose();
+      await fetchData();
     } catch (error) {
-      console.error("Failed to update service:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update service.' });
+      console.error("Failed to save service:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save service.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -110,18 +123,17 @@ export default function AdminServicesPage() {
     try {
       await updateServiceStatus(service.id, newStatus);
       toast({ title: 'Status Updated', description: `${service.name} has been set to ${newStatus}.` });
-      await fetchServices();
+      await fetchData();
     } catch (error) {
       console.error("Failed to update status:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to update service status.' });
     }
   };
-  
-  const handleEditClick = (service: Service) => {
-    setEditingService(service);
-    setIsEditDialogOpen(true);
-  };
 
+  const getProviderName = (providerId?: string) => {
+    if (!providerId) return 'N/A';
+    return apiProviders.find(p => p.id === providerId)?.name || 'Unknown';
+  }
 
   return (
     <div className="space-y-8">
@@ -130,91 +142,9 @@ export default function AdminServicesPage() {
           <h1 className="text-3xl font-bold">Service Management</h1>
           <p className="text-muted-foreground">Configure and manage all services and providers.</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => form.reset()}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Service
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Service</DialogTitle>
-              <DialogDescription>
-                Fill in the details for the new service you want to add.
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4 py-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Service Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., MTN Data" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="provider"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Provider</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., mtn" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="fee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Fee (₦)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="e.g., 50" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <DialogFooter>
-                  <Button type="submit" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Add Service
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={() => handleFormOpen(null)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Service
+        </Button>
       </div>
       
       <Card>
@@ -231,8 +161,9 @@ export default function AdminServicesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Service Name</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead className="text-right">Fee/Commission</TableHead>
+                  <TableHead>Service Code</TableHead>
+                  <TableHead>API Provider</TableHead>
+                  <TableHead className="text-right">Fee (₦)</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -242,6 +173,7 @@ export default function AdminServicesPage() {
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell>{service.provider}</TableCell>
+                    <TableCell className="text-muted-foreground">{getProviderName(service.apiProviderId)}</TableCell>
                     <TableCell className="text-right">{service.fee.toFixed(2)}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={service.status === 'Active' ? 'default' : 'destructive'} className={cn(service.status === 'Active' && 'bg-green-500 hover:bg-green-600')}>
@@ -257,8 +189,7 @@ export default function AdminServicesPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditClick(service)}>Edit Service</DropdownMenuItem>
-                          <DropdownMenuItem disabled>Manage Pricing</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleFormOpen(service)}>Edit Service</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleStatusToggle(service)}>
                             {service.status === 'Active' ? 'Deactivate' : 'Activate'}
                           </DropdownMenuItem>
@@ -273,17 +204,17 @@ export default function AdminServicesPage() {
         </CardContent>
       </Card>
       
-      {/* Edit Service Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Add/Edit Dialog */}
+      <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Service</DialogTitle>
+            <DialogTitle>{editingService ? 'Edit' : 'Add New'} Service</DialogTitle>
             <DialogDescription>
-              Update the details for this service.
+              Fill in the details for the service.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onEditSubmit)} className="space-y-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
                <FormField
                   control={form.control}
                   name="name"
@@ -302,9 +233,9 @@ export default function AdminServicesPage() {
                   name="provider"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Provider</FormLabel>
+                      <FormLabel>Service Code</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., mtn" {...field} />
+                        <Input placeholder="e.g., mtn-data, dstv-padi" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -312,40 +243,65 @@ export default function AdminServicesPage() {
                 />
                 <FormField
                   control={form.control}
-                  name="fee"
+                  name="apiProviderId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fee (₦)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="e.g., 50" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
+                      <FormLabel>API Provider</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select a status" />
+                            <SelectValue placeholder="Select an API Provider" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Inactive">Inactive</SelectItem>
+                          <SelectItem value="">None</SelectItem>
+                          {apiProviders.map(provider => (
+                            <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="fee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Fee (₦)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="e.g., 50" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Active">Active</SelectItem>
+                            <SelectItem value="Inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                 <Button type="button" variant="outline" onClick={handleFormClose} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Changes

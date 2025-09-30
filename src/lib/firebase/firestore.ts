@@ -1,8 +1,4 @@
 
-
-
-
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -323,10 +319,8 @@ export async function addUser(user: Omit<User, 'id' | 'lastLogin' | 'walletBalan
 
 export async function getApiProviders(): Promise<ApiProvider[]> {
     const providersCol = collection(db, 'apiProviders');
-    const q = query(providersCol, orderBy('name', 'asc'));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(providersCol);
     
-    // If the collection is empty, seed it with initial data.
     if (snapshot.empty) {
         const initialProviders: Omit<ApiProvider, 'id'>[] = [
             { name: 'VTPass', description: 'Primary provider for VTU services.', baseUrl: 'https://api-service.vtpass.com/api', status: 'Active', priority: 'Primary', apiKey: '', apiSecret: '', requestHeaders: '{}', transactionCharge: 10 },
@@ -339,13 +333,21 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
         });
         await batch.commit();
         
-        // After seeding, fetch the data again to return it.
-        const newSnapshot = await getDocs(q);
+        const newSnapshot = await getDocs(providersCol);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
     }
     
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
 }
+
+
+export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
+    const providersCol = collection(db, 'apiProviders');
+    const q = query(providersCol, where('status', '==', 'Active'), orderBy('name'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+}
+
 
 export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
     const providersCol = collection(db, 'apiProviders');
