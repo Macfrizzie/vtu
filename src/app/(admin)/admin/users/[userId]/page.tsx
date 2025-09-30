@@ -106,12 +106,14 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
   };
   
   const handleEditUser = async (values: z.infer<typeof editUserFormSchema>) => {
+    if (!user) return;
     try {
-      await updateUser(userId, values);
+      await updateUser(user.uid, values);
       toast({ title: 'Success', description: `User profile has been updated.` });
       await fetchData(); // Refetch data to show updated role/status
       setIsEditUserDialogOpen(false);
     } catch (error: any) {
+      console.error(error);
       toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update user profile.' });
     }
   }
