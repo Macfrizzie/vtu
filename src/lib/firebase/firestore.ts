@@ -54,14 +54,14 @@ async function checkAndSeedServices() {
     const existingServices = snapshot.docs.map(doc => doc.data().name);
 
     const initialServices: Omit<Service, 'id'>[] = [
-        { name: 'Airtime Top-up', provider: 'MTN NG', status: 'Active', fee: 0 },
-        { name: 'Data Bundles', provider: 'Airtel NG', status: 'Active', fee: 1.5 },
-        { name: 'Electricity Bill', provider: 'IKEDC', status: 'Active', fee: 100 },
-        { name: 'Cable TV', provider: 'DSTV', status: 'Inactive', fee: 50 },
-        { name: 'E-pins', provider: 'WAEC', status: 'Inactive', fee: 10 },
-        { name: 'Data Card Sales', provider: 'Various', status: 'Inactive', fee: 2 },
-        { name: 'Rechargecard sales', provider: 'Various', status: 'Inactive', fee: 2 },
-        { name: 'Betting', provider: 'Bet9ja', status: 'Inactive', fee: 25 },
+        { name: 'Airtime Top-up', provider: 'mtn', status: 'Active', fee: 0 },
+        { name: 'Data Bundles', provider: 'airtel', status: 'Active', fee: 1.5 },
+        { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fee: 100 },
+        { name: 'Cable TV', provider: 'dstv', status: 'Active', fee: 50 },
+        { name: 'E-pins', provider: 'waec', status: 'Inactive', fee: 10 },
+        { name: 'Data Card Sales', provider: 'various', status: 'Inactive', fee: 2 },
+        { name: 'Rechargecard sales', provider: 'various', status: 'Inactive', fee: 2 },
+        { name: 'Betting', provider: 'bet9ja', status: 'Inactive', fee: 25 },
     ];
 
     const missingServices = initialServices.filter(service => !existingServices.includes(service.name));
@@ -181,15 +181,18 @@ export async function purchaseService(uid: string, amount: number, description: 
     });
 
     // Log the transaction
-    await addDoc(collection(db, 'transactions'), {
+    const newTransactionRef = await addDoc(collection(db, 'transactions'), {
         userId: uid,
         userEmail: userEmail,
         description: description,
         amount: -amount,
         type: 'Debit',
-        status: 'Successful',
+        status: 'Pending',
         date: new Date(),
     });
+
+    // We can now call the transaction detail page for the pending transaction
+    return newTransactionRef.id;
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
