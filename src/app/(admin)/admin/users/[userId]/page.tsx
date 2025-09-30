@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useState, use } from 'react';
@@ -156,20 +154,21 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
             Back to All Users
           </Link>
         </Button>
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
-                <AvatarImage src={`https://i.pravatar.cc/150?u=${user.uid}`} />
-                <AvatarFallback className="text-2xl">{getInitials(user.fullName)}</AvatarFallback>
-            </Avatar>
-            <div>
-                <h1 className="text-3xl font-bold">{user.fullName}</h1>
-                <p className="text-muted-foreground">{user.email}</p>
+              <Avatar className="h-20 w-20">
+                  <AvatarImage src={`https://i.pravatar.cc/150?u=${user.uid}`} />
+                  <AvatarFallback className="text-2xl">{getInitials(user.fullName)}</AvatarFallback>
+              </Avatar>
+              <div>
+                  <h1 className="text-3xl font-bold">{user.fullName}</h1>
+                  <p className="text-muted-foreground">{user.email}</p>
+              </div>
             </div>
-            </div>
+            
             <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="outline">
+                    <Button variant="outline" className="w-full md:w-auto">
                         <Edit className="mr-2 h-4 w-4"/>
                         Edit User
                     </Button>
