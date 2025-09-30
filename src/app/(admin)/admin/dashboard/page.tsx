@@ -15,6 +15,9 @@ import {
   AlertTriangle,
   Loader2,
   AlertCircle,
+  ArrowRight,
+  Zap,
+  Plug,
 } from 'lucide-react';
 import { useEffect, useState, useMemo } from 'react';
 import type { Transaction, User, Service } from '@/lib/types';
@@ -34,6 +37,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import Link from 'next/link';
 
 export default function AdminDashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -90,22 +94,26 @@ export default function AdminDashboardPage() {
           title="Total Users"
           value={loading ? '...' : users.length.toLocaleString()}
           icon={<Users className="h-4 w-4 text-muted-foreground" />}
+          href="/admin/users"
         />
         <StatCard
           title="Total Transactions"
           value={loading ? '...' : transactions.length.toLocaleString()}
           icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
+          href="/admin/transactions"
         />
         <StatCard
           title="Total Revenue (Debits)"
           value={loading ? '...' : `₦${totalRevenue.toLocaleString()}`}
           icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+          href="/admin/transactions"
         />
         <StatCard
           title="Pending Transactions"
           value={loading ? '...' : pendingTransactions.toString()}
           icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
           variant={pendingTransactions > 0 ? 'destructive' : 'default'}
+          href="/admin/transactions"
         />
       </div>
 
@@ -137,8 +145,9 @@ export default function AdminDashboardPage() {
                   </TableHeader>
                   <TableBody>
                     {recentTransactions.map(tx => (
-                      <TableRow key={tx.id}>
-                        <TableCell>
+                      <TableRow key={tx.id} className="relative cursor-pointer hover:bg-muted">
+                         <TableCell>
+                          <Link href={`/admin/transactions/${tx.id}`} className="absolute inset-0 z-10" />
                           <div className="font-medium">
                             {tx.userEmail?.split('@')[0] || 'N/A'}
                           </div>
@@ -182,30 +191,31 @@ export default function AdminDashboardPage() {
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Alerts & Warnings</CardTitle>
-              <CardDescription>
-                Important system notifications will appear here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Low API Balance</AlertTitle>
-                <AlertDescription>
-                  Your balance with provider 'Some-API-Provider' is low.
-                </AlertDescription>
-              </Alert>
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>System Nominal</AlertTitle>
-                <AlertDescription>
-                  All systems are running smoothly. No other warnings.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
+          
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold">Quick Actions</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <ActionCard 
+                    title="Manage Users"
+                    description="View, edit, and manage all users."
+                    icon={<Users className="h-6 w-6 text-primary" />}
+                    href="/admin/users"
+                />
+                 <ActionCard 
+                    title="Manage Services"
+                    description="Configure all available platform services."
+                    icon={<Zap className="h-6 w-6 text-primary" />}
+                    href="/admin/services"
+                />
+                 <ActionCard 
+                    title="Manage API Providers"
+                    description="Configure third-party API providers."
+                    icon={<Plug className="h-6 w-6 text-primary" />}
+                    href="/admin/api-providers"
+                />
+            </div>
+          </div>
+
         </div>
       )}
     </div>
@@ -217,26 +227,52 @@ function StatCard({
   value,
   icon,
   variant = 'default',
+  href
 }: {
   title: string;
   value: string;
   icon: React.ReactNode;
   variant?: 'default' | 'destructive';
+  href: string;
 }) {
   return (
-    <Card
-      className={cn(
-        variant === 'destructive' &&
-          'bg-destructive/10 border-destructive text-destructive-foreground'
-      )}
-    >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon}
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-      </CardContent>
-    </Card>
+    <Link href={href}>
+        <Card
+        className={cn(
+            'hover:bg-muted/50 transition-colors',
+            variant === 'destructive' &&
+            'bg-destructive/10 border-destructive text-destructive-foreground hover:bg-destructive/20'
+        )}
+        >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            {icon}
+        </CardHeader>
+        <CardContent>
+            <div className="text-2xl font-bold">{value}</div>
+        </CardContent>
+        </Card>
+    </Link>
   );
+}
+
+function ActionCard({ title, description, icon, href }: { title: string, description: string, icon: React.ReactNode, href: string }) {
+    return (
+        <Link href={href} className="group">
+            <Card className="hover:bg-muted/50 transition-colors h-full">
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                           {icon}
+                            <CardTitle className="text-lg">{title}</CardTitle>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">{description}</p>
+                </CardContent>
+            </Card>
+        </Link>
+    )
 }

@@ -3,15 +3,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Zap, History, Plug, Wand2 } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, History, Plug } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
     { href: '/admin/dashboard', title: 'Overview', icon: <LayoutDashboard /> },
     { href: '/admin/users', title: 'Users', icon: <Users /> },
     { href: '/admin/services', title: 'Services', icon: <Zap /> },
+    { href: '/admin/transactions', title: 'Transactions', icon: <History /> },
     { href: '/admin/api-providers', title: 'APIs', icon: <Plug /> },
-    { href: '/admin/api-connector', title: 'AI Tool', icon: <Wand2 /> },
 ];
 
 export function AdminBottomNav() {
