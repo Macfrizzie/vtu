@@ -1,6 +1,7 @@
 
 
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -186,7 +187,7 @@ export async function purchaseService(uid: string, amount: number, description: 
         userId: uid,
         userEmail: userEmail,
         description: description,
-        amount: -amount,
+        amount: amount > 0 ? -amount : amount,
         type: 'Debit',
         status: 'Successful',
         date: new Date(),
@@ -327,8 +328,8 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     if (snapshot.empty) {
         // Seed initial data if collection is empty
         const initialProviders: Omit<ApiProvider, 'id'>[] = [
-            { name: 'VTPass', baseUrl: 'https://api-service.vtpass.com/api', status: 'Active', priority: 'Primary' },
-            { name: 'Shago', baseUrl: 'https://shago.com/api', status: 'Inactive', priority: 'Fallback' },
+            { name: 'VTPass', description: 'Primary provider for VTU services.', baseUrl: 'https://api-service.vtpass.com/api', status: 'Active', priority: 'Primary', apiKey: '', apiSecret: '', requestHeaders: '{}', transactionCharge: 10 },
+            { name: 'Shago', description: 'Fallback for bill payments.', baseUrl: 'https://shago.com/api', status: 'Inactive', priority: 'Fallback', apiKey: '', apiSecret: '', requestHeaders: '{}', transactionCharge: 15 },
         ];
         const batch = writeBatch(db);
         initialProviders.forEach(provider => {
@@ -345,8 +346,15 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
 }
 
 export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
-    const providersRef = collection(db, 'apiProviders');
-    await addDoc(providersRef, provider);
+    const providersCol = collection(db, 'apiProviders');
+    
+    const providersQuery = query(providersCol);
+    const snapshot = await getDocs(providersQuery);
+    if (snapshot.empty) {
+        await getApiProviders(); // This will seed the data if it's empty
+    }
+
+    await addDoc(providersCol, provider);
 }
 
 export async function updateApiProvider(id: string, data: Partial<Omit<ApiProvider, 'id'>>) {

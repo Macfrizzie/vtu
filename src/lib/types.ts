@@ -33,7 +33,12 @@ export type Service = {
 export type ApiProvider = {
   id: string;
   name: string;
+  description: string;
   baseUrl: string;
+  apiKey: string;
+  apiSecret: string;
+  requestHeaders: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';
+  transactionCharge: number;
 };

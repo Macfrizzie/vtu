@@ -10,8 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, MoreHorizontal, Loader2, Trash2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,12 +29,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+} from "@/components/ui/alert-dialog";
+import { Textarea } from '@/components/ui/textarea';
 
 const providerFormSchema = z.object({
   name: z.string().min(2, 'Provider name must be at least 2 characters.'),
+  description: z.string().optional(),
   baseUrl: z.string().url('Please enter a valid URL.'),
+  apiKey: z.string().optional(),
+  apiSecret: z.string().optional(),
+  requestHeaders: z.string().refine(val => {
+    try {
+      JSON.parse(val);
+      return true;
+    } catch (e) {
+      return val === '' || val === '{}';
+    }
+  }, { message: 'Request headers must be a valid JSON object.' }).optional(),
+  transactionCharge: z.coerce.number().min(0, 'Transaction charge cannot be negative.'),
   status: z.enum(['Active', 'Inactive']),
   priority: z.enum(['Primary', 'Fallback']),
 });
@@ -53,7 +65,12 @@ export default function AdminApiProvidersPage() {
     resolver: zodResolver(providerFormSchema),
     defaultValues: {
       name: '',
+      description: '',
       baseUrl: '',
+      apiKey: '',
+      apiSecret: '',
+      requestHeaders: '{}',
+      transactionCharge: 0,
       status: 'Active',
       priority: 'Primary',
     },
@@ -72,37 +89,58 @@ export default function AdminApiProvidersPage() {
   }
 
   useEffect(() => {
-    setLoading(true);
     fetchProviders();
   }, []);
   
-  useEffect(() => {
-    if (editingProvider) {
-      form.reset(editingProvider);
-      setIsFormOpen(true);
-    } else {
-      form.reset({ name: '', baseUrl: '', status: 'Active', priority: 'Primary' });
-    }
-  }, [editingProvider, form]);
-
   const handleFormOpen = (provider: ApiProvider | null) => {
     setEditingProvider(provider);
+    if (provider) {
+        form.reset({
+            ...provider,
+            description: provider.description || '',
+            apiKey: provider.apiKey || '',
+            apiSecret: provider.apiSecret || '',
+            requestHeaders: provider.requestHeaders || '{}',
+            transactionCharge: provider.transactionCharge || 0,
+        });
+    } else {
+        form.reset({
+          name: '',
+          description: '',
+          baseUrl: '',
+          apiKey: '',
+          apiSecret: '',
+          requestHeaders: '{}',
+          transactionCharge: 0,
+          status: 'Active',
+          priority: 'Primary',
+        });
+    }
     setIsFormOpen(true);
   }
 
   const handleFormClose = () => {
-    setEditingProvider(null);
     setIsFormOpen(false);
+    setEditingProvider(null);
   }
 
   async function onSubmit(values: ProviderFormData) {
     setIsSubmitting(true);
+    const dataToSubmit = {
+      ...values,
+      description: values.description || '',
+      apiKey: values.apiKey || '',
+      apiSecret: values.apiSecret || '',
+      requestHeaders: values.requestHeaders || '{}',
+      transactionCharge: values.transactionCharge || 0,
+    }
+
     try {
       if (editingProvider) {
-        await updateApiProvider(editingProvider.id, values);
+        await updateApiProvider(editingProvider.id, dataToSubmit);
         toast({ title: 'Success!', description: 'API Provider has been updated successfully.' });
       } else {
-        await addApiProvider(values);
+        await addApiProvider(dataToSubmit);
         toast({ title: 'Success!', description: 'API Provider has been added successfully.' });
       }
       handleFormClose();
@@ -141,7 +179,7 @@ export default function AdminApiProvidersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Configured Providers</CardTitle>
-          <CardDescription>A list of all integrated API providers.</CardDescription>
+          <CardDescription>A list of all integrated API providers with configuration details.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -154,6 +192,7 @@ export default function AdminApiProvidersPage() {
                 <TableRow>
                   <TableHead>Provider Name</TableHead>
                   <TableHead>Base URL</TableHead>
+                  <TableHead>Charge (₦)</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -164,6 +203,7 @@ export default function AdminApiProvidersPage() {
                   <TableRow key={provider.id}>
                     <TableCell className="font-medium">{provider.name}</TableCell>
                     <TableCell className="text-muted-foreground">{provider.baseUrl}</TableCell>
+                    <TableCell className="text-muted-foreground">₦{provider.transactionCharge.toFixed(2)}</TableCell>
                     <TableCell>
                         <Badge variant={provider.priority === 'Primary' ? 'default' : 'secondary'}>
                             {provider.priority}
@@ -218,78 +258,154 @@ export default function AdminApiProvidersPage() {
       
       {/* Add/Edit Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => {
+        <DialogContent className="sm:max-w-xl" onInteractOutside={(e) => {
             if (isSubmitting) e.preventDefault();
         }}>
           <DialogHeader>
             <DialogTitle>{editingProvider ? 'Edit' : 'Add'} API Provider</DialogTitle>
             <DialogDescription>
-              Fill in the details for the API provider.
+              Fill in the details for the API provider. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Provider Name</FormLabel>
+                        <FormControl>
+                        <Input placeholder="e.g., VTPass" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="baseUrl"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Base URL</FormLabel>
+                        <FormControl>
+                        <Input placeholder="e.g., https://api.vtpass.com/api" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="name"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Provider Name</FormLabel>
+                    <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., VTPass" {...field} />
+                      <Textarea placeholder="A brief description of the provider..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <FormField
+                    control={form.control}
+                    name="apiKey"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>API Key</FormLabel>
+                        <FormControl>
+                            <Input type="password" placeholder="Enter API Key" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="apiSecret"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>API Secret / Private Key</FormLabel>
+                        <FormControl>
+                           <Input type="password" placeholder="Enter API Secret" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+              </div>
+
+               <FormField
                 control={form.control}
-                name="baseUrl"
+                name="requestHeaders"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Base URL</FormLabel>
+                    <FormLabel>Request Headers (JSON)</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., https://api.vtpass.com/api" {...field} />
+                      <Textarea placeholder='{ "Content-Type": "application/json" }' className="font-mono text-xs" {...field} />
                     </FormControl>
-                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Priority</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Primary">Primary</SelectItem>
-                        <SelectItem value="Fallback">Fallback</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                 <FormField
+                    control={form.control}
+                    name="priority"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Priority</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="Primary">Primary</SelectItem>
+                            <SelectItem value="Fallback">Fallback</SelectItem>
+                        </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="Active">Active</SelectItem>
+                            <SelectItem value="Inactive">Inactive</SelectItem>
+                        </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="transactionCharge"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Transaction Charge (₦)</FormLabel>
+                        <FormControl>
+                            <Input type="number" placeholder="e.g., 10" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+               </div>
+
+              <DialogFooter className="pt-4">
                 <Button type="button" variant="outline" onClick={handleFormClose} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
