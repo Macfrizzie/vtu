@@ -42,6 +42,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo } from 'react';
 import { Loader2, Copy, Check } from 'lucide-react';
 import { purchaseService } from '@/lib/firebase/firestore';
+import { Label } from '@/components/ui/label';
 
 const educationPins = {
   waec: [{ id: 'waec-result', label: 'Result Checker Pin', price: 4000 }],
@@ -270,3 +271,5 @@ export default function EducationPinPage() {
     </>
   );
 }
+
+    
