@@ -3,35 +3,51 @@
 
 import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Printer } from 'lucide-react';
+import { ArrowLeft, Loader2, Printer, CheckCircle, XCircle } from 'lucide-react';
 import { getTransactionById } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { VtuBossLogo } from '@/components/icons';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function TransactionDetailPage({ params }: { params: Promise<{ transactionId: string }> }) {
   const { transactionId } = use(params);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchTransaction = async () => {
+    if (!transactionId) return;
+    setLoading(true);
+    try {
+      const tx = await getTransactionById(transactionId as string);
+      setTransaction(tx);
+    } catch (error) {
+      console.error('Failed to fetch transaction:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch transaction.' });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchTransaction() {
-      if (!transactionId) return;
-      setLoading(true);
-      try {
-        const tx = await getTransactionById(transactionId as string);
-        setTransaction(tx);
-      } catch (error) {
-        console.error('Failed to fetch transaction:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchTransaction();
   }, [transactionId]);
+
+  const handleStatusUpdate = async (status: 'Successful' | 'Failed') => {
+    // Placeholder for actual update logic
+    toast({ title: 'Simulating Update', description: `Marking transaction as ${status}...`});
+    // In the next step, we will call a Firestore function here.
+    // For now, we just update the local state to show the change.
+    if (transaction) {
+      setTransaction({ ...transaction, status: status });
+    }
+    toast({ title: 'Success!', description: `Transaction has been marked as ${status}.`});
+  };
 
   if (loading) {
     return (
@@ -100,6 +116,24 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ tr
             </InfoItem>
           </div>
         </CardContent>
+        {transaction.status === 'Pending' && (
+          <CardFooter className="border-t bg-muted/50 p-4">
+            <div className="flex flex-col w-full gap-2">
+                <p className="text-sm font-semibold text-center">Manual Verification</p>
+                <p className="text-xs text-muted-foreground text-center mb-2">This transaction is pending. Manually update its status below.</p>
+                <div className="flex w-full gap-2">
+                    <Button className="w-full" variant="outline" onClick={() => handleStatusUpdate('Successful')}>
+                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                        Mark as Successful
+                    </Button>
+                    <Button className="w-full" variant="destructive" onClick={() => handleStatusUpdate('Failed')}>
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Mark as Failed
+                    </Button>
+                </div>
+            </div>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
