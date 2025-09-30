@@ -29,6 +29,7 @@ export async function getUserData(uid: string): Promise<UserData | null> {
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
         return {
             ...data,
+            uid: userSnap.id,
             createdAt: createdAt,
         } as UserData;
     } else {
