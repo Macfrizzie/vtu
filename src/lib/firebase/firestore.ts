@@ -249,7 +249,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -259,6 +259,9 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
+    
+    // Sort in code to avoid composite index requirement
+    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
 }
@@ -363,7 +366,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
 
 export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
     const providersCol = collection(db, 'apiProviders');
-    const snapshot = await getDocs(providersCol);
+    const snapshot = await getDocs(query(providersCol));
     return snapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
 }
 
