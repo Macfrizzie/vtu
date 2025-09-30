@@ -28,7 +28,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
 
@@ -205,7 +204,7 @@ export default function AdminApiProvidersPage() {
                   <TableRow key={provider.id}>
                     <TableCell className="font-medium">{provider.name}</TableCell>
                     <TableCell className="text-muted-foreground">{provider.baseUrl}</TableCell>
-                    <TableCell className="text-muted-foreground">₦{provider.transactionCharge.toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground">₦{(provider.transactionCharge || 0).toFixed(2)}</TableCell>
                     <TableCell>
                         <Badge variant={provider.priority === 'Primary' ? 'default' : 'secondary'}>
                             {provider.priority}
@@ -420,3 +419,5 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
+
+    
