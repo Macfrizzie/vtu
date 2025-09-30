@@ -125,59 +125,61 @@ export default function AdminDashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentTransactions.map(tx => (
-                    <TableRow key={tx.id}>
-                      <TableCell>
-                        <div className="font-medium">
-                          {tx.userEmail?.split('@')[0] || 'N/A'}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(tx.date).toLocaleTimeString()}
-                        </div>
-                      </TableCell>
-                      <TableCell>{tx.description}</TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right font-semibold',
-                          tx.type === 'Credit'
-                            ? 'text-green-600'
-                            : 'text-red-600'
-                        )}
-                      >
-                        {tx.type === 'Credit' ? '+' : '-'}₦
-                        {Math.abs(tx.amount).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge
-                          variant={
-                            tx.status === 'Successful'
-                              ? 'default'
-                              : tx.status === 'Pending'
-                              ? 'secondary'
-                              : 'destructive'
-                          }
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentTransactions.map(tx => (
+                      <TableRow key={tx.id}>
+                        <TableCell>
+                          <div className="font-medium">
+                            {tx.userEmail?.split('@')[0] || 'N/A'}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(tx.date).toLocaleTimeString()}
+                          </div>
+                        </TableCell>
+                        <TableCell>{tx.description}</TableCell>
+                        <TableCell
                           className={cn(
-                            tx.status === 'Successful' &&
-                              'bg-green-500 hover:bg-green-600'
+                            'text-right font-semibold',
+                            tx.type === 'Credit'
+                              ? 'text-green-600'
+                              : 'text-red-600'
                           )}
                         >
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                          {tx.type === 'Credit' ? '+' : '-'}₦
+                          {Math.abs(tx.amount).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge
+                            variant={
+                              tx.status === 'Successful'
+                                ? 'default'
+                                : tx.status === 'Pending'
+                                ? 'secondary'
+                                : 'destructive'
+                            }
+                            className={cn(
+                              tx.status === 'Successful' &&
+                                'bg-green-500 hover:bg-green-600'
+                            )}
+                          >
+                            {tx.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
           <Card>
