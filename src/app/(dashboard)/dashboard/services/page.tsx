@@ -30,6 +30,7 @@ const getServiceUrl = (service: Service) => {
     if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
     if (name.includes('data')) return `/dashboard/services/data${query}`;
     if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
+    if (name.includes('cable')) return `/dashboard/services/cable${query}`;
     // Add more mappings here as new service pages are created
     return '#';
 }
