@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,8 +12,8 @@ import type { Transaction } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { VtuBossLogo } from '@/components/icons';
 
-export default function TransactionDetailPage({ params }: { params: { transactionId: string } }) {
-  const { transactionId } = params;
+export default function TransactionDetailPage({ params }: { params: Promise<{ transactionId: string }> }) {
+  const { transactionId } = use(params);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +22,7 @@ export default function TransactionDetailPage({ params }: { params: { transactio
       if (!transactionId) return;
       setLoading(true);
       try {
-        const tx = await getTransactionById(transactionId);
+        const tx = await getTransactionById(transactionId as string);
         setTransaction(tx);
       } catch (error) {
         console.error('Failed to fetch transaction:', error);
