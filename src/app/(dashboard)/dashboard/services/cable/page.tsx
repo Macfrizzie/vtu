@@ -138,7 +138,7 @@ export default function CableTvPage() {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but you need ₦${selectedPackage.price.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${selectedPackage.price.toLocaleString()}.`,
       });
       return;
     }
@@ -146,7 +146,7 @@ export default function CableTvPage() {
     setIsPurchasing(true);
     try {
       const description = `${selectedPackage.label.split('(')[0]} for ${values.smartCardNumber}`;
-      await purchaseService(user.uid, selectedPackage.price, description, user.email!);
+      await purchaseService(user.uid, selectedPackage.price, description, user.email!, values.provider);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',

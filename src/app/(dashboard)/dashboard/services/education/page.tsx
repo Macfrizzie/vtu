@@ -106,7 +106,7 @@ export default function EducationPinPage() {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but you need ₦${selectedPin.price.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${selectedPin.price.toLocaleString()}.`,
       });
       return;
     }
@@ -119,7 +119,7 @@ export default function EducationPinPage() {
       const newSerial = 'VTU' + Date.now();
 
       const description = `${selectedPin.label} for ${values.provider.toUpperCase()}`;
-      await purchaseService(user.uid, selectedPin.price, description, user.email!);
+      await purchaseService(user.uid, selectedPin.price, description, user.email!, values.provider);
       forceRefetch();
 
       setGeneratedPin({ pin: newPin, serial: newSerial });
@@ -271,5 +271,3 @@ export default function EducationPinPage() {
     </>
   );
 }
-
-    

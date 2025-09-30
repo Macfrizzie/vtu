@@ -77,9 +77,10 @@ export default function AirtimePage() {
   useEffect(() => {
     if (provider) {
         const networkKey = provider.toLowerCase();
-        const network = networkMapping[networkKey];
-        if (network) {
-            form.setValue('network', network);
+        if (networkKey in networkMapping) {
+            form.setValue('network', networkMapping[networkKey]);
+        } else if (Object.values(networkOptions).some(opt => opt.value === networkKey)) {
+            form.setValue('network', networkKey);
         }
     }
   }, [provider, form]);
@@ -95,11 +96,13 @@ export default function AirtimePage() {
       return;
     }
     
+    // In a real app, we'd fetch the fee for the service. For now, let's assume a small fee or check if it exists.
+    // The purchaseService function now handles fee logic.
     if (userData.walletBalance < values.amount) {
         toast({
             variant: 'destructive',
             title: 'Insufficient Funds',
-            description: `Your wallet balance is ₦${userData.walletBalance.toLocaleString()}, but you need ₦${values.amount.toLocaleString()}.`,
+            description: `Your wallet balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${values.amount.toLocaleString()}.`,
         });
         return;
     }
@@ -107,11 +110,11 @@ export default function AirtimePage() {
     setIsPurchasing(true);
     try {
       const description = `${values.network.toUpperCase()} Airtime Purchase for ${values.phone}`;
-      await purchaseService(user.uid, values.amount, description, user.email!);
+      await purchaseService(user.uid, values.amount, description, user.email!, 'airtime');
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
-        description: `₦${values.amount.toLocaleString()} airtime for ${values.phone} was purchased successfully.`,
+        description: `Your airtime purchase for ${values.phone} was successful.`,
       });
       form.reset({
         network: '',

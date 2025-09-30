@@ -95,7 +95,7 @@ export default function ElectricityPage() {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but you need ₦${values.amount.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${values.amount.toLocaleString()}.`,
       });
       return;
     }
@@ -103,7 +103,7 @@ export default function ElectricityPage() {
     setIsPurchasing(true);
     try {
       const description = `${values.disco.toUpperCase()} Electricity payment for ${values.meterNumber}`;
-      await purchaseService(user.uid, values.amount, description, user.email!);
+      await purchaseService(user.uid, values.amount, description, user.email!, values.disco);
       forceRefetch();
       toast({
         title: 'Payment Successful!',
@@ -242,5 +242,3 @@ export default function ElectricityPage() {
     </div>
   );
 }
-
-    

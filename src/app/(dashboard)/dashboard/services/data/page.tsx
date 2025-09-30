@@ -124,7 +124,7 @@ export default function DataPage() {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but you need ₦${selectedPlan.price.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${selectedPlan.price.toLocaleString()}.`,
       });
       return;
     }
@@ -132,7 +132,7 @@ export default function DataPage() {
     setIsPurchasing(true);
     try {
       const description = `${selectedPlan.label.split('(')[0]} for ${values.phone}`;
-      await purchaseService(user.uid, selectedPlan.price, description, user.email!);
+      await purchaseService(user.uid, selectedPlan.price, description, user.email!, values.network);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',

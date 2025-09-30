@@ -172,20 +172,36 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
 }
 
 
-export async function purchaseService(uid: string, amount: number, description: string, userEmail: string) {
+export async function purchaseService(uid: string, baseAmount: number, description: string, userEmail: string, serviceCode?: string) {
     await checkAndSeedServices();
     const userRef = doc(db, 'users', uid);
+    let totalAmount = baseAmount;
+    let finalDescription = description;
+
+    if (serviceCode) {
+        const servicesRef = collection(db, 'services');
+        const q = query(servicesRef, where('provider', '==', serviceCode));
+        const serviceSnapshot = await getDocs(q);
+        if (!serviceSnapshot.empty) {
+            const serviceDoc = serviceSnapshot.docs[0];
+            const service = serviceDoc.data() as Service;
+            if (service.fee > 0) {
+                totalAmount += service.fee;
+                finalDescription = `${description} (Fee: ₦${service.fee})`;
+            }
+        }
+    }
     
     await updateDoc(userRef, {
-        walletBalance: increment(-amount)
+        walletBalance: increment(-totalAmount)
     });
 
     // Log the transaction
     const newTransactionRef = await addDoc(collection(db, 'transactions'), {
         userId: uid,
         userEmail: userEmail,
-        description: description,
-        amount: amount > 0 ? -amount : amount,
+        description: finalDescription,
+        amount: totalAmount > 0 ? -totalAmount : totalAmount,
         type: 'Debit',
         status: 'Successful',
         date: new Date(),
