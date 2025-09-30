@@ -2,7 +2,7 @@
 
 'use server';
 
-import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc, runTransaction } from 'firebase/firestore';
 import { app } from './client-app';
 import type { Transaction, Service, User, ApiProvider, UserData } from '../types';
 import { getAuth } from 'firebase-admin/auth';
@@ -320,6 +320,43 @@ export async function updateService(id: string, data: Partial<Omit<Service, 'id'
 export async function updateServiceStatus(id: string, status: 'Active' | 'Inactive') {
     const serviceRef = doc(db, 'services', id);
     await updateDoc(serviceRef, { status });
+}
+
+export async function bulkUpdateFees(updateType: 'increase_percentage' | 'increase_fixed' | 'decrease_percentage' | 'decrease_fixed', value: number) {
+    const servicesRef = collection(db, "services");
+    
+    await runTransaction(db, async (transaction) => {
+        const serviceSnapshot = await getDocs(servicesRef);
+        serviceSnapshot.forEach(serviceDoc => {
+            const service = serviceDoc.data() as Service;
+            const currentFees = service.fees || { Customer: 0, Vendor: 0, Admin: 0 };
+            const newFees = { ...currentFees };
+
+            for (const role in newFees) {
+                if (Object.prototype.hasOwnProperty.call(newFees, role)) {
+                    const currentFee = newFees[role as keyof typeof newFees];
+                    let newFee = currentFee;
+
+                    switch(updateType) {
+                        case 'increase_percentage':
+                            newFee = currentFee * (1 + value / 100);
+                            break;
+                        case 'increase_fixed':
+                            newFee = currentFee + value;
+                            break;
+                        case 'decrease_percentage':
+                            newFee = currentFee * (1 - value / 100);
+                            break;
+                        case 'decrease_fixed':
+                            newFee = currentFee - value;
+                            break;
+                    }
+                    newFees[role as keyof typeof newFees] = Math.max(0, newFee); // Ensure fee is not negative
+                }
+            }
+            transaction.update(serviceDoc.ref, { fees: newFees });
+        });
+    });
 }
 
 

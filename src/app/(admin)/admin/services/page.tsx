@@ -10,13 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Loader2 } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Loader2, TrendingUp } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect } from '@/lib/firebase/firestore';
+import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect, bulkUpdateFees } from '@/lib/firebase/firestore';
 import type { Service, ApiProvider } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,6 +32,11 @@ const serviceFormSchema = z.object({
   apiProviderId: z.string().optional(),
 });
 
+const bulkUpdateSchema = z.object({
+  updateType: z.enum(['increase_percentage', 'increase_fixed', 'decrease_percentage', 'decrease_fixed']),
+  value: z.coerce.number().min(0, "Value must be positive."),
+});
+
 type SimpleProvider = Pick<ApiProvider, 'id' | 'name'>;
 
 export default function AdminServicesPage() {
@@ -39,6 +44,7 @@ export default function AdminServicesPage() {
   const [apiProviders, setApiProviders] = useState<SimpleProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
@@ -52,6 +58,14 @@ export default function AdminServicesPage() {
       status: 'Active',
       apiProviderId: '',
     },
+  });
+
+  const bulkUpdateForm = useForm<z.infer<typeof bulkUpdateSchema>>({
+    resolver: zodResolver(bulkUpdateSchema),
+    defaultValues: {
+      updateType: 'increase_percentage',
+      value: 10,
+    }
   });
 
   async function fetchData() {
@@ -140,6 +154,21 @@ export default function AdminServicesPage() {
     }
   };
 
+  async function onBulkUpdateSubmit(values: z.infer<typeof bulkUpdateSchema>) {
+    setIsSubmitting(true);
+    try {
+      await bulkUpdateFees(values.updateType, values.value);
+      toast({ title: 'Success!', description: 'All service fees have been updated.' });
+      setIsBulkUpdateOpen(false);
+      await fetchData();
+    } catch (error) {
+      console.error("Failed to bulk update fees:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update service fees.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   const getProviderName = (providerId?: string) => {
     if (!providerId) return 'N/A';
     return apiProviders.find(p => p.id === providerId)?.name || 'Unknown';
@@ -152,9 +181,14 @@ export default function AdminServicesPage() {
           <h1 className="text-3xl font-bold">Service Management</h1>
           <p className="text-muted-foreground">Configure and manage all services and providers.</p>
         </div>
-        <Button onClick={() => handleFormOpen(null)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Service
-        </Button>
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsBulkUpdateOpen(true)}>
+                <TrendingUp className="mr-2 h-4 w-4" /> Bulk Update Prices
+            </Button>
+            <Button onClick={() => handleFormOpen(null)}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Service
+            </Button>
+        </div>
       </div>
       
       <Card>
@@ -349,6 +383,61 @@ export default function AdminServicesPage() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Update Dialog */}
+      <Dialog open={isBulkUpdateOpen} onOpenChange={setIsBulkUpdateOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Bulk Update Service Fees</DialogTitle>
+                <DialogDescription>
+                    Apply a pricing adjustment to all services at once. This action cannot be undone.
+                </DialogDescription>
+            </DialogHeader>
+            <Form {...bulkUpdateForm}>
+                <form onSubmit={bulkUpdateForm.handleSubmit(onBulkUpdateSubmit)} className="space-y-4 py-4">
+                    <FormField
+                        control={bulkUpdateForm.control}
+                        name="updateType"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Update Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="increase_percentage">Increase by Percentage (%)</SelectItem>
+                                    <SelectItem value="increase_fixed">Increase by Fixed Amount (₦)</SelectItem>
+                                    <SelectItem value="decrease_percentage">Decrease by Percentage (%)</SelectItem>
+                                    <SelectItem value="decrease_fixed">Decrease by Fixed Amount (₦)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={bulkUpdateForm.control}
+                        name="value"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Value</FormLabel>
+                                <FormControl>
+                                    <Input type="number" placeholder="e.g., 10" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsBulkUpdateOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button type="submit" disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Apply Update
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </Form>
         </DialogContent>
       </Dialog>
     </div>
