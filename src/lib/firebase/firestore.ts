@@ -192,32 +192,6 @@ export async function purchaseService(uid: string, amount: number, description: 
     });
 }
 
-export async function createPendingTransaction(uid: string, email?: string | null) {
-    const amount = 150; // A small, fixed amount for the test
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists() || userSnap.data().walletBalance < amount) {
-        throw new Error('Insufficient balance to create a test transaction. Please fund your wallet first.');
-    }
-
-    await updateDoc(userRef, {
-        walletBalance: increment(-amount)
-    });
-    
-    // Log the transaction as Pending
-    await addDoc(collection(db, 'transactions'), {
-        userId: uid,
-        userEmail: email,
-        description: 'Test Pending Transaction',
-        amount: -amount,
-        type: 'Debit',
-        status: 'Pending',
-        date: new Date(),
-    });
-}
-
-
 export async function getTransactions(): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
     const q = query(transactionsCol, orderBy('date', 'desc'));
