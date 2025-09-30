@@ -208,6 +208,22 @@ export async function getTransactions(): Promise<Transaction[]> {
     return transactionList;
 }
 
+export async function getTransactionById(id: string): Promise<Transaction | null> {
+    const transactionRef = doc(db, 'transactions', id);
+    const transactionSnap = await getDoc(transactionRef);
+
+    if (transactionSnap.exists()) {
+        const data = transactionSnap.data();
+        return {
+            id: transactionSnap.id,
+            ...data,
+            date: data.date.toDate(),
+        } as Transaction;
+    } else {
+        return null;
+    }
+}
+
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
     const q = query(transactionsCol, where('userId', '==', uid));

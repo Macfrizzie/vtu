@@ -12,6 +12,7 @@ import { Filter, Loader2 } from 'lucide-react';
 import { getTransactions } from '@/lib/firebase/firestore';
 import type { Transaction } from '@/lib/types';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useRouter } from 'next/navigation';
 
 
 export default function AdminTransactionsPage() {
@@ -20,6 +21,7 @@ export default function AdminTransactionsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
     const [typeFilter, setTypeFilter] = useState<string[]>([]);
+    const router = useRouter();
 
     useEffect(() => {
         async function fetchTransactions() {
@@ -55,6 +57,10 @@ export default function AdminTransactionsPage() {
             current.includes(value) ? current.filter(item => item !== value) : [...current, value]
         );
     }
+
+    const handleRowClick = (transactionId: string) => {
+        router.push(`/admin/transactions/${transactionId}`);
+    };
 
   return (
     <div className="space-y-8">
@@ -127,7 +133,7 @@ export default function AdminTransactionsPage() {
                 </TableHeader>
                 <TableBody>
                 {filteredTransactions.map((tx) => (
-                    <TableRow key={tx.id}>
+                    <TableRow key={tx.id} onClick={() => handleRowClick(tx.id)} className="cursor-pointer">
                     <TableCell>{new Date(tx.date).toLocaleString()}</TableCell>
                     <TableCell>{tx.userEmail}</TableCell>
                     <TableCell className="font-medium">{tx.description}</TableCell>
