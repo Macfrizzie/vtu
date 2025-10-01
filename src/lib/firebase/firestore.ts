@@ -1,11 +1,12 @@
 
 
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
@@ -434,6 +435,25 @@ export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
     await deleteDoc(providerRef);
 }
+
+// --- Pricing Functions ---
+
+export async function addAirtimePrice(price: Omit<AirtimePrice, 'id'>) {
+    const pricesRef = collection(db, 'airtimePrices');
+    await addDoc(pricesRef, price);
+}
+
+export async function getAirtimePrices(): Promise<AirtimePrice[]> {
+    const pricesCol = collection(db, 'airtimePrices');
+    const snapshot = await getDocs(query(pricesCol));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AirtimePrice));
+}
+
+export async function deleteAirtimePrice(id: string) {
+    const priceRef = doc(db, 'airtimePrices', id);
+    await deleteDoc(priceRef);
+}
     
 
     
+

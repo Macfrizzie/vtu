@@ -1,6 +1,7 @@
 
 
 
+
 export type User = {
   id: string;
   uid: string;
@@ -61,5 +62,25 @@ export type ApiProvider = {
   services?: string[]; // Array of service IDs this provider handles
 };
 
+export type AirtimePrice = {
+    id: string;
+    serviceId: string;
+    apiProviderId: string;
+    networkId: string;
+    networkName: string;
+    discountPercent: number;
+};
+
+export type DataPlan = {
+    id: string;
+    serviceId: string;
+    apiProviderId: string;
+    networkId: string;
+    networkName: string;
+    planId: string;
+    planName: string;
+    price: number;
+};
     
+
 
