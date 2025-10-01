@@ -47,7 +47,7 @@ async function checkAndSeedServices() {
             { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata', variations: [] },
             { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata', variations: [] },
             { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata', variations: [] },
-            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [] },
+            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [{id: 'prepaid', name: 'Prepaid Payment', price: 0}, {id: 'postpaid', name: 'Postpaid Payment', price: 0}] },
         ];
 
         const batch = writeBatch(db);
@@ -544,4 +544,9 @@ export async function getAirtimePrices(): Promise<AirtimePrice[]> {
 export async function deleteAirtimePrice(id: string) {
     const priceRef = doc(db, 'airtimePrices', id);
     await deleteDoc(priceRef);
+}
+
+export async function updateServiceVariations(serviceId: string, variations: ServiceVariation[]) {
+    const serviceRef = doc(db, 'services', serviceId);
+    await updateDoc(serviceRef, { variations });
 }
