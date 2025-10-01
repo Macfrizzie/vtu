@@ -83,5 +83,3 @@ export async function fetchHusmoDataPlans(baseUrl: string, apiKey: string, netwo
     const response = await makeApiRequest<{ DATAPLANS: DataPlan[] }>(baseUrl, apiKey, endpoint);
     return response.DATAPLANS;
 }
-
-    
