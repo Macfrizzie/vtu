@@ -30,45 +30,15 @@ import {
 } from '@/components/ui/select';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { purchaseService } from '@/lib/firebase/firestore';
-import { useSearchParams } from 'next/navigation';
-
-const dataPlans: { [key: string]: { id: string; label: string; price: number }[] } = {
-  mtn: [
-    { id: 'mtn-1gb', label: '1GB - 30 Days (₦300)', price: 300 },
-    { id: 'mtn-2gb', label: '2.5GB - 30 Days (₦500)', price: 500 },
-    { id: 'mtn-5gb', label: '6GB - 30 Days (₦1,200)', price: 1200 },
-  ],
-  glo: [
-    { id: 'glo-1gb', label: '1.2GB - 30 Days (₦300)', price: 300 },
-    { id: 'glo-2gb', label: '3GB - 30 Days (₦500)', price: 500 },
-    { id: 'glo-5gb', label: '7GB - 30 Days (₦1,200)', price: 1200 },
-  ],
-  airtel: [
-    { id: 'airtel-1gb', label: '1GB - 30 Days (₦300)', price: 300 },
-    { id: 'airtel-2gb', label: '2GB - 30 Days (₦500)', price: 500 },
-    { id: 'airtel-5gb', label: '6GB - 30 Days (₦1,200)', price: 1200 },
-  ],
-  '9mobile': [
-    { id: '9mobile-1gb', label: '1GB - 30 Days (₦300)', price: 300 },
-    { id: '9mobile-2gb', label: '2.5GB - 30 Days (₦500)', price: 500 },
-    { id: '9mobile-5gb', label: '7GB - 30 Days (₦1,200)', price: 1200 },
-  ],
-};
-
-const networkMapping: { [key: string]: keyof typeof dataPlans } = {
-  'mtn ng': 'mtn',
-  'airtel ng': 'airtel',
-  'glo ng': 'glo',
-  '9mobile ng': '9mobile',
-};
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import type { Service, ServiceVariation } from '@/lib/types';
 
 const formSchema = z.object({
-  network: z.enum(['mtn', 'glo', 'airtel', '9mobile']),
+  serviceId: z.string().min(1, 'Please select a network.'),
   phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number.'),
-  dataPlan: z.string().min(1, 'Please select a data plan.'),
+  variationId: z.string().min(1, 'Please select a data plan.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -77,79 +47,94 @@ export default function DataPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const searchParams = useSearchParams();
-  const provider = searchParams.get('provider');
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      serviceId: '',
       phone: '',
+      variationId: '',
     },
   });
 
   useEffect(() => {
-    if (provider) {
-      const networkKey = provider.toLowerCase();
-      const network = networkMapping[networkKey];
-      if (network) {
-        form.setValue('network', network);
+    async function fetchServices() {
+      setServicesLoading(true);
+      try {
+        const allServices = await getServices();
+        setServices(allServices.filter(s => s.category === 'Data' && s.status === 'Active'));
+      } catch (error) {
+        console.error("Failed to fetch data services:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load data plans.' });
+      } finally {
+        setServicesLoading(false);
       }
     }
-  }, [provider, form]);
+    fetchServices();
+  }, [toast]);
 
-  const selectedNetwork = form.watch('network');
-  const availablePlans = selectedNetwork ? dataPlans[selectedNetwork] : [];
+  const selectedServiceId = form.watch('serviceId');
+  
+  const availablePlans = useMemo(() => {
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    return selectedService?.variations || [];
+  }, [selectedServiceId, services]);
 
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: 'You must be logged in to make a purchase.',
-      });
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
 
-    const selectedPlan = availablePlans.find(plan => plan.id === values.dataPlan);
-    if (!selectedPlan) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid Plan',
-        description: 'The selected data plan could not be found.',
-      });
+    const selectedService = services.find(s => s.id === values.serviceId);
+    const selectedVariation = selectedService?.variations.find(v => v.id === values.variationId);
+
+    if (!selectedVariation) {
+      toast({ variant: 'destructive', title: 'Invalid Plan', description: 'The selected data plan could not be found.' });
       return;
     }
+    
+    const userRole = userData.role || 'Customer';
+    const fee = selectedVariation.fees?.[userRole] ?? 0;
+    const totalCost = selectedVariation.price + fee;
 
-    if (userData.walletBalance < selectedPlan.price) {
+    if (userData.walletBalance < totalCost) {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${selectedPlan.price.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires ₦${totalCost.toLocaleString()}.`,
       });
       return;
     }
 
     setIsPurchasing(true);
     try {
-      const description = `${selectedPlan.label.split('(')[0]} for ${values.phone}`;
-      await purchaseService(user.uid, selectedPlan.price, description, user.email!, values.network);
+      const description = `${selectedVariation.name} for ${values.phone}`;
+      await purchaseService(user.uid, selectedVariation, description, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
-        description: `${selectedPlan.label} for ${values.phone} was purchased.`,
+        description: `${selectedVariation.name} for ${values.phone} was purchased.`,
       });
-      form.reset();
+      form.reset({ serviceId: '', phone: '', variationId: ''});
     } catch (error) {
       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       toast({
         variant: 'destructive',
         title: 'Purchase Failed',
-        description: 'Something went wrong. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setIsPurchasing(false);
     }
   }
+
+  const selectedVariationId = form.watch('variationId');
+  const selectedVariation = availablePlans.find(p => p.id === selectedVariationId);
+  const totalCost = selectedVariation ? selectedVariation.price + (selectedVariation.fees?.[userData?.role || 'Customer'] || 0) : 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -177,27 +162,29 @@ export default function DataPage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="network"
+                name="serviceId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Network</FormLabel>
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
-                        form.resetField('dataPlan');
+                        form.resetField('variationId');
                       }}
                       value={field.value}
+                      disabled={servicesLoading}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a network" />
+                          <SelectValue placeholder={servicesLoading ? "Loading networks..." : "Select a network"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="mtn">MTN</SelectItem>
-                        <SelectItem value="glo">Glo</SelectItem>
-                        <SelectItem value="airtel">Airtel</SelectItem>
-                        <SelectItem value="9mobile">9mobile</SelectItem>
+                        {services.map(service => (
+                          <SelectItem key={service.id} value={service.id}>
+                            {service.name}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -219,35 +206,39 @@ export default function DataPage() {
               />
               <FormField
                 control={form.control}
-                name="dataPlan"
+                name="variationId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Data Plan</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={!selectedNetwork}
+                      disabled={!selectedServiceId || availablePlans.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a data plan" />
+                          <SelectValue placeholder={!selectedServiceId ? "Select network first" : "Select a data plan"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {availablePlans.map(plan => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            {plan.label}
-                          </SelectItem>
-                        ))}
+                        {availablePlans.map(plan => {
+                            const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
+                            const finalPrice = plan.price + fee;
+                            return (
+                                <SelectItem key={plan.id} value={plan.id}>
+                                    {plan.name} (₦{finalPrice.toLocaleString()})
+                                </SelectItem>
+                            )
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing}>
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedVariationId}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Purchase Data
+                {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Data')}
               </Button>
             </CardContent>
           </form>
@@ -256,3 +247,5 @@ export default function DataPage() {
     </div>
   );
 }
+
+    

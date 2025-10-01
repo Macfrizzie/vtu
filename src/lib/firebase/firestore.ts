@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc, runTransaction } from 'firebase/firestore';
@@ -179,7 +178,7 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
 }
 
 
-export async function purchaseService(uid: string, amount: number, description: string, userEmail: string, serviceProviderCode: string) {
+export async function purchaseService(uid: string, variation: ServiceVariation, description: string, userEmail: string) {
     await checkAndSeedServices();
     return await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', uid);
@@ -191,30 +190,12 @@ export async function purchaseService(uid: string, amount: number, description: 
         const userData = userSnap.data() as UserData;
         const userRole = userData.role;
 
-        let totalAmount = amount;
+        const serviceFee = variation.fees?.[userRole] ?? 0;
+        const totalAmount = variation.price + serviceFee;
+        
         let finalDescription = description;
-        let serviceFee = 0;
-
-        const servicesRef = collection(db, 'services');
-        const q = query(servicesRef, where('provider', '==', serviceProviderCode));
-        const serviceSnapshot = await getDocs(q);
-
-        // This logic needs to be updated for variations. For now, it's a simplified version.
-        if (!serviceSnapshot.empty) {
-            const serviceDoc = serviceSnapshot.docs[0];
-            const service = serviceDoc.data() as Service;
-            
-            // This is a placeholder. Correct fee logic will depend on the selected variation.
-            // Let's find a variation to get a sample fee.
-            const firstVariation = service.variations?.[0];
-            if (firstVariation && firstVariation.fees && typeof firstVariation.fees[userRole] === 'number') {
-                serviceFee = firstVariation.fees[userRole];
-            }
-
-            if (serviceFee > 0) {
-                totalAmount += serviceFee;
-                finalDescription = `${description} (Fee: ₦${serviceFee})`;
-            }
+        if (serviceFee > 0) {
+            finalDescription = `${description} (Fee: ₦${serviceFee})`;
         }
         
         if (userData.walletBalance < totalAmount) {
@@ -225,7 +206,6 @@ export async function purchaseService(uid: string, amount: number, description: 
             walletBalance: increment(-totalAmount)
         });
 
-        // Log the transaction
         const newTransactionRef = doc(collection(db, 'transactions'));
         transaction.set(newTransactionRef, {
             userId: uid,
@@ -465,3 +445,5 @@ export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
     await deleteDoc(providerRef);
 }
+
+    
