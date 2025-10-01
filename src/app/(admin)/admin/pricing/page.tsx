@@ -12,7 +12,7 @@ import { PlusCircle, Upload, MoreHorizontal, Loader2, Trash2 } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { getApiProviders, addAirtimePrice, getAirtimePrices, deleteAirtimePrice } from '@/lib/firebase/firestore';
 import type { ApiProvider, AirtimePrice } from '@/lib/types';
-import { getNetworks as fetchHusmoDataNetworks, type Network } from '@/services/husmodata';
+import { fetchHusmoDataNetworks, type Network } from '@/services/husmodata';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
