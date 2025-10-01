@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
+import { OverviewChart } from './overview-chart';
 
 export default function AdminDashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -124,7 +125,17 @@ export default function AdminDashboardPage() {
       )}
 
       {!loading && (
-        <div className="space-y-8">
+        <div className="grid gap-8 lg:grid-cols-2">
+            <Card className="lg:col-span-2">
+                <CardHeader>
+                    <CardTitle>Platform Activity</CardTitle>
+                    <CardDescription>Revenue and transaction volume over the last 7 days.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <OverviewChart transactions={transactions} />
+                </CardContent>
+            </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Real-time Transaction Monitoring</CardTitle>
@@ -194,7 +205,7 @@ export default function AdminDashboardPage() {
           
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">Quick Actions</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
                 <ActionCard 
                     title="Manage Users"
                     description="View, edit, and manage all users."
