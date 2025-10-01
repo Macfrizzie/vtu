@@ -1,7 +1,4 @@
 
-
-
-
 export type User = {
   id: string;
   uid: string;
@@ -41,10 +38,10 @@ export type Transaction = {
 export type Service = {
   id: string;
   name: string;
-  provider: string; // This can be a service code like 'mtn', 'dstv'
+  provider: string; // This can be a service code like '1' (for MTN), 'dstv' etc.
   category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
   status: 'Active' | 'Inactive';
-  apiProviderId?: string; // Link to an ApiProvider
+  apiProviderId: string; // Link to an ApiProvider
 };
 
 
@@ -81,6 +78,3 @@ export type DataPlan = {
     planName: string;
     price: number;
 };
-    
-
-

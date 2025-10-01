@@ -1,7 +1,4 @@
 
-
-
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -45,10 +42,10 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'MTN Airtime', provider: 'MTN NG', category: 'Airtime', status: 'Active' },
-            { name: 'Airtel Data', provider: 'Airtel NG', category: 'Data', status: 'Active' },
-            { name: 'DSTV Subscription', provider: 'MultiChoice', category: 'Cable', status: 'Inactive' },
-            { name: 'Ikeja Electric', provider: 'IKEDC', category: 'Electricity', status: 'Active' },
+            { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata' },
+            { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata' },
+            { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata' },
+            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata' },
         ];
 
         const batch = writeBatch(db);
@@ -155,105 +152,117 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
     });
 }
 
-export async function purchaseService(uid: string, serviceId: string, variationId: string, inputs: Record<string, any>, userEmail: string) {
+export async function purchaseService(uid: string, serviceId: string, inputs: Record<string, any>, userEmail: string) {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) throw new Error("User not found.");
+    const userData = userSnap.data() as UserData;
 
     const serviceRef = doc(db, 'services', serviceId);
     const serviceSnap = await getDoc(serviceRef);
     if (!serviceSnap.exists()) throw new Error("Service not found.");
-    
-    const service = serviceSnap.data() as Service;
+    const service = { id: serviceSnap.id, ...serviceSnap.data() } as Service;
 
-    // This logic needs to be updated to use the new pricing model.
-    // For now, it will fail as variations are removed from the service type.
-    // We will replace this with a call to fetch pricing from the new pricing collection.
+    let totalCost = 0;
+    let description = `${service.name} Purchase`;
+    let apiResponse: any;
 
-    const totalCost = inputs.amount || 100; // Placeholder
-    const description = `${service.name} for ${inputs.phone || inputs.smartCardNumber || inputs.meterNumber || ''}`;
-
-    const userData = userSnap.data() as UserData;
-    if (userData.walletBalance < totalCost) {
-        throw new Error(`Insufficient balance. You need ₦${totalCost}, but have ₦${userData.walletBalance}.`);
+    if (!service.apiProviderId) {
+        throw new Error("This service is not linked to an API provider.");
     }
 
-    // In a real app, here you would make the API call to the service provider.
-    let apiResponse = { status: 'success', message: 'Simulated purchase successful' };
-    
-    if (service.apiProviderId) {
-        const providerRef = doc(db, 'apiProviders', service.apiProviderId);
-        const providerSnap = await getDoc(providerRef);
-        if (providerSnap.exists()) {
-            const provider = providerSnap.data() as ApiProvider;
+    const providerRef = doc(db, 'apiProviders', service.apiProviderId);
+    const providerSnap = await getDoc(providerRef);
+    if (!providerSnap.exists()) {
+        throw new Error("API Provider configured for this service not found.");
+    }
+    const provider = providerSnap.data() as ApiProvider;
+
+    // --- Calculate Cost and Prepare API Request ---
+    let requestBody;
+    let endpoint;
+
+    switch (service.category) {
+        case 'Airtime': {
+            const priceRuleQuery = query(collection(db, 'airtimePrices'), 
+                where('networkId', '==', service.provider),
+                where('apiProviderId', '==', service.apiProviderId)
+            );
+            const priceRuleSnap = await getDocs(priceRuleQuery);
+            if (priceRuleSnap.empty) throw new Error("No pricing rule found for this network.");
+            const priceRule = priceRuleSnap.docs[0].data() as AirtimePrice;
+
+            const amount = inputs.amount;
+            const discount = (amount * priceRule.discountPercent) / 100;
+            totalCost = amount - discount;
+            description = `${service.name} (₦${amount}) for ${inputs.mobile_number}`;
             
-            let requestBody;
-            let endpoint;
-            
-            switch (service.category) {
-                case 'Electricity':
-                    endpoint = `${provider.baseUrl}/billpayment/`;
-                    requestBody = {
-                        disco_name: service.provider, // e.g. 'Ikeja Electric'
-                        amount: inputs.amount,
-                        meter_number: inputs.meterNumber,
-                        MeterType: inputs.meterType === 'prepaid' ? '1' : '2',
-                    };
-                    break;
-                case 'Education':
-                     endpoint = `${provider.baseUrl}/epin/`;
-                     requestBody = {
-                        exam_name: service.provider, // e.g. 'WAEC'
-                        quantity: 1,
-                     };
-                    break;
-                // Add cases for other services here...
-                default:
-                    // default to simulation if no case matches
-                    console.log(`Simulating purchase for category: ${service.category}`);
-                    break;
-            }
-
-            if (endpoint && requestBody) {
-                try {
-                    const response = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Token ${provider.apiKey}`,
-                            'Content-Type': 'application/json',
-                            ...(provider.requestHeaders ? JSON.parse(provider.requestHeaders) : {})
-                        },
-                        body: JSON.stringify(requestBody),
-                    });
-                    
-                    const responseData = await response.json();
-
-                    if (!response.ok || responseData.status === 'error' || responseData.Status === 'failed') {
-                         throw new Error(responseData.message || responseData.msg || `API Error: ${response.statusText}`);
-                    }
-                    apiResponse = responseData;
-
-                     if (service.category === 'Education') {
-                        if (!responseData.pins || responseData.pins.length === 0) {
-                            throw new Error("E-Pin purchase succeeded but no PINs were returned.");
-                        }
-                    }
-
-                } catch (apiError: any) {
-                    throw new Error(`API provider error: ${apiError.message}`);
-                }
-            }
+            endpoint = `${provider.baseUrl}/topup/`;
+            requestBody = {
+                network: service.provider, // This is the network_id
+                amount: inputs.amount,
+                mobile_number: inputs.mobile_number,
+                Ported_number: true, // Assuming ported number support by default
+                airtime_type: "VTU"
+            };
+            break;
         }
+        case 'Data':
+            // To be implemented
+            break;
+        case 'Electricity':
+            // To be implemented
+            break;
+        case 'Cable':
+            // To be implemented
+            break;
+        case 'Education':
+            // To be implemented
+            break;
+        default:
+            throw new Error(`Service category "${service.category}" is not supported for purchases yet.`);
     }
 
+    // --- Validate Balance ---
+    if (userData.walletBalance < totalCost) {
+        throw new Error(`Insufficient balance. You need ₦${totalCost.toLocaleString()}, but have ₦${userData.walletBalance.toLocaleString()}.`);
+    }
 
+    // --- Execute API Call ---
+    if (endpoint && requestBody) {
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Token ${provider.apiKey}`,
+                    'Content-Type': 'application/json',
+                    ...(provider.requestHeaders ? JSON.parse(provider.requestHeaders) : {})
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            const responseData = await response.json();
+            if (!response.ok || responseData.status === 'error' || responseData.Status === 'failed') {
+                throw new Error(responseData.message || responseData.msg || `API Error: ${response.statusText}`);
+            }
+            apiResponse = responseData;
+        } catch (apiError: any) {
+            throw new Error(`API provider error: ${apiError.message}`);
+        }
+    } else {
+        // Fallback for simulation if needed, though we aim for full API integration.
+        console.log(`Simulating purchase for ${service.name}. No endpoint/body configured.`);
+        apiResponse = { status: 'success', message: 'Simulated purchase successful' };
+    }
+
+    // --- Deduct from wallet and log transaction ---
     await updateDoc(userRef, { walletBalance: increment(-totalCost) });
     
     await addDoc(collection(db, 'transactions'), {
         userId: uid,
         userEmail,
-        description: `${description} (Fee: ₦0)`, // Fee needs to be recalculated
-        amount: -totalCost,
+        description,
+        amount: -totalCost, // Log the actual amount deducted
         type: 'Debit',
         status: 'Successful',
         date: new Date(),
@@ -262,6 +271,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
 
     return apiResponse;
 }
+
 
 export async function getTransactions(): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
@@ -404,13 +414,11 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     
     if (snapshot.empty) {
         const initialProviders: Omit<ApiProvider, 'id'>[] = [
-            { name: 'VTPass', description: 'Primary provider for VTU services.', baseUrl: 'https://api-service.vtpass.com/api', status: 'Active', priority: 'Primary', apiKey: '', apiSecret: '', requestHeaders: '{}', transactionCharge: 10 },
-            { name: 'Shago', description: 'Fallback for bill payments.', baseUrl: 'https://shago.com/api', status: 'Inactive', priority: 'Fallback', apiKey: '', apiSecret: '', requestHeaders: '{}', transactionCharge: 15 },
+            { name: 'HusmoData', description: 'Primary provider for VTU services.', baseUrl: 'https://husmodataapi.com/api', status: 'Active', priority: 'Primary', apiKey: '66f2e5c39ac8640f13cd888f161385b12f7e5e92', apiSecret: '', requestHeaders: '{}', transactionCharge: 0 },
         ];
         const batch = writeBatch(db);
         initialProviders.forEach(provider => {
-            const docRef = doc(collection(db, 'apiProviders'));
-            batch.set(docRef, provider);
+            batch.set(doc(providersCol, 'husmodata'), provider); // Use a predictable ID
         });
         await batch.commit();
         
@@ -453,7 +461,3 @@ export async function deleteAirtimePrice(id: string) {
     const priceRef = doc(db, 'airtimePrices', id);
     await deleteDoc(priceRef);
 }
-    
-
-    
-

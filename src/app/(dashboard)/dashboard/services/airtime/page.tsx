@@ -32,8 +32,8 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { purchaseService, getServices } from '@/lib/firebase/firestore';
-import type { Service } from '@/lib/types';
+import { purchaseService, getServices, getAirtimePrices } from '@/lib/firebase/firestore';
+import type { Service, AirtimePrice } from '@/lib/types';
 
 const formSchema = z.object({
   serviceId: z.string().min(1, 'Please select a network.'),
@@ -48,6 +48,7 @@ export default function AirtimePage() {
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
+  const [airtimePrices, setAirtimePrices] = useState<AirtimePrice[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -60,24 +61,42 @@ export default function AirtimePage() {
   });
 
   useEffect(() => {
-    async function fetchServices() {
+    async function fetchData() {
       setServicesLoading(true);
       try {
-        const allServices = await getServices();
+        const [allServices, allPrices] = await Promise.all([
+            getServices(),
+            getAirtimePrices(),
+        ]);
         setServices(allServices.filter(s => s.category === 'Airtime' && s.status === 'Active'));
+        setAirtimePrices(allPrices);
       } catch (error) {
-        console.error("Failed to fetch airtime services:", error);
+        console.error("Failed to fetch airtime data:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load networks.' });
       } finally {
         setServicesLoading(false);
       }
     }
-    fetchServices();
+    fetchData();
   }, [toast]);
 
   const selectedServiceId = form.watch('serviceId');
   const selectedService = services.find(s => s.id === selectedServiceId);
-  const selectedVariation = selectedService?.variations[0]; // Assuming one variation for airtime
+  const networkId = selectedService?.provider; // Assuming service.provider holds the networkId for husmodata
+
+  const applicablePriceRule = useMemo(() => {
+    if (!selectedService || !networkId) return null;
+    return airtimePrices.find(p => p.networkId === networkId && p.apiProviderId === selectedService.apiProviderId) || null;
+  }, [selectedService, networkId, airtimePrices]);
+
+  const amount = form.watch('amount');
+  
+  const { totalCost, discount } = useMemo(() => {
+    if (!applicablePriceRule) return { totalCost: amount, discount: 0 };
+    const discountAmount = (amount * applicablePriceRule.discountPercent) / 100;
+    return { totalCost: amount - discountAmount, discount: discountAmount };
+  }, [amount, applicablePriceRule]);
+
 
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
@@ -89,14 +108,11 @@ export default function AirtimePage() {
       return;
     }
     
-    if (!selectedVariation) {
+    if (!selectedService) {
         toast({ variant: 'destructive', title: 'Invalid Service', description: 'Please select a valid network.' });
         return;
     }
     
-    const serviceFee = selectedVariation.fees?.[userData.role] || 0;
-    const totalCost = values.amount + serviceFee;
-
     if (userData.walletBalance < totalCost) {
         toast({
             variant: 'destructive',
@@ -108,8 +124,8 @@ export default function AirtimePage() {
 
     setIsPurchasing(true);
     try {
-      const purchaseInputs = { phone: values.phone, amount: values.amount };
-      await purchaseService(user.uid, values.serviceId, selectedVariation.id, purchaseInputs, user.email!);
+      const purchaseInputs = { mobile_number: values.phone, amount: values.amount, network: networkId };
+      await purchaseService(user.uid, values.serviceId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
@@ -133,13 +149,6 @@ export default function AirtimePage() {
     }
   }
   
-  const serviceFee = useMemo(() => {
-    if (!selectedVariation || !userData) return 0;
-    return selectedVariation.fees?.[userData.role] || 0;
-  }, [selectedVariation, userData]);
-
-  const amount = form.watch('amount');
-  const totalCost = amount + serviceFee;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -217,13 +226,19 @@ export default function AirtimePage() {
                   </FormItem>
                 )}
               />
-               <div className="text-sm text-muted-foreground">
-                <p>Service Fee: ₦{serviceFee.toLocaleString()}</p>
-                <p className="font-semibold">Total to Pay: ₦{totalCost.toLocaleString()}</p>
+               <div className="space-y-1 rounded-md border bg-secondary/50 p-4 text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                    <span>Discount:</span>
+                    <span className="font-semibold text-green-600">- ₦{discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-foreground">
+                    <span>Total to Pay:</span>
+                    <span>₦{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
               </div>
               <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedService}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Airtime')}
+                {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Purchase Airtime')}
               </Button>
             </CardContent>
           </form>
