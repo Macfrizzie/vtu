@@ -256,9 +256,27 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             };
             break;
         }
-        case 'Cable':
-            // To be implemented
+        case 'Cable': {
+            const variation = service.variations.find(v => v.id === variationId);
+            if (!variation) throw new Error("Selected package not found for this service.");
+
+            const fee = variation.fees?.[userData.role] || 0;
+            totalCost = variation.price + fee;
+            description = `${variation.name} for ${inputs.smart_card_number}`;
+
+            endpoint = `${provider.baseUrl}/billpayment/`;
+            requestBody = {
+                disco_name: service.provider, // `dstv`, `gotv`, etc.
+                amount: inputs.amount,
+                meter_number: inputs.smart_card_number,
+                variation_code: inputs.variation_code,
+                customer_name: inputs.customer_name,
+                customer_number: '0', // Not required for cable
+                customer_reference: '0', // Not required for cable
+                customer_address: '0' // Not required for cable
+            };
             break;
+        }
         default:
             throw new Error(`Service category "${service.category}" is not supported for purchases yet.`);
     }

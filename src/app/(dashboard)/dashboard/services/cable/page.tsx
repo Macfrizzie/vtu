@@ -33,8 +33,9 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles } from 'lucide-react';
-import { purchaseService, getServices } from '@/lib/firebase/firestore';
-import type { Service, ServiceVariation } from '@/lib/types';
+import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
+import { verifySmartCard } from '@/services/husmodata';
+import type { Service, ApiProvider } from '@/lib/types';
 import { useSearchParams } from 'next/navigation';
 
 const formSchema = z.object({
@@ -52,6 +53,7 @@ export default function CableTvPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -67,8 +69,12 @@ export default function CableTvPage() {
     async function fetchServices() {
         setServicesLoading(true);
         try {
-            const allServices = await getServices();
+            const [allServices, allProviders] = await Promise.all([
+                getServices(),
+                getApiProviders()
+            ]);
             setServices(allServices.filter(s => s.category === 'Cable' && s.status === 'Active'));
+            setApiProviders(allProviders);
         } catch (error) {
             console.error("Failed to fetch cable services:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
@@ -82,11 +88,11 @@ export default function CableTvPage() {
 
   const selectedServiceId = form.watch('serviceId');
   const smartCardValue = form.watch('smartCardNumber');
+  const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId), [selectedServiceId, services]);
 
   const availablePackages = useMemo(() => {
-    const selectedService = services.find(s => s.id === selectedServiceId);
     return selectedService?.variations || [];
-  }, [selectedServiceId, services]);
+  }, [selectedService]);
 
   const selectedVariationId = form.watch('variationId');
   const selectedVariation = availablePackages.find(v => v.id === selectedVariationId);
@@ -94,19 +100,47 @@ export default function CableTvPage() {
   async function handleVerify() {
     setIsVerifying(true);
     setCustomerName(null);
+    form.clearErrors('smartCardNumber');
+
+    if (!selectedService || !selectedService.apiProviderId) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Selected service is not linked to an API provider.' });
+        setIsVerifying(false);
+        return;
+    }
+
+    const provider = apiProviders.find(p => p.id === selectedService.apiProviderId);
+    if (!provider) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'API provider not found.' });
+        setIsVerifying(false);
+        return;
+    }
+
     try {
-      // Simulate API call to verify smart card
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setCustomerName('Tunde Adebayo'); // Mock name
+      const verificationResult = await verifySmartCard(
+          provider.baseUrl,
+          provider.apiKey,
+          selectedService.provider, // 'dstv', 'gotv', etc.
+          smartCardValue
+      );
+      
+      const name = verificationResult.customer_name || verificationResult.Customer_Name;
+      
+      if (!name) {
+         throw new Error("Customer name not found in verification response.");
+      }
+
+      setCustomerName(name);
       toast({
         title: 'Verification Successful',
         description: 'Customer name has been retrieved.',
       });
     } catch (error) {
-      toast({
+       const errorMessage = error instanceof Error ? error.message : 'Could not verify smart card number. Please check and try again.';
+       form.setError('smartCardNumber', { type: 'manual', message: errorMessage });
+       toast({
         variant: 'destructive',
         title: 'Verification Failed',
-        description: 'Could not verify smart card number. Please check and try again.',
+        description: errorMessage,
       });
     } finally {
       setIsVerifying(false);
@@ -124,7 +158,7 @@ export default function CableTvPage() {
         return;
     }
 
-    if (!selectedVariation) {
+    if (!selectedVariation || !selectedService) {
       toast({ variant: 'destructive', title: 'Invalid Package', description: 'The selected package could not be found.' });
       return;
     }
@@ -142,7 +176,13 @@ export default function CableTvPage() {
 
     setIsPurchasing(true);
     try {
-      const purchaseInputs = { smartCardNumber: values.smartCardNumber };
+      const purchaseInputs = {
+          smart_card_number: values.smartCardNumber,
+          customer_name: customerName,
+          variation_code: selectedVariation.id, // Pass variation ID
+          amount: selectedVariation.price // Pass the base price
+      };
+
       await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
@@ -231,7 +271,7 @@ export default function CableTvPage() {
                         <FormControl>
                             <Input type="tel" placeholder="Enter smart card number" {...field} />
                         </FormControl>
-                         <Button type="button" onClick={handleVerify} disabled={isVerifying || smartCardValue.length < 10}>
+                         <Button type="button" onClick={handleVerify} disabled={isVerifying || smartCardValue.length < 10 || !selectedServiceId}>
                             {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4"/>}
                             Verify
                         </Button>
@@ -282,7 +322,7 @@ export default function CableTvPage() {
               />
             </CardContent>
             <CardFooter>
-                 <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !customerName}>
+                 <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !customerName || !selectedVariationId}>
                     {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Subscription')}
                 </Button>

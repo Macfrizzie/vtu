@@ -6,6 +6,13 @@ export type Network = {
     network_name: string;
 };
 
+type VerificationResponse = {
+    customer_name?: string;
+    Customer_Name?: string; // API seems to use inconsistent casing
+    Status?: string;
+};
+
+
 async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${baseUrl}${endpoint}`;
     
@@ -46,7 +53,20 @@ async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: stri
     }
 }
 
-export async function getNetworks(baseUrl: string, apiKey: string): Promise<Network[]> {
+export async function fetchHusmoDataNetworks(baseUrl: string, apiKey: string): Promise<Network[]> {
     const response = await makeApiRequest<{ network: Network[] }>(baseUrl, apiKey, '/get/network/');
     return response.network;
+}
+
+export async function verifySmartCard(baseUrl: string, apiKey: string, serviceId: string, smartCardNumber: string): Promise<VerificationResponse> {
+    const endpoint = '/verify-meter/';
+    const body = {
+        meter_number: smartCardNumber,
+        disco_name: serviceId, // For cable, serviceId is 'dstv', 'gotv' etc.
+    };
+
+    return makeApiRequest<VerificationResponse>(baseUrl, apiKey, endpoint, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
 }
