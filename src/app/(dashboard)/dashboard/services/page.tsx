@@ -21,20 +21,30 @@ const getServiceIcon = (category: Service['category']) => {
 };
 
 const getServiceUrl = (service: Service) => {
-    if (!service.category) return '#'; // Fix: Handle undefined category
-    const category = service.category.toLowerCase();
+    if (service.status === 'Inactive' || !service.name) return '#';
+
+    const name = service.name.toLowerCase();
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
     
-    if (service.status === 'Inactive') return '#';
-
-    switch(category) {
-        case 'airtime': return `/dashboard/services/airtime${query}`;
-        case 'data': return `/dashboard/services/data${query}`;
-        case 'electricity': return `/dashboard/services/electricity${query}`;
-        case 'cable': return `/dashboard/services/cable${query}`;
-        case 'education': return `/dashboard/services/education${query}`;
-        default: return '#';
+    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
+    if (name.includes('data')) return `/dashboard/services/data${query}`;
+    if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
+    if (name.includes('cable') || name.includes('dstv') || name.includes('gotv')) return `/dashboard/services/cable${query}`;
+    if (name.includes('waec') || name.includes('neco') || name.includes('jamb') || name.includes('pin')) return `/dashboard/services/education${query}`;
+    
+    // Fallback based on category if name doesn't match
+    if (service.category) {
+        const category = service.category.toLowerCase();
+        switch(category) {
+            case 'airtime': return `/dashboard/services/airtime${query}`;
+            case 'data': return `/dashboard/services/data${query}`;
+            case 'electricity': return `/dashboard/services/electricity${query}`;
+            case 'cable': return `/dashboard/services/cable${query}`;
+            case 'education': return `/dashboard/services/education${query}`;
+        }
     }
+
+    return '#';
 }
 
 
