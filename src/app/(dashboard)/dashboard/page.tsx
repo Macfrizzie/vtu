@@ -64,16 +64,20 @@ const getServiceUrl = (service: Service) => {
 
 
 const getServiceIcon = (service: Service) => {
+    if (!service.category) return <HelpCircle size={24} />;
     const category = service.category.toLowerCase();
-    if (category.includes('airtime')) return <Phone size={24} />;
-    if (category.includes('data')) return <Wifi size={24} />;
-    if (category.includes('electric')) return <Zap size={24} />;
-    if (category.includes('cable') || category.includes('dstv')) return <Tv size={24} />;
-    if (category.includes('education') || category.includes('waec') || category.includes('neco')) return <GraduationCap size={24} />;
-    if (category.includes('recharge card')) return <Ticket size={24} />;
-    if (category.includes('card')) return <CreditCard size={24} />;
-    if (category.includes('betting')) return <Gamepad2 size={24} />;
-    return <HelpCircle size={24} />;
+
+    switch(category) {
+        case 'airtime': return <Phone size={24} />;
+        case 'data': return <Wifi size={24} />;
+        case 'electricity': return <Zap size={24} />;
+        case 'cable': return <Tv size={24} />;
+        case 'education': return <GraduationCap size={24} />;
+        case 'recharge card': return <Ticket size={24} />;
+        case 'card': return <CreditCard size={24} />;
+        case 'betting': return <Gamepad2 size={24} />;
+        default: return <HelpCircle size={24} />;
+    }
 };
 
 

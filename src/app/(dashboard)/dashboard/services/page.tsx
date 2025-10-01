@@ -12,13 +12,16 @@ import { cn } from '@/lib/utils';
 const getServiceIcon = (category: Service['category']) => {
   if (!category) return <HelpCircle className="h-8 w-8 text-primary" />;
   const cat = category.toLowerCase();
-  if (cat.includes('airtime')) return <Phone className="h-8 w-8 text-primary" />;
-  if (cat.includes('data')) return <Wifi className="h-8 w-8 text-primary" />;
-  if (cat.includes('electricity')) return <Zap className="h-8 w-8 text-primary" />;
-  if (cat.includes('cable')) return <Tv className="h-8 w-8 text-primary" />;
-  if (cat.includes('education')) return <GraduationCap className="h-8 w-8 text-primary" />;
-  if (cat.includes('recharge card')) return <Ticket className="h-8 w-8 text-primary" />;
-  return <HelpCircle className="h-8 w-8 text-primary" />;
+  
+  switch(cat) {
+    case 'airtime': return <Phone className="h-8 w-8 text-primary" />;
+    case 'data': return <Wifi className="h-8 w-8 text-primary" />;
+    case 'electricity': return <Zap className="h-8 w-8 text-primary" />;
+    case 'cable': return <Tv className="h-8 w-8 text-primary" />;
+    case 'education': return <GraduationCap className="h-8 w-8 text-primary" />;
+    case 'recharge card': return <Ticket className="h-8 w-8 text-primary" />;
+    default: return <HelpCircle className="h-8 w-8 text-primary" />;
+  }
 };
 
 const getServiceUrl = (service: Service) => {
