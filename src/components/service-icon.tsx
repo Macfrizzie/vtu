@@ -10,7 +10,7 @@ interface ServiceIconProps extends LucideProps {
 
 export function ServiceIcon({ category, className, ...props }: ServiceIconProps) {
   const iconProps = {
-    className: className || "h-8 w-8 text-primary",
+    className: "h-8 w-8 text-primary",
     ...props
   };
 
