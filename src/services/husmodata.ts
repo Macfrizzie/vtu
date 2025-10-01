@@ -6,6 +6,13 @@ export type Network = {
     network_name: string;
 };
 
+export type DataPlan = {
+    plan_id: number;
+    network: string;
+    plan: string;
+    amount: string;
+}
+
 type VerificationResponse = {
     customer_name?: string;
     Customer_Name?: string; // API seems to use inconsistent casing
@@ -70,3 +77,11 @@ export async function verifySmartCard(baseUrl: string, apiKey: string, serviceId
         body: JSON.stringify(body),
     });
 }
+
+export async function fetchHusmoDataPlans(baseUrl: string, apiKey: string, networkId: string): Promise<DataPlan[]> {
+    const endpoint = `/get/data/?network_id=${networkId}`;
+    const response = await makeApiRequest<{ DATAPLANS: DataPlan[] }>(baseUrl, apiKey, endpoint);
+    return response.DATAPLANS;
+}
+
+    

@@ -10,16 +10,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Loader2, Trash2, GripVertical } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Loader2, Trash2, GripVertical, DownloadCloud } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect } from '@/lib/firebase/firestore';
+import { getServices, addService, updateService, updateServiceStatus, getApiProviders } from '@/lib/firebase/firestore';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import { fetchHusmoDataPlans, type DataPlan } from '@/services/husmodata';
+
 
 const serviceVariationSchema = z.object({
   id: z.string(),
@@ -34,7 +36,7 @@ const serviceVariationSchema = z.object({
 
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
-  provider: z.string().min(2, 'Service code must be at least 2 characters (e.g., mtn, dstv).'),
+  provider: z.string().min(1, 'Service code is required (e.g., 1 for MTN, dstv, etc).'),
   category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Other']),
   status: z.enum(['Active', 'Inactive']),
   apiProviderId: z.string().optional(),
@@ -45,10 +47,11 @@ type SimpleProvider = Pick<ApiProvider, 'id' | 'name'>;
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
-  const [apiProviders, setApiProviders] = useState<SimpleProvider[]>([]);
+  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingPlans, setIsFetchingPlans] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
 
@@ -64,7 +67,7 @@ export default function AdminServicesPage() {
     },
   });
 
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append, remove, move, replace } = useFieldArray({
     control: form.control,
     name: "variations",
   });
@@ -74,7 +77,7 @@ export default function AdminServicesPage() {
     try {
       const [allServices, allProviders] = await Promise.all([
         getServices(),
-        getApiProvidersForSelect(),
+        getApiProviders(),
       ]);
       setServices(allServices);
       setApiProviders(allProviders);
@@ -88,7 +91,7 @@ export default function AdminServicesPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [toast]);
 
   const handleFormOpen = (service: Service | null) => {
     setEditingService(service);
@@ -159,6 +162,47 @@ export default function AdminServicesPage() {
   }
   
   const category = form.watch("category");
+  const apiProviderId = form.watch("apiProviderId");
+  const serviceProviderCode = form.watch("provider");
+
+  const handleFetchPlans = async () => {
+    if (!apiProviderId || !serviceProviderCode) {
+      toast({ variant: 'destructive', title: 'Missing Info', description: 'Please select an API Provider and enter a Service Code first.' });
+      return;
+    }
+    
+    const provider = apiProviders.find(p => p.id === apiProviderId);
+    if (!provider) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not find the selected API provider.' });
+        return;
+    }
+
+    setIsFetchingPlans(true);
+    try {
+        const plans: DataPlan[] = await fetchHusmoDataPlans(provider.baseUrl, provider.apiKey, serviceProviderCode);
+        
+        if (!plans || plans.length === 0) {
+            toast({ variant: 'destructive', title: 'No Plans Found', description: 'The API did not return any data plans for this network.' });
+            return;
+        }
+
+        const newVariations = plans.map(plan => ({
+            id: plan.plan_id.toString(),
+            name: plan.plan,
+            price: Number(plan.amount),
+            fees: { Customer: 0, Vendor: 0, Admin: 0 }
+        }));
+        
+        replace(newVariations);
+        toast({ title: 'Success!', description: `${plans.length} data plans have been imported.` });
+
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Failed to Fetch Plans', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
+    } finally {
+        setIsFetchingPlans(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -251,7 +295,7 @@ export default function AdminServicesPage() {
                 <FormField control={form.control} name="provider" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Service Code/ID</FormLabel>
-                    <FormControl><Input placeholder="e.g., mtn-sme" {...field} /></FormControl>
+                    <FormControl><Input placeholder="e.g., 1 for MTN, dstv for DSTV" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -299,20 +343,44 @@ export default function AdminServicesPage() {
                 <div className="space-y-4 pt-4 border-t">
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold">Service Variations (e.g., Plans)</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => append({ id: `var_${Date.now()}`, name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } })}
-                    >
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Variation
-                    </Button>
+                    <div className="flex gap-2">
+                       {category === 'Data' && (
+                         <Button
+                           type="button"
+                           variant="secondary"
+                           size="sm"
+                           onClick={handleFetchPlans}
+                           disabled={isFetchingPlans || !apiProviderId || !serviceProviderCode}
+                         >
+                           {isFetchingPlans ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
+                           Fetch Plans
+                         </Button>
+                       )}
+                        <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => append({ id: `var_${Date.now()}`, name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } })}
+                        >
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Variation
+                        </Button>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {fields.map((field, index) => (
                       <Card key={field.id} className="p-4 bg-muted/50">
                         <div className="flex gap-4">
                           <div className="flex-grow space-y-2">
+                             <FormField
+                                control={form.control}
+                                name={`variations.${index}.id`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Variation ID</FormLabel>
+                                    <FormControl><Input placeholder="API Plan/Variation ID" {...field} /></FormControl>
+                                  </FormItem>
+                                )}
+                              />
                             <FormField
                               control={form.control}
                               name={`variations.${index}.name`}
@@ -324,7 +392,7 @@ export default function AdminServicesPage() {
                                 </FormItem>
                               )}
                             />
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                               <FormField
                                 control={form.control}
                                 name={`variations.${index}.price`}
@@ -352,16 +420,6 @@ export default function AdminServicesPage() {
                                   <FormItem>
                                     <FormLabel>Fee (Vendor)</FormLabel>
                                     <FormControl><Input type="number" {...field} /></FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                               <FormField
-                                control={form.control}
-                                name={`variations.${index}.id`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Variation ID</FormLabel>
-                                    <FormControl><Input placeholder="API Plan ID" {...field} /></FormControl>
                                   </FormItem>
                                 )}
                               />
@@ -410,3 +468,5 @@ export default function AdminServicesPage() {
     </div>
   );
 }
+
+    
