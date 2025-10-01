@@ -33,3 +33,4 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 - **Styling**: Tailwind CSS & shadcn/ui
 - **AI**: Google AI & Genkit
 - **Language**: TypeScript
+# vtu
