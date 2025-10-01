@@ -111,8 +111,8 @@ export default function DataPage() {
 
     setIsPurchasing(true);
     try {
-      const description = `${selectedVariation.name} for ${values.phone}`;
-      await purchaseService(user.uid, selectedVariation, description, user.email!);
+      const purchaseInputs = { phone: values.phone };
+      await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
@@ -134,7 +134,7 @@ export default function DataPage() {
 
   const selectedVariationId = form.watch('variationId');
   const selectedVariation = availablePlans.find(p => p.id === selectedVariationId);
-  const totalCost = selectedVariation ? selectedVariation.price + (selectedVariation.fees?.[userData?.role || 'Customer'] || 0) : 0;
+  const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0) : 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -247,5 +247,3 @@ export default function DataPage() {
     </div>
   );
 }
-
-    

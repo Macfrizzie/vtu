@@ -30,63 +30,56 @@ import {
 } from '@/components/ui/select';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { purchaseService } from '@/lib/firebase/firestore';
-import { useSearchParams } from 'next/navigation';
-import { MtnLogo } from '@/components/icons';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import type { Service } from '@/lib/types';
 
 const formSchema = z.object({
-  network: z.string().min(1, 'Please select a network.'),
+  serviceId: z.string().min(1, 'Please select a network.'),
   phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number.'),
   amount: z.coerce.number().min(50, 'Amount must be at least ₦50.'),
 });
 
-const networkMapping: { [key: string]: string } = {
-  'mtn ng': 'mtn',
-  'airtel ng': 'airtel',
-  'glo ng': 'glo',
-  '9mobile ng': '9mobile',
-};
-
-const networkOptions = [
-    { value: 'mtn', label: 'MTN'},
-    { value: 'glo', label: 'Glo'},
-    { value: 'airtel', label: 'Airtel'},
-    { value: '9mobile', label: '9mobile'},
-]
+type FormData = z.infer<typeof formSchema>;
 
 export default function AirtimePage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const searchParams = useSearchParams();
-  const provider = searchParams.get('provider');
-  const serviceName = searchParams.get('name');
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
-
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      network: '',
+      serviceId: '',
       phone: '',
       amount: 100,
     },
   });
 
   useEffect(() => {
-    if (provider) {
-        const networkKey = provider.toLowerCase();
-        if (networkKey in networkMapping) {
-            form.setValue('network', networkMapping[networkKey]);
-        } else if (Object.values(networkOptions).some(opt => opt.value === networkKey)) {
-            form.setValue('network', networkKey);
-        }
+    async function fetchServices() {
+      setServicesLoading(true);
+      try {
+        const allServices = await getServices();
+        setServices(allServices.filter(s => s.category === 'Airtime' && s.status === 'Active'));
+      } catch (error) {
+        console.error("Failed to fetch airtime services:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load networks.' });
+      } finally {
+        setServicesLoading(false);
+      }
     }
-  }, [provider, form]);
+    fetchServices();
+  }, [toast]);
 
+  const selectedServiceId = form.watch('serviceId');
+  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedVariation = selectedService?.variations[0]; // Assuming one variation for airtime
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormData) {
     if (!user || !userData) {
       toast({
         variant: 'destructive',
@@ -96,47 +89,62 @@ export default function AirtimePage() {
       return;
     }
     
-    // In a real app, we'd fetch the fee for the service. For now, let's assume a small fee or check if it exists.
-    // The purchaseService function now handles fee logic.
-    if (userData.walletBalance < values.amount) {
+    if (!selectedVariation) {
+        toast({ variant: 'destructive', title: 'Invalid Service', description: 'Please select a valid network.' });
+        return;
+    }
+    
+    const serviceFee = selectedVariation.fees?.[userData.role] || 0;
+    const totalCost = values.amount + serviceFee;
+
+    if (userData.walletBalance < totalCost) {
         toast({
             variant: 'destructive',
             title: 'Insufficient Funds',
-            description: `Your wallet balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${values.amount.toLocaleString()}.`,
+            description: `Your wallet balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires ₦${totalCost.toLocaleString()}.`,
         });
         return;
     }
 
     setIsPurchasing(true);
     try {
-      const description = `${values.network.toUpperCase()} Airtime Purchase for ${values.phone}`;
-      await purchaseService(user.uid, values.amount, description, user.email!, 'airtime');
+      const purchaseInputs = { phone: values.phone, amount: values.amount };
+      await purchaseService(user.uid, values.serviceId, selectedVariation.id, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
         description: `Your airtime purchase for ${values.phone} was successful.`,
       });
       form.reset({
-        network: '',
+        serviceId: '',
         phone: '',
         amount: 100,
       });
     } catch (error) {
       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       toast({
         variant: 'destructive',
         title: 'Purchase Failed',
-        description: 'Something went wrong. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setIsPurchasing(false);
     }
   }
+  
+  const serviceFee = useMemo(() => {
+    if (!selectedVariation || !userData) return 0;
+    return selectedVariation.fees?.[userData.role] || 0;
+  }, [selectedVariation, userData]);
+
+  const amount = form.watch('amount');
+  const totalCost = amount + serviceFee;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">{serviceName || 'Buy Airtime'}</h1>
+        <h1 className="text-3xl font-bold">Buy Airtime</h1>
         <p className="text-muted-foreground">
           Top up airtime for any network quickly and easily.
         </p>
@@ -161,24 +169,20 @@ export default function AirtimePage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="network"
+                name="serviceId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Network</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a network" />
+                          <SelectValue placeholder={servicesLoading ? "Loading..." : "Select a network"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {networkOptions.map(opt => (
-                           <SelectItem key={opt.value} value={opt.value}>
-                                <div className="flex items-center gap-2">
-                                    {/* In a real app, you'd have logos for all networks */}
-                                    {opt.value === 'mtn' && <MtnLogo className="h-5 w-5" />}
-                                    <span>{opt.label}</span>
-                                </div>
+                        {services.map(service => (
+                           <SelectItem key={service.id} value={service.id}>
+                               {service.name}
                            </SelectItem>
                         ))}
                       </SelectContent>
@@ -213,9 +217,13 @@ export default function AirtimePage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing}>
+               <div className="text-sm text-muted-foreground">
+                <p>Service Fee: ₦{serviceFee.toLocaleString()}</p>
+                <p className="font-semibold">Total to Pay: ₦{totalCost.toLocaleString()}</p>
+              </div>
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedService}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Purchase Airtime
+                {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Airtime')}
               </Button>
             </CardContent>
           </form>

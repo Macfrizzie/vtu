@@ -70,6 +70,15 @@ async function checkAndSeedServices() {
                     { id: 'dstv-padi', name: 'DStv Padi', price: 3950, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
                 ]
             },
+             { 
+                name: 'MTN Airtime', 
+                provider: 'mtn-airtime', 
+                category: 'Airtime',
+                status: 'Active', 
+                variations: [
+                    { id: 'mtn-vtu', name: 'MTN VTU', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } },
+                ]
+            },
         ];
 
         const batch = writeBatch(db);
@@ -214,7 +223,7 @@ export async function purchaseService(
         }
         
         // Calculate total cost
-        const purchaseAmount = service.category === 'Airtime' || service.category === 'Electricity' ? inputs.amount : variation.price;
+        const purchaseAmount = (service.category === 'Airtime' || service.category === 'Electricity') && inputs.amount ? inputs.amount : variation.price;
         const serviceFee = variation.fees?.[userData.role] || 0;
         const totalAmount = purchaseAmount + serviceFee;
         
@@ -245,7 +254,6 @@ export async function purchaseService(
                     };
                     break;
                 default:
-                     // For Data and Airtime which might not have a direct API call yet
                     console.log(`Simulating purchase for ${service.category}. No specific API logic implemented.`);
                     break;
             }
@@ -278,7 +286,7 @@ export async function purchaseService(
         // If API call is successful, deduct from wallet and log transaction
         transaction.update(userRef, { walletBalance: increment(-totalAmount) });
         
-        const description = `${variation.name} for ${inputs.meterNumber || inputs.phone || service.name}`;
+        const description = service.category === 'Airtime' ? `${service.name} for ${inputs.phone}` : `${variation.name} for ${inputs.meterNumber || inputs.phone || service.name}`;
 
         const newTransactionRef = doc(collection(db, 'transactions'));
         transaction.set(newTransactionRef, {
