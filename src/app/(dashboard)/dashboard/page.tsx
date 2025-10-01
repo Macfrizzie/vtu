@@ -64,19 +64,19 @@ const getServiceUrl = (service: Service) => {
 
 
 const getServiceIcon = (service: Service) => {
-    if (!service.category) return <HelpCircle size={24} />;
+    if (!service.category) return <HelpCircle size={24} className="text-muted-foreground" />;
     const category = service.category.toLowerCase();
 
     switch(category) {
-        case 'airtime': return <Phone size={24} />;
-        case 'data': return <Wifi size={24} />;
-        case 'electricity': return <Zap size={24} />;
-        case 'cable': return <Tv size={24} />;
-        case 'education': return <GraduationCap size={24} />;
-        case 'recharge card': return <Ticket size={24} />;
-        case 'card': return <CreditCard size={24} />;
-        case 'betting': return <Gamepad2 size={24} />;
-        default: return <HelpCircle size={24} />;
+        case 'airtime': return <Phone size={24} className="text-muted-foreground" />;
+        case 'data': return <Wifi size={24} className="text-muted-foreground" />;
+        case 'electricity': return <Zap size={24} className="text-muted-foreground" />;
+        case 'cable': return <Tv size={24} className="text-muted-foreground" />;
+        case 'education': return <GraduationCap size={24} className="text-muted-foreground" />;
+        case 'recharge card': return <Ticket size={24} className="text-muted-foreground" />;
+        case 'card': return <CreditCard size={24} className="text-muted-foreground" />;
+        case 'betting': return <Gamepad2 size={24} className="text-muted-foreground" />;
+        default: return <HelpCircle size={24} className="text-muted-foreground" />;
     }
 };
 
@@ -120,7 +120,7 @@ export default function DashboardPage() {
                 const links = activeServices.slice(0, 3).map(service => (
                     <Link href={getServiceUrl(service)} key={service.id}>
                         <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                            <div className="text-muted-foreground">{getServiceIcon(service)}</div>
+                            {getServiceIcon(service)}
                             <span className="text-xs font-medium">{service.name.split(' ')[0]}</span>
                         </div>
                     </Link>
@@ -130,7 +130,7 @@ export default function DashboardPage() {
                     links.push(
                         <Link href="/dashboard/services" key="more">
                             <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                                <div className="text-muted-foreground"><MoreHorizontal size={24} /></div>
+                                <MoreHorizontal size={24} className="text-muted-foreground" />
                                 <span className="text-xs font-medium">More</span>
                             </div>
                         </Link>

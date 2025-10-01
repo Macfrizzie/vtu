@@ -9,9 +9,9 @@ import { getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-const getServiceIcon = (category: Service['category']) => {
-  if (!category) return <HelpCircle className="h-8 w-8 text-primary" />;
-  const cat = category.toLowerCase();
+const getServiceIcon = (service: Service) => {
+  if (!service.category) return <HelpCircle className="h-8 w-8 text-primary" />;
+  const cat = service.category.toLowerCase();
   
   switch(cat) {
     case 'airtime': return <Phone className="h-8 w-8 text-primary" />;
@@ -82,7 +82,7 @@ export default function ServicesPage() {
                     <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors h-full">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
-                                {getServiceIcon(service.category)}
+                                {getServiceIcon(service)}
                                 <span className="text-center font-medium">{service.name}</span>
                                 {service.status === 'Inactive' && <div className="text-xs text-destructive font-semibold absolute bottom-2">Coming Soon</div>}
                             </CardContent>
