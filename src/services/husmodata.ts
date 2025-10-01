@@ -6,16 +6,11 @@ export type Network = {
     network_name: string;
 };
 
-// In a real app, the API key would not be hardcoded.
-// It would come from the API Provider configuration in Firestore.
-const API_KEY = '66f2e5c39ac8640f13cd888f161385b12f7e5e92';
-const BASE_URL = 'https://husmodataapi.com/api';
-
-async function makeApiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${BASE_URL}${endpoint}`;
+async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${baseUrl}${endpoint}`;
     
     const headers = {
-        'Authorization': `Token ${API_KEY}`,
+        'Authorization': `Token ${apiKey}`,
         'Content-Type': 'application/json',
         ...options.headers,
     };
@@ -28,21 +23,30 @@ async function makeApiRequest<T>(endpoint: string, options: RequestInit = {}): P
             throw new Error(`API Error (${response.status}): ${errorBody}`);
         }
         
-        // HusmoData often returns 200 OK with an error message in the body
+        // HusmoData can return 200 OK with an error message in the body
         const data = await response.json();
         if (data.status === 'error' || data.Status === 'failed') {
-            throw new Error(data.msg || data.message || 'An unknown API error occurred');
+            // Some error messages are in 'msg', some in 'message'
+            const errorMessage = data.msg || data.message || 'An unknown API error occurred';
+            // Sometimes the error is nested, e.g., in data responses
+            if (typeof errorMessage === 'object' && errorMessage !== null) {
+                throw new Error(JSON.stringify(errorMessage));
+            }
+            throw new Error(errorMessage);
         }
 
         return data as T;
     } catch (error) {
-        console.error(`HusmoData API request failed: ${error}`);
-        throw error;
+        console.error(`HusmoData API request to ${endpoint} failed: ${error}`);
+        if (error instanceof Error) {
+            // Re-throw the original error to preserve the message
+            throw error;
+        }
+        throw new Error('An unknown error occurred during the API request.');
     }
 }
 
-export async function getNetworks(): Promise<Network[]> {
-    // The documentation mentions GET /api/get/network/, let's assume it returns an object with a 'network' key
-    const response = await makeApiRequest<{ network: Network[] }>('/get/network/');
+export async function getNetworks(baseUrl: string, apiKey: string): Promise<Network[]> {
+    const response = await makeApiRequest<{ network: Network[] }>(baseUrl, apiKey, '/get/network/');
     return response.network;
 }

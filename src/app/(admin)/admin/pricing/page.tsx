@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Upload, MoreHorizontal, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getApiProvidersForSelect, addAirtimePrice, getAirtimePrices, deleteAirtimePrice } from '@/lib/firebase/firestore';
+import { getApiProviders, addAirtimePrice, getAirtimePrices, deleteAirtimePrice } from '@/lib/firebase/firestore';
 import type { ApiProvider, AirtimePrice } from '@/lib/types';
 import { getNetworks as fetchHusmoDataNetworks, type Network } from '@/services/husmodata';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -48,7 +48,7 @@ function AirtimePricingTab() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [apiProviders, setApiProviders] = useState<Pick<ApiProvider, 'id' | 'name'>[]>([]);
+  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [networks, setNetworks] = useState<Network[]>([]);
   const [airtimePrices, setAirtimePrices] = useState<AirtimePrice[]>([]);
 
@@ -64,21 +64,30 @@ function AirtimePricingTab() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [providers, fetchedNetworks, prices] = await Promise.all([
-        getApiProvidersForSelect(),
-        fetchHusmoDataNetworks(),
-        getAirtimePrices(),
-      ]);
-      setApiProviders(providers);
-      setNetworks(fetchedNetworks);
-      setAirtimePrices(prices);
+        const providers = await getApiProviders();
+        setApiProviders(providers);
+
+        // Find the husmodata provider to get its details for the API call
+        const husmoProvider = providers.find(p => p.id === 'husmodata');
+        if (!husmoProvider) {
+            throw new Error("HusmoData provider configuration not found.");
+        }
+
+        const [fetchedNetworks, prices] = await Promise.all([
+            fetchHusmoDataNetworks(husmoProvider.baseUrl, husmoProvider.apiKey),
+            getAirtimePrices(),
+        ]);
+        
+        setNetworks(fetchedNetworks);
+        setAirtimePrices(prices);
     } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch required data.' });
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Error', description: `Failed to fetch required data. ${error instanceof Error ? error.message : ''}` });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
+
 
   useEffect(() => {
     fetchData();
@@ -90,6 +99,7 @@ function AirtimePricingTab() {
         const selectedNetwork = networks.find(n => n.id.toString() === values.networkId);
         if (!selectedNetwork) {
             toast({ variant: 'destructive', title: 'Error', description: 'Selected network not found.' });
+            setIsSubmitting(false);
             return;
         }
 
@@ -101,7 +111,11 @@ function AirtimePricingTab() {
         await addAirtimePrice(dataToSubmit);
         toast({ title: 'Success', description: 'Airtime price rule added.' });
         await fetchData(); // Refetch prices
-        form.reset();
+        form.reset({
+            apiProviderId: '',
+            networkId: '',
+            discountPercent: 2,
+        });
 
     } catch (error) {
         console.error(error);
@@ -146,8 +160,8 @@ function AirtimePricingTab() {
              <FormField control={form.control} name="networkId" render={({ field }) => (
               <FormItem>
                 <FormLabel>Network</FormLabel>
-                 <Select onValueChange={field.onChange} value={field.value} disabled={loading}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select Network" /></SelectTrigger></FormControl>
+                 <Select onValueChange={field.onChange} value={field.value} disabled={loading || networks.length === 0}>
+                  <FormControl><SelectTrigger><SelectValue placeholder={networks.length === 0 ? "No networks found" : "Select Network"} /></SelectTrigger></FormControl>
                   <SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.id.toString()}>{n.network_name}</SelectItem>)}</SelectContent>
                 </Select>
                 <FormMessage />
