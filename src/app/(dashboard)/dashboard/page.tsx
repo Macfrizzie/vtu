@@ -9,12 +9,12 @@ import {
   ArrowRight,
   MoreHorizontal,
   Loader2,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
-import { DstvLogo, MtnLogo } from '@/components/icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser } from '@/context/user-context';
 import { useEffect, useState } from 'react';
@@ -54,26 +54,11 @@ const getServiceUrl = (service: Service) => {
     return '#';
 }
 
-const getTransactionIcon = (description: string) => {
-    const desc = description.toLowerCase();
-    if (desc.includes('mtn')) return <MtnLogo className="h-6 w-6" />;
-    if (desc.includes('dstv')) return <DstvLogo className="h-8 w-8" />;
-    if (desc.includes('electric')) return <Zap className="h-6 w-6 text-yellow-500" />;
-    if (desc.includes('wallet funding')) return (
-         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-            <Plus size={20} className="text-blue-600" />
-        </div>
-    );
-    return (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-            <Zap size={20} className="text-gray-600" />
-        </div>
-    );
-}
 
 export default function DashboardPage() {
     const { user, userData, loading } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [services, setServices] = useState<Service[]>([]);
     const [quickLinks, setQuickLinks] = useState<React.ReactNode[]>([]);
     const [dataLoading, setDataLoading] = useState(true);
 
@@ -88,6 +73,7 @@ export default function DashboardPage() {
                     getServices()
                 ]);
                 setTransactions(userTransactions.slice(0, 4)); // Get first 4 recent
+                setServices(allServices);
                 
                 const activeServices = allServices.filter(s => s.status === 'Active');
                 const links = activeServices.slice(0, 3).map(service => (
@@ -119,6 +105,14 @@ export default function DashboardPage() {
         }
         fetchData();
     }, [user]);
+
+  const getTransactionCategory = (description: string): Service['category'] | undefined => {
+    if (description.toLowerCase().includes('wallet funding')) {
+        return undefined; // Special case for wallet funding
+    }
+    const service = services.find(s => description.includes(s.name));
+    return service?.category;
+  }
 
   return (
     <div className="p-0">
@@ -241,34 +235,44 @@ export default function DashboardPage() {
             </div>
         ) : (
             <div className="space-y-4">
-            {transactions.map((tx) => (
-                <Card key={tx.id} className="rounded-xl p-4 shadow-none">
-                <CardContent className="flex items-center justify-between p-0">
-                    <div className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center">
-                        {getTransactionIcon(tx.description)}
-                    </div>
-                    <div>
-                        <p className="font-semibold">{tx.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                            {new Date(tx.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} {' '}
-                            {new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {transactions.map((tx) => {
+                const category = getTransactionCategory(tx.description);
+                return (
+                    <Card key={tx.id} className="rounded-xl p-4 shadow-none">
+                    <CardContent className="flex items-center justify-between p-0">
+                        <div className="flex items-center gap-4">
+                        <div className="flex h-10 w-10 items-center justify-center">
+                            {tx.description.toLowerCase().includes('wallet funding') ? (
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                                    <Plus size={20} className="text-blue-600" />
+                                </div>
+                            ) : (
+                                <ServiceIcon category={category} className="h-8 w-8" />
+                            )}
+                        </div>
+                        <div>
+                            <p className="font-semibold">{tx.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {new Date(tx.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} {' '}
+                                {new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                        </div>
+                        </div>
+                        <p
+                        className={cn('font-semibold',
+                            tx.type === 'Credit' ? 'text-green-600' : ''
+                        )}
+                        >
+                        {tx.type === 'Credit' ? '+' : '-'} ₦{Math.abs(tx.amount).toLocaleString()}
                         </p>
-                    </div>
-                    </div>
-                    <p
-                    className={cn('font-semibold',
-                        tx.type === 'Credit' ? 'text-green-600' : ''
-                    )}
-                    >
-                     {tx.type === 'Credit' ? '+' : '-'} ₦{Math.abs(tx.amount).toLocaleString()}
-                    </p>
-                </CardContent>
-                </Card>
-            ))}
+                    </CardContent>
+                    </Card>
+                );
+            })}
             </div>
         )}
       </section>
     </div>
   );
 }
+
