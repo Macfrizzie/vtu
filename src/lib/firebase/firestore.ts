@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
@@ -42,10 +43,10 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'MTN Data', provider: 'MTN NG', status: 'Active', fee: 1.5 },
-            { name: 'Airtel Airtime', provider: 'Airtel NG', status: 'Active', fee: 0 },
-            { name: 'DSTV Subscription', provider: 'MultiChoice', status: 'Inactive', fee: 50 },
-            { name: 'Ikeja Electric', provider: 'IKEDC', status: 'Active', fee: 100 },
+            { name: 'MTN Airtime', provider: 'MTN NG', category: 'Airtime', status: 'Active', variations: [{ id: 'mtn-airtime', name: 'MTN Airtime VTU', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } }] },
+            { name: 'Airtel Data', provider: 'Airtel NG', category: 'Data', status: 'Active', variations: [{ id: 'airtel-1gb', name: '1GB - 30 Days', price: 300, fees: { Customer: 10, Vendor: 5, Admin: 0 } }] },
+            { name: 'DSTV Subscription', provider: 'MultiChoice', category: 'Cable', status: 'Inactive', variations: [{ id: 'dstv-padi', name: 'DStv Padi', price: 2150, fees: { Customer: 50, Vendor: 25, Admin: 0 } }] },
+            { name: 'Ikeja Electric', provider: 'IKEDC', category: 'Electricity', status: 'Active', variations: [{ id: 'ikedc-prepaid', name: 'Prepaid Token', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 } }] },
         ];
 
         const batch = writeBatch(db);
@@ -152,50 +153,115 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
     });
 }
 
-
-export async function purchaseService(uid: string, service: Service, amount: number, inputs: Record<string, any>, userEmail: string) {
-    await checkAndSeedServices();
+export async function purchaseService(uid: string, serviceId: string, variationId: string, inputs: Record<string, any>, userEmail: string) {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) throw new Error("User not found.");
 
-    if (!userSnap.exists()) {
-        throw new Error("User not found.");
-    }
+    const serviceRef = doc(db, 'services', serviceId);
+    const serviceSnap = await getDoc(serviceRef);
+    if (!serviceSnap.exists()) throw new Error("Service not found.");
+
+    const service = serviceSnap.data() as Service;
+    const variation = service.variations?.find(v => v.id === variationId);
+    if (!variation) throw new Error("Service variation not found.");
 
     const userData = userSnap.data() as UserData;
-    const totalAmount = amount + service.fee;
+    const userRole = userData.role || 'Customer';
+    const serviceFee = variation.fees?.[userRole] ?? 0;
     
-    if (userData.walletBalance < totalAmount) {
-        throw new Error(`Insufficient balance. You need ₦${totalAmount}, but have ₦${userData.walletBalance}.`);
+    // For services like Airtime, amount is from input, not variation price
+    const baseAmount = service.category === 'Airtime' ? inputs.amount : variation.price;
+    const totalCost = baseAmount + serviceFee;
+    
+    if (userData.walletBalance < totalCost) {
+        throw new Error(`Insufficient balance. You need ₦${totalCost}, but have ₦${userData.walletBalance}.`);
     }
 
     // In a real app, here you would make the API call to the service provider.
-    // For now, we simulate a successful transaction.
-    // Example:
-    // const apiResponse = await fetch('https://provider-api.com/purchase', { ... });
-    // if (!apiResponse.ok) throw new Error("Failed to process transaction with provider.");
-    const apiResponse = { status: 'success', message: 'Simulated purchase successful' };
+    let apiResponse = { status: 'success', message: 'Simulated purchase successful' };
+    const description = `${variation.name} for ${inputs.phone || inputs.smartCardNumber || inputs.meterNumber || ''}`;
+
+    if (service.apiProviderId) {
+        const providerRef = doc(db, 'apiProviders', service.apiProviderId);
+        const providerSnap = await getDoc(providerRef);
+        if (providerSnap.exists()) {
+            const provider = providerSnap.data() as ApiProvider;
+            
+            let requestBody;
+            let endpoint;
+            
+            switch (service.category) {
+                case 'Electricity':
+                    endpoint = `${provider.baseUrl}/billpayment/`;
+                    requestBody = {
+                        disco_name: service.provider, // e.g. 'Ikeja Electric'
+                        amount: inputs.amount,
+                        meter_number: inputs.meterNumber,
+                        MeterType: inputs.meterType === 'prepaid' ? '1' : '2',
+                    };
+                    break;
+                case 'Education':
+                     endpoint = `${provider.baseUrl}/epin/`;
+                     requestBody = {
+                        exam_name: service.provider, // e.g. 'WAEC'
+                        quantity: 1,
+                     };
+                    break;
+                // Add cases for other services here...
+                default:
+                    // default to simulation if no case matches
+                    console.log(`Simulating purchase for category: ${service.category}`);
+                    break;
+            }
+
+            if (endpoint && requestBody) {
+                try {
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Token ${provider.apiKey}`,
+                            'Content-Type': 'application/json',
+                            ...(provider.requestHeaders ? JSON.parse(provider.requestHeaders) : {})
+                        },
+                        body: JSON.stringify(requestBody),
+                    });
+                    
+                    const responseData = await response.json();
+
+                    if (!response.ok || responseData.status === 'error' || responseData.Status === 'failed') {
+                         throw new Error(responseData.message || responseData.msg || `API Error: ${response.statusText}`);
+                    }
+                    apiResponse = responseData;
+
+                     if (service.category === 'Education') {
+                        if (!responseData.pins || responseData.pins.length === 0) {
+                            throw new Error("E-Pin purchase succeeded but no PINs were returned.");
+                        }
+                    }
+
+                } catch (apiError: any) {
+                    throw new Error(`API provider error: ${apiError.message}`);
+                }
+            }
+        }
+    }
 
 
-    // If API call is successful, deduct from wallet and log transaction
-    await updateDoc(userRef, {
-        walletBalance: increment(-totalAmount)
-    });
+    await updateDoc(userRef, { walletBalance: increment(-totalCost) });
     
-    const description = service.name === 'Airtime' ? `${service.provider} Airtime for ${inputs.phone}` : `${service.name} for ${inputs.smartCardNumber || inputs.meterNumber || inputs.phone || ''}`;
-
     await addDoc(collection(db, 'transactions'), {
         userId: uid,
-        userEmail: userEmail,
-        description: `${description} (Fee: ₦${service.fee})`,
-        amount: -totalAmount,
+        userEmail,
+        description: `${description} (Fee: ₦${serviceFee})`,
+        amount: -totalCost,
         type: 'Debit',
         status: 'Successful',
         date: new Date(),
         apiResponse: JSON.stringify(apiResponse),
     });
 
-    return { success: true, message: 'Purchase successful!' };
+    return apiResponse;
 }
 
 export async function getTransactions(): Promise<Transaction[]> {
@@ -236,7 +302,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -246,9 +312,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
-    
-    // Sort in code to avoid composite index requirement
-    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
 }
@@ -324,6 +387,47 @@ export async function addUser(user: Omit<User, 'id' | 'uid' | 'lastLogin' | 'wal
   });
 }
 
+export async function bulkUpdateFees(updateType: string, value: number) {
+    const servicesRef = collection(db, 'services');
+    const snapshot = await getDocs(servicesRef);
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach(doc => {
+        const service = doc.data() as Service;
+        const updatedVariations = service.variations?.map((variation: ServiceVariation) => {
+            const newFees = { ...variation.fees };
+            for (const role in newFees) {
+                const key = role as keyof typeof newFees;
+                const currentFee = newFees[key];
+                let newFee = currentFee;
+
+                switch (updateType) {
+                    case 'increase_percentage':
+                        newFee += currentFee * (value / 100);
+                        break;
+                    case 'increase_fixed':
+                        newFee += value;
+                        break;
+                    case 'decrease_percentage':
+                        newFee -= currentFee * (value / 100);
+                        break;
+                    case 'decrease_fixed':
+                        newFee -= value;
+                        break;
+                }
+                newFees[key] = Math.max(0, Math.round(newFee * 100) / 100); // Ensure non-negative and round to 2 decimal places
+            }
+            return { ...variation, fees: newFees };
+        });
+        
+        if (updatedVariations) {
+            batch.update(doc.ref, { variations: updatedVariations });
+        }
+    });
+
+    await batch.commit();
+}
+
 // --- API Provider Functions ---
 
 export async function getApiProviders(): Promise<ApiProvider[]> {
@@ -349,6 +453,16 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
 }
 
+export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
+    const providersCol = collection(db, 'apiProviders');
+    const snapshot = await getDocs(query(providersCol, where('status', '==', 'Active')));
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name as string,
+    }));
+}
+
+
 export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
     const providersCol = collection(db, 'apiProviders');
     await addDoc(providersCol, provider);
@@ -363,5 +477,6 @@ export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
     await deleteDoc(providerRef);
 }
+    
 
     

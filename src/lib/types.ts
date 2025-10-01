@@ -1,4 +1,5 @@
 
+
 export type User = {
   id: string;
   uid: string;
@@ -35,13 +36,27 @@ export type Transaction = {
   apiResponse?: string;
 };
 
+export type ServiceVariation = {
+  id: string;
+  name: string;
+  price: number;
+  fees: {
+    Customer: number;
+    Vendor: number;
+    Admin: number;
+  };
+};
+
 export type Service = {
   id: string;
   name: string;
-  provider: string;
+  provider: string; // This can be a service code like 'mtn', 'dstv'
+  category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
   status: 'Active' | 'Inactive';
-  fee: number;
+  apiProviderId?: string; // Link to an ApiProvider
+  variations: ServiceVariation[];
 };
+
 
 export type ApiProvider = {
   id: string;
