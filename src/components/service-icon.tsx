@@ -10,7 +10,7 @@ interface ServiceIconProps extends LucideProps {
 
 export function ServiceIcon({ category, className, ...props }: ServiceIconProps) {
   const iconProps = {
-    className: "h-8 w-8 text-primary",
+    className: cn("h-8 w-8 text-primary", className),
     ...props
   };
 
@@ -18,6 +18,8 @@ export function ServiceIcon({ category, className, ...props }: ServiceIconProps)
     return <HelpCircle {...iconProps} />;
   }
 
+  // Convert category to lower case to ensure a case-insensitive match.
+  // This was the root cause of the issue.
   switch (category.toLowerCase()) {
     case 'airtime':
       return <Phone {...iconProps} />;
