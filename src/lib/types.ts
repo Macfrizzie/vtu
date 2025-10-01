@@ -1,5 +1,4 @@
 
-
 export type User = {
   id: string;
   uid: string;
@@ -36,27 +35,12 @@ export type Transaction = {
   apiResponse?: string;
 };
 
-export type ServiceFee = {
-    Customer: number;
-    Vendor: number;
-    Admin: number;
-};
-
-export type ServiceVariation = {
-    id: string; // e.g., mtn-1gb-30
-    name: string; // e.g., 1GB - 30 Days
-    price: number; // The base cost from the API provider
-    fees: ServiceFee; // The commission you add for each user tier
-};
-
 export type Service = {
-    id: string;
-    name: string;
-    provider: string; // e.g., 'mtn-data', 'dstv'
-    category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
-    status: 'Active' | 'Inactive';
-    apiProviderId?: string;
-    variations: ServiceVariation[]; // Array of plans or packages
+  id: string;
+  name: string;
+  provider: string;
+  status: 'Active' | 'Inactive';
+  fee: number;
 };
 
 export type ApiProvider = {
@@ -72,3 +56,5 @@ export type ApiProvider = {
   transactionCharge?: number;
   services?: string[]; // Array of service IDs this provider handles
 };
+
+    
