@@ -110,7 +110,8 @@ export default function DashboardPage() {
     if (description.toLowerCase().includes('wallet funding')) {
         return undefined; // Special case for wallet funding
     }
-    const service = services.find(s => description.includes(s.name));
+    // Find the service whose name is a substring of the description
+    const service = services.find(s => description.toLowerCase().includes(s.name.toLowerCase()));
     return service?.category;
   }
 
@@ -275,4 +276,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
