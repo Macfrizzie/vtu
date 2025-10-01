@@ -10,6 +10,7 @@ import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const getServiceIcon = (category: Service['category']) => {
+  if (!category) return <HelpCircle className="h-8 w-8 text-primary" />;
   const cat = category.toLowerCase();
   if (cat.includes('airtime')) return <Phone className="h-8 w-8 text-primary" />;
   if (cat.includes('data')) return <Wifi className="h-8 w-8 text-primary" />;
@@ -20,6 +21,7 @@ const getServiceIcon = (category: Service['category']) => {
 };
 
 const getServiceUrl = (service: Service) => {
+    if (!service.category) return '#'; // Fix: Handle undefined category
     const category = service.category.toLowerCase();
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
     
