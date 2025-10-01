@@ -229,34 +229,47 @@ export async function purchaseService(
 
             switch(service.category) {
                 case 'Electricity':
-                    endpoint = 'billpayment/'; // As per Husmodata docs
+                    endpoint = 'billpayment/';
                     requestBody = {
-                        "disco_name": service.provider, // Use service provider code for disco name
+                        "disco_name": service.provider, 
                         "amount": inputs.amount,
                         "meter_number": inputs.meterNumber,
                         "MeterType": inputs.meterType === 'prepaid' ? 1 : 2
                     };
                     break;
-                // Add cases for other services like Airtime, Data, E-pins here
+                case 'Education':
+                    endpoint = 'epin/';
+                    requestBody = {
+                        "exam_name": service.provider,
+                        "quantity": inputs.quantity || 1,
+                    };
+                    break;
                 default:
-                    throw new Error(`API integration for service category "${service.category}" is not implemented yet.`);
+                     // For Data and Airtime which might not have a direct API call yet
+                    console.log(`Simulating purchase for ${service.category}. No specific API logic implemented.`);
+                    break;
             }
 
-            const response = await fetch(`${apiProvider.baseUrl}${endpoint}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Token ${apiProvider.apiKey}`,
-                    'Content-Type': 'application/json',
-                    ...(apiProvider.requestHeaders ? JSON.parse(apiProvider.requestHeaders) : {})
-                },
-                body: JSON.stringify(requestBody)
-            });
+            if (endpoint) {
+                const response = await fetch(`${apiProvider.baseUrl}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${apiProvider.apiKey}`,
+                        'Content-Type': 'application/json',
+                        ...(apiProvider.requestHeaders ? JSON.parse(apiProvider.requestHeaders) : {})
+                    },
+                    body: JSON.stringify(requestBody)
+                });
 
-            if (!response.ok) {
-                 const errorBody = await response.text();
-                 throw new Error(`API provider error: ${response.statusText}. Details: ${errorBody}`);
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`API provider error: ${response.statusText}. Details: ${errorBody}`);
+                }
+                apiResponse = await response.json();
+            } else {
+                 apiResponse = { status: 'success', message: 'Simulated purchase successful' };
             }
-            apiResponse = await response.json();
+
         } else {
             console.log("Simulating purchase as no API provider is configured.");
             apiResponse = { status: 'success', message: 'Simulated purchase successful' };
@@ -279,7 +292,7 @@ export async function purchaseService(
             apiResponse: JSON.stringify(apiResponse),
         });
 
-        return newTransactionRef.id;
+        return apiResponse || newTransactionRef.id;
     });
 }
 

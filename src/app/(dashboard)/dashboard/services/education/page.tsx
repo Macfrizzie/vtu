@@ -39,50 +39,69 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Copy, Check } from 'lucide-react';
-import { purchaseService } from '@/lib/firebase/firestore';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import { Label } from '@/components/ui/label';
-
-const educationPins = {
-  waec: [{ id: 'waec-result', label: 'Result Checker Pin', price: 4000 }],
-  neco: [{ id: 'neco-result', label: 'Result Checker Token', price: 1500 }],
-  jamb: [
-    { id: 'jamb-utme', label: 'UTME Registration Pin', price: 7500 },
-    { id: 'jamb-de', label: 'Direct Entry Pin', price: 7500 },
-  ],
-};
+import type { Service, ServiceVariation } from '@/lib/types';
 
 const formSchema = z.object({
-  provider: z.enum(['waec', 'neco', 'jamb']),
-  pinType: z.string().min(1, 'Please select a pin type.'),
+  serviceId: z.string().min(1, 'Please select an exam body.'),
+  variationId: z.string().min(1, 'Please select a pin type.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+type GeneratedPin = {
+  pin: string;
+  serial: string;
+};
 
 export default function EducationPinPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [generatedPin, setGeneratedPin] = useState<{ pin: string; serial: string } | null>(null);
+  const [generatedPin, setGeneratedPin] = useState<GeneratedPin | null>(null);
   const [isCopied, setIsCopied] = useState<'pin' | 'serial' | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      provider: 'waec',
-      pinType: '',
+      serviceId: '',
+      variationId: '',
     },
   });
 
-  const selectedProvider = form.watch('provider');
-  const selectedPinTypeId = form.watch('pinType');
+  useEffect(() => {
+    async function fetchServices() {
+        setServicesLoading(true);
+        try {
+            const allServices = await getServices();
+            setServices(allServices.filter(s => s.category === 'Education' && s.status === 'Active'));
+        } catch (error) {
+            console.error("Failed to fetch education services:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load education services.' });
+        } finally {
+            setServicesLoading(false);
+        }
+    }
+    fetchServices();
+  }, [toast]);
+
+
+  const selectedServiceId = form.watch('serviceId');
+  const selectedVariationId = form.watch('variationId');
   
-  const availablePins = useMemo(() => educationPins[selectedProvider] || [], [selectedProvider]);
+  const availablePins = useMemo(() => {
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    return selectedService?.variations || [];
+  }, [selectedServiceId, services]);
   
   const selectedPin = useMemo(() => 
-      availablePins.find(p => p.id === selectedPinTypeId)
-  , [availablePins, selectedPinTypeId]);
+      availablePins.find(p => p.id === selectedVariationId)
+  , [availablePins, selectedVariationId]);
 
   const copyToClipboard = (text: string, type: 'pin' | 'serial') => {
     navigator.clipboard.writeText(text).then(() => {
@@ -90,6 +109,8 @@ export default function EducationPinPage() {
       setTimeout(() => setIsCopied(null), 2000);
     });
   };
+  
+  const totalCost = selectedPin && userData ? selectedPin.price + (selectedPin.fees?.[userData.role] || 0) : 0;
 
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
@@ -102,39 +123,42 @@ export default function EducationPinPage() {
         return;
     }
 
-    if (userData.walletBalance < selectedPin.price) {
+    if (userData.walletBalance < totalCost) {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${selectedPin.price.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${totalCost.toLocaleString()}.`,
       });
       return;
     }
 
     setIsPurchasing(true);
+    setGeneratedPin(null);
     try {
-      // Simulate PIN generation
-      await new Promise(res => setTimeout(res, 1500));
-      const newPin = Math.random().toString(36).substring(2, 12).toUpperCase();
-      const newSerial = 'VTU' + Date.now();
+      const selectedService = services.find(s => s.id === values.serviceId);
+      const purchaseInputs = { exam_name: selectedService?.provider, quantity: 1 };
+      
+      const result = await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
 
-      const description = `${selectedPin.label} for ${values.provider.toUpperCase()}`;
-      await purchaseService(user.uid, selectedPin.price, description, user.email!, values.provider);
-      forceRefetch();
-
-      setGeneratedPin({ pin: newPin, serial: newSerial });
-
-      toast({
-        title: 'Purchase Successful!',
-        description: `Your ${selectedPin.label} has been generated.`,
-      });
+      if (typeof result !== 'string' && result.pins && result.pins.length > 0) {
+        const firstPin = result.pins[0];
+        setGeneratedPin({ pin: firstPin.pin, serial: firstPin.serial_number });
+        forceRefetch();
+        toast({
+          title: 'Purchase Successful!',
+          description: `Your ${selectedPin.label} has been generated.`,
+        });
+      } else {
+         throw new Error("Failed to retrieve PIN from provider. Please check your transaction history.");
+      }
       form.reset();
     } catch (error) {
       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({
         variant: 'destructive',
         title: 'Purchase Failed',
-        description: 'Something went wrong. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setIsPurchasing(false);
@@ -168,26 +192,27 @@ export default function EducationPinPage() {
               <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="provider"
+                  name="serviceId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Examination Body</FormLabel>
                       <Select
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.resetField('pinType');
+                          form.resetField('variationId');
                         }}
                         value={field.value}
+                        disabled={servicesLoading}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select an exam body" />
+                            <SelectValue placeholder={servicesLoading ? "Loading..." : "Select exam body"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="waec">WAEC</SelectItem>
-                          <SelectItem value="neco">NECO</SelectItem>
-                          <SelectItem value="jamb">JAMB</SelectItem>
+                          {services.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -197,22 +222,26 @@ export default function EducationPinPage() {
 
                 <FormField
                   control={form.control}
-                  name="pinType"
+                  name="variationId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pin Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProvider}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedServiceId || availablePins.length === 0}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a pin type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {availablePins.map(p => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.label} (₦{p.price.toLocaleString()})
-                            </SelectItem>
-                          ))}
+                          {availablePins.map(p => {
+                             const fee = p.fees?.[userData?.role || 'Customer'] || 0;
+                             const finalPrice = p.price + fee;
+                            return (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} (₦{finalPrice.toLocaleString()})
+                                </SelectItem>
+                            )
+                          })}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -223,7 +252,7 @@ export default function EducationPinPage() {
               <CardFooter>
                    <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedPin}>
                       {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {selectedPin ? `Buy Pin (₦${selectedPin.price.toLocaleString()})` : 'Select Pin Type'}
+                      {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Buy Pin')}
                   </Button>
               </CardFooter>
             </form>
