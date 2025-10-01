@@ -188,16 +188,16 @@ export default function AdminServicesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Service Management</h1>
           <p className="text-muted-foreground">Configure and manage all services and their variations.</p>
         </div>
-        <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setIsBulkUpdateOpen(true)}>
+        <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setIsBulkUpdateOpen(true)} className="w-full sm:w-auto">
                 <TrendingUp className="mr-2 h-4 w-4" /> Bulk Update Prices
             </Button>
-            <Button onClick={() => handleFormOpen(null)}>
+            <Button onClick={() => handleFormOpen(null)} className="w-full sm:w-auto">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add Service
             </Button>
         </div>
