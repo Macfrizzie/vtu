@@ -146,7 +146,7 @@ export default function EducationPinPage() {
         forceRefetch();
         toast({
           title: 'Purchase Successful!',
-          description: `Your ${selectedPin.label} has been generated.`,
+          description: `Your ${selectedPin.name} has been generated.`,
         });
       } else {
          throw new Error("Failed to retrieve PIN from provider. Please check your transaction history.");

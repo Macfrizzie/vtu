@@ -224,13 +224,39 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             };
             break;
         }
-        case 'Electricity':
-            // To be implemented
+        case 'Electricity': {
+            const variation = service.variations.find(v => v.id === variationId);
+            if (!variation) throw new Error("Internal configuration error: Service variation not found for electricity.");
+
+            const fee = variation.fees?.[userData.role] || 0;
+            totalCost = inputs.amount + fee;
+            description = `Electricity payment for ${inputs.meterNumber}`;
+
+            endpoint = `${provider.baseUrl}/billpayment/`;
+            requestBody = {
+                disco_name: service.provider, // The service.provider holds the disco_name (e.g., 'ikeja-electric')
+                amount: inputs.amount,
+                meter_number: inputs.meterNumber,
+                MeterType: inputs.meterType === 'prepaid' ? '1' : '2'
+            };
             break;
+        }
+        case 'Education': {
+            const variation = service.variations.find(v => v.id === variationId);
+            if (!variation) throw new Error("Selected E-Pin type not found.");
+
+            const fee = variation.fees?.[userData.role] || 0;
+            totalCost = variation.price + fee;
+            description = `${variation.name} E-Pin Purchase`;
+            
+            endpoint = `${provider.baseUrl}/epin/`;
+            requestBody = {
+                exam_name: service.provider, // The service.provider holds the exam name (e.g., 'WAEC')
+                quantity: 1, // Buying one pin at a time
+            };
+            break;
+        }
         case 'Cable':
-            // To be implemented
-            break;
-        case 'Education':
             // To be implemented
             break;
         default:

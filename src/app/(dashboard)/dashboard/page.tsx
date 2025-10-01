@@ -42,17 +42,29 @@ const fundWalletImage = PlaceHolderImages.find(
 );
 
 const getServiceUrl = (service: Service) => {
+    if (service.status === 'Inactive' || !service.name) return '#';
+
     const name = service.name.toLowerCase();
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
     
-    if (service.status === 'Inactive') return '#';
-
     if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
     if (name.includes('data')) return `/dashboard/services/data${query}`;
     if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
-    if (name.includes('cable')) return `/dashboard/services/cable${query}`;
-    if (name.includes('e-pins')) return `/dashboard/services/education${query}`;
-    // Add more mappings here as new service pages are created
+    if (name.includes('cable') || name.includes('dstv') || name.includes('gotv')) return `/dashboard/services/cable${query}`;
+    if (name.includes('waec') || name.includes('neco') || name.includes('jamb') || name.includes('pin')) return `/dashboard/services/education${query}`;
+    
+    // Fallback based on category if name doesn't match
+    if (service.category) {
+        const category = service.category.toLowerCase();
+        switch(category) {
+            case 'airtime': return `/dashboard/services/airtime${query}`;
+            case 'data': return `/dashboard/services/data${query}`;
+            case 'electricity': return `/dashboard/services/electricity${query}`;
+            case 'cable': return `/dashboard/services/cable${query}`;
+            case 'education': return `/dashboard/services/education${query}`;
+        }
+    }
+
     return '#';
 }
 
@@ -63,7 +75,7 @@ const getServiceIcon = (serviceName: string) => {
     if (name.includes('data')) return <Wifi size={24} />;
     if (name.includes('electric')) return <Zap size={24} />;
     if (name.includes('cable') || name.includes('dstv')) return <Tv size={24} />;
-    if (name.includes('e-pins')) return <GraduationCap size={24} />;
+    if (name.includes('e-pins') || name.includes('education') || name.includes('waec') || name.includes('neco')) return <GraduationCap size={24} />;
     if (name.includes('card')) return <CreditCard size={24} />;
     if (name.includes('betting')) return <Gamepad2 size={24} />;
     return <HelpCircle size={24} />;
@@ -288,6 +300,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
-    
