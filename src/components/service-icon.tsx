@@ -3,6 +3,7 @@
 
 import { Phone, Wifi, Zap, Tv, Ticket, GraduationCap, HelpCircle, type LucideProps } from 'lucide-react';
 import type { Service } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface ServiceIconProps extends LucideProps {
     category: Service['category'] | undefined;
@@ -19,7 +20,6 @@ export function ServiceIcon({ category, className, ...props }: ServiceIconProps)
   }
 
   // Convert category to lower case to ensure a case-insensitive match.
-  // This was the root cause of the issue.
   switch (category.toLowerCase()) {
     case 'airtime':
       return <Phone {...iconProps} />;
