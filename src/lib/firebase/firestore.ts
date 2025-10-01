@@ -3,7 +3,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
@@ -43,9 +43,9 @@ async function checkAndSeedServices() {
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
             { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata' },
-            { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata' },
-            { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata' },
-            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata' },
+            { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata', variations: [] },
+            { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata', variations: [] },
+            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [] },
         ];
 
         const batch = writeBatch(db);
@@ -152,7 +152,7 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
     });
 }
 
-export async function purchaseService(uid: string, serviceId: string, inputs: Record<string, any>, userEmail: string) {
+export async function purchaseService(uid: string, serviceId: string, variationId: string, inputs: Record<string, any>, userEmail: string) {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) throw new Error("User not found.");
@@ -453,7 +453,7 @@ export async function addAirtimePrice(price: Omit<AirtimePrice, 'id'>) {
 
 export async function getAirtimePrices(): Promise<AirtimePrice[]> {
     const pricesCol = collection(db, 'airtimePrices');
-    const snapshot = await getDocs(query(pricesCol));
+s    const snapshot = await getDocs(query(pricesCol));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AirtimePrice));
 }
 

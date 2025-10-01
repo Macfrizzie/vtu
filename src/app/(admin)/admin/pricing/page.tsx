@@ -25,12 +25,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -234,55 +228,14 @@ export default function AdminPricingPage() {
 
       <Tabs defaultValue="airtime">
         <TabsList>
-          <TabsTrigger value="airtime">Airtime</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
-          <TabsTrigger value="cable">Cable TV</TabsTrigger>
-          <TabsTrigger value="electricity">Electricity</TabsTrigger>
+          <TabsTrigger value="airtime">Airtime Discounts</TabsTrigger>
+          <TabsTrigger value="data" disabled>Data Plans (managed in Services)</TabsTrigger>
+          <TabsTrigger value="cable" disabled>Cable TV (managed in Services)</TabsTrigger>
+          <TabsTrigger value="electricity" disabled>Electricity (managed in Services)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="airtime" className="mt-4">
           <AirtimePricingTab />
-        </TabsContent>
-
-        <TabsContent value="data" className="mt-4">
-          <Card>
-             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                    <CardTitle>Data Plan Pricing</CardTitle>
-                    <CardDescription>Set prices for each data plan under different networks and providers.</CardDescription>
-                </div>
-                 <div className="flex gap-2">
-                    <Button variant="outline"><Upload className="mr-2 h-4 w-4" /> Bulk Upload</Button>
-                    <Button><PlusCircle className="mr-2 h-4 w-4" /> Add Data Plan</Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Data plan pricing configuration will be displayed here.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="cable" className="mt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Coming Soon</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Pricing management for Cable TV will be available here.</p>
-                </CardContent>
-            </Card>
-        </TabsContent>
-         <TabsContent value="electricity" className="mt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Coming Soon</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Pricing management for Electricity will be available here.</p>
-                </CardContent>
-            </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -35,6 +35,17 @@ export type Transaction = {
   apiResponse?: string;
 };
 
+export type ServiceVariation = {
+  id: string; // e.g., 'data-plan-101', 'dstv-padi'
+  name: string; // e.g., '1.5GB - 30 Days', 'DStv Padi'
+  price: number;
+  fees?: { // Optional role-based fees
+      Customer?: number;
+      Vendor?: number;
+      Admin?: number;
+  };
+};
+
 export type Service = {
   id: string;
   name: string;
@@ -42,6 +53,7 @@ export type Service = {
   category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
   status: 'Active' | 'Inactive';
   apiProviderId: string; // Link to an ApiProvider
+  variations: ServiceVariation[];
 };
 
 
@@ -61,7 +73,7 @@ export type ApiProvider = {
 
 export type AirtimePrice = {
     id: string;
-    serviceId: string;
+    serviceId: string; // Should likely be a generic 'airtime' identifier
     apiProviderId: string;
     networkId: string;
     networkName: string;
