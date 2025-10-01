@@ -3,33 +3,42 @@
 
 import { useEffect, useState } from 'react';
 import * as z from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Loader2, TrendingUp } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Loader2, TrendingUp, Trash2, GripVertical } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect, bulkUpdateFees } from '@/lib/firebase/firestore';
-import type { Service, ApiProvider } from '@/lib/types';
+import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
+
+const variationSchema = z.object({
+  id: z.string().min(1, "Variation ID is required."),
+  name: z.string().min(3, "Variation name must be at least 3 characters."),
+  price: z.coerce.number().min(0, "Price cannot be negative."),
+  fees: z.object({
+    Customer: z.coerce.number().min(0, "Fee cannot be negative."),
+    Vendor: z.coerce.number().min(0, "Fee cannot be negative."),
+    Admin: z.coerce.number().min(0, "Fee cannot be negative."),
+  }),
+});
 
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
   provider: z.string().min(2, 'Service code must be at least 2 characters (e.g., mtn, dstv).'),
-  fees: z.object({
-      Customer: z.coerce.number().min(0, 'Fee cannot be negative.'),
-      Vendor: z.coerce.number().min(0, 'Fee cannot be negative.'),
-      Admin: z.coerce.number().min(0, 'Fee cannot be negative.'),
-  }),
+  category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Other']),
   status: z.enum(['Active', 'Inactive']),
   apiProviderId: z.string().optional(),
+  variations: z.array(variationSchema).min(1, 'At least one service variation is required.'),
 });
 
 const bulkUpdateSchema = z.object({
@@ -54,10 +63,16 @@ export default function AdminServicesPage() {
     defaultValues: {
       name: '',
       provider: '',
-      fees: { Customer: 0, Vendor: 0, Admin: 0 },
+      category: 'Data',
       status: 'Active',
-      apiProviderId: '',
+      apiProviderId: 'none',
+      variations: [],
     },
+  });
+
+  const { fields, append, remove, move } = useFieldArray({
+    control: form.control,
+    name: "variations",
   });
 
   const bulkUpdateForm = useForm<z.infer<typeof bulkUpdateSchema>>({
@@ -93,19 +108,17 @@ export default function AdminServicesPage() {
     setEditingService(service);
     if (service) {
       form.reset({
-        name: service.name,
-        provider: service.provider,
-        fees: service.fees || { Customer: 0, Vendor: 0, Admin: 0 },
-        status: service.status,
+        ...service,
         apiProviderId: service.apiProviderId || 'none',
       });
     } else {
       form.reset({
         name: '',
         provider: '',
-        fees: { Customer: 0, Vendor: 0, Admin: 0 },
+        category: 'Data',
         status: 'Active',
         apiProviderId: 'none',
+        variations: [{ id: '', name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } }],
       });
     }
     setIsFormOpen(true);
@@ -118,7 +131,6 @@ export default function AdminServicesPage() {
 
   async function onSubmit(values: z.infer<typeof serviceFormSchema>) {
     setIsSubmitting(true);
-    
     const dataToSubmit = {
       ...values,
       apiProviderId: values.apiProviderId === 'none' ? '' : values.apiProviderId,
@@ -136,7 +148,7 @@ export default function AdminServicesPage() {
       await fetchData();
     } catch (error) {
       console.error("Failed to save service:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save service.' });
+      toast({ variant: 'destructive', title: 'Error', description: `Failed to save service. ${error instanceof Error ? error.message : ''}` });
     } finally {
       setIsSubmitting(false);
     }
@@ -179,7 +191,7 @@ export default function AdminServicesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Service Management</h1>
-          <p className="text-muted-foreground">Configure and manage all services and providers.</p>
+          <p className="text-muted-foreground">Configure and manage all services and their variations.</p>
         </div>
         <div className="flex gap-2">
             <Button variant="outline" onClick={() => setIsBulkUpdateOpen(true)}>
@@ -194,6 +206,7 @@ export default function AdminServicesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Available Services</CardTitle>
+           <CardDescription>A list of all configurable services on the platform.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -205,9 +218,9 @@ export default function AdminServicesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Service Name</TableHead>
-                  <TableHead>Service Code</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>API Provider</TableHead>
-                  <TableHead className="text-right">Fee (Customer)</TableHead>
+                  <TableHead>Variations</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -216,9 +229,9 @@ export default function AdminServicesPage() {
                 {services.map((service) => (
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
-                    <TableCell>{service.provider}</TableCell>
+                    <TableCell>{service.category}</TableCell>
                     <TableCell className="text-muted-foreground">{getProviderName(service.apiProviderId)}</TableCell>
-                    <TableCell className="text-right">₦{(service.fees?.Customer || 0).toFixed(2)}</TableCell>
+                    <TableCell>{service.variations?.length || 0}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={service.status === 'Active' ? 'default' : 'destructive'} className={cn(service.status === 'Active' && 'bg-green-500 hover:bg-green-600')}>
                         {service.status}
@@ -248,132 +261,145 @@ export default function AdminServicesPage() {
         </CardContent>
       </Card>
       
-      {/* Add/Edit Dialog */}
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{editingService ? 'Edit' : 'Add New'} Service</DialogTitle>
             <DialogDescription>
-              Fill in the details for the service.
+              Fill in the details for the service and its variations.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-               <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Service Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., MTN Data" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="provider"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Service Code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., mtn-data, dstv-padi" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="apiProviderId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>API Provider</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select an API Provider" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          {apiProviders.map(provider => (
-                            <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="space-y-2 rounded-md border p-4">
-                    <h4 className="font-medium">Pricing Tiers (Fees in ₦)</h4>
-                    <div className="grid grid-cols-3 gap-4">
-                        <FormField
-                            control={form.control}
-                            name="fees.Customer"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Customer</FormLabel>
-                                <FormControl>
-                                <Input type="number" placeholder="e.g., 50" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="fees.Vendor"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Vendor</FormLabel>
-                                <FormControl>
-                                <Input type="number" placeholder="e.g., 25" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                         <FormField
-                            control={form.control}
-                            name="fees.Admin"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Admin</FormLabel>
-                                <FormControl>
-                                <Input type="number" placeholder="e.g., 0" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                            )}
-                        />
-                    </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <FormField control={form.control} name="name" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Name</FormLabel>
+                    <FormControl><Input placeholder="e.g., MTN Data" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="provider" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Code</FormLabel>
+                    <FormControl><Input placeholder="e.g., mtn-data" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="category" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        {['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Other'].map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="apiProviderId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>API Provider</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select an API Provider" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {apiProviders.map(provider => (<SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="status" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="Active">Active</SelectItem>
+                        <SelectItem value="Inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              
+              <div className="space-y-4 rounded-md border p-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-medium">Service Variations / Plans</h4>
+                   <Button type="button" size="sm" variant="outline" onClick={() => append({ id: `var_${Date.now()}`, name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } })}>
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Variation
+                    </Button>
                 </div>
+                <FormMessage>{form.formState.errors.variations?.root?.message}</FormMessage>
 
-                <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a status" />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            <SelectItem value="Active">Active</SelectItem>
-                            <SelectItem value="Inactive">Inactive</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+                <div className="space-y-4">
+                  {fields.map((item, index) => (
+                    <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border p-3 rounded-lg relative">
+                      <div className="col-span-12 md:col-span-1 flex justify-center items-center h-full">
+                         <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
+                      </div>
+
+                      <div className="col-span-12 md:col-span-11 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                         <FormField control={form.control} name={`variations.${index}.id`} render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Variation ID</FormLabel>
+                              <FormControl><Input placeholder="e.g. mtn-1gb" {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                          <FormField control={form.control} name={`variations.${index}.name`} render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Variation Name</FormLabel>
+                              <FormControl><Input placeholder="e.g. 1GB - 30 Days" {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                          <FormField control={form.control} name={`variations.${index}.price`} render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Base Price (₦)</FormLabel>
+                              <FormControl><Input type="number" placeholder="250" {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+
+                        <div className="col-span-full grid grid-cols-3 gap-2 mt-2 border-t pt-2">
+                           <FormField control={form.control} name={`variations.${index}.fees.Customer`} render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Customer Fee</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`variations.${index}.fees.Vendor`} render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Vendor Fee</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )} />
+                            <FormField control={form.control} name={`variations.${index}.fees.Admin`} render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Admin Fee</FormLabel>
+                                <FormControl><Input type="number" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )} />
+                        </div>
+                      </div>
+                      
+                      <div className="absolute top-2 right-2">
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <DialogFooter>
                  <Button type="button" variant="outline" onClick={handleFormClose} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>

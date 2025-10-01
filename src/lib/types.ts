@@ -35,17 +35,27 @@ export type Transaction = {
   userEmail?: string;
 };
 
+export type ServiceFee = {
+    Customer: number;
+    Vendor: number;
+    Admin: number;
+};
+
+export type ServiceVariation = {
+    id: string; // e.g., mtn-1gb-30
+    name: string; // e.g., 1GB - 30 Days
+    price: number; // The base cost from the API provider
+    fees: ServiceFee; // The commission you add for each user tier
+};
+
 export type Service = {
     id: string;
     name: string;
-    provider: string; // e.g., 'mtn', 'dstv', 'ikedc'
+    provider: string; // e.g., 'mtn-data', 'dstv'
+    category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
     status: 'Active' | 'Inactive';
-    fees: {
-        Customer: number;
-        Vendor: number;
-        Admin: number;
-    };
-    apiProviderId?: string; // ID of the ApiProvider that handles this service
+    apiProviderId?: string;
+    variations: ServiceVariation[]; // Array of plans or packages
 };
 
 export type ApiProvider = {

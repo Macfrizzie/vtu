@@ -4,7 +4,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc, runTransaction } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
@@ -43,11 +43,34 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'Airtime Top-up', provider: 'mtn-airtime', status: 'Active', fees: { Customer: 1, Vendor: 0.5, Admin: 0 } },
-            { name: 'Data Bundles', provider: 'mtn-data', status: 'Active', fees: { Customer: 1.5, Vendor: 1, Admin: 0 } },
-            { name: 'Electricity Bill', provider: 'ikedc', status: 'Active', fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-            { name: 'Cable TV', provider: 'dstv', status: 'Active', fees: { Customer: 50, Vendor: 25, Admin: 0 } },
-            { name: 'E-pins', provider: 'waec', status: 'Active', fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+             { 
+                name: 'MTN Data', 
+                provider: 'mtn-data', 
+                category: 'Data',
+                status: 'Active', 
+                variations: [
+                    { id: 'mtn-1gb-sme', name: '1GB SME', price: 250, fees: { Customer: 50, Vendor: 25, Admin: 0 } },
+                    { id: 'mtn-2gb-sme', name: '2GB SME', price: 500, fees: { Customer: 50, Vendor: 25, Admin: 0 } },
+                ]
+            },
+            { 
+                name: 'Airtel Data', 
+                provider: 'airtel-data', 
+                category: 'Data',
+                status: 'Active', 
+                variations: [
+                    { id: 'airtel-1gb', name: '1GB', price: 300, fees: { Customer: 50, Vendor: 25, Admin: 0 } },
+                ]
+            },
+            { 
+                name: 'DSTV Subscription', 
+                provider: 'dstv', 
+                category: 'Cable',
+                status: 'Active',
+                variations: [
+                    { id: 'dstv-padi', name: 'DStv Padi', price: 3950, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                ]
+            },
         ];
 
         const batch = writeBatch(db);
@@ -156,60 +179,68 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
 }
 
 
-export async function purchaseService(uid: string, baseAmount: number, description: string, userEmail: string, serviceProviderCode: string) {
+export async function purchaseService(uid: string, amount: number, description: string, userEmail: string, serviceProviderCode: string) {
     await checkAndSeedServices();
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
+    return await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', uid);
+        const userSnap = await transaction.get(userRef);
 
-    if (!userSnap.exists()) {
-        throw new Error("User not found.");
-    }
-    const userData = userSnap.data() as UserData;
-    const userRole = userData.role;
+        if (!userSnap.exists()) {
+            throw new Error("User not found.");
+        }
+        const userData = userSnap.data() as UserData;
+        const userRole = userData.role;
 
-    let totalAmount = baseAmount;
-    let finalDescription = description;
-    let serviceFee = 0;
+        let totalAmount = amount;
+        let finalDescription = description;
+        let serviceFee = 0;
 
-    const servicesRef = collection(db, 'services');
-    const q = query(servicesRef, where('provider', '==', serviceProviderCode));
-    const serviceSnapshot = await getDocs(q);
+        const servicesRef = collection(db, 'services');
+        const q = query(servicesRef, where('provider', '==', serviceProviderCode));
+        const serviceSnapshot = await getDocs(q);
 
-    if (!serviceSnapshot.empty) {
-        const serviceDoc = serviceSnapshot.docs[0];
-        const service = serviceDoc.data() as Service;
+        // This logic needs to be updated for variations. For now, it's a simplified version.
+        if (!serviceSnapshot.empty) {
+            const serviceDoc = serviceSnapshot.docs[0];
+            const service = serviceDoc.data() as Service;
+            
+            // This is a placeholder. Correct fee logic will depend on the selected variation.
+            // Let's find a variation to get a sample fee.
+            const firstVariation = service.variations?.[0];
+            if (firstVariation && firstVariation.fees && typeof firstVariation.fees[userRole] === 'number') {
+                serviceFee = firstVariation.fees[userRole];
+            }
+
+            if (serviceFee > 0) {
+                totalAmount += serviceFee;
+                finalDescription = `${description} (Fee: ₦${serviceFee})`;
+            }
+        }
         
-        if (service.fees && typeof service.fees[userRole] === 'number') {
-            serviceFee = service.fees[userRole];
+        if (userData.walletBalance < totalAmount) {
+            throw new Error(`Insufficient wallet balance. You need ₦${totalAmount}, but have ₦${userData.walletBalance}.`);
         }
+        
+        transaction.update(userRef, {
+            walletBalance: increment(-totalAmount)
+        });
 
-        if (serviceFee > 0) {
-            totalAmount += serviceFee;
-            finalDescription = `${description} (Fee: ₦${serviceFee})`;
-        }
-    }
-    
-    if (userData.walletBalance < totalAmount) {
-        throw new Error("Insufficient wallet balance.");
-    }
-    
-    await updateDoc(userRef, {
-        walletBalance: increment(-totalAmount)
+        // Log the transaction
+        const newTransactionRef = doc(collection(db, 'transactions'));
+        transaction.set(newTransactionRef, {
+            userId: uid,
+            userEmail: userEmail,
+            description: finalDescription,
+            amount: totalAmount > 0 ? -totalAmount : totalAmount,
+            type: 'Debit',
+            status: 'Successful',
+            date: new Date(),
+        });
+
+        return newTransactionRef.id;
     });
-
-    // Log the transaction
-    const newTransactionRef = await addDoc(collection(db, 'transactions'), {
-        userId: uid,
-        userEmail: userEmail,
-        description: finalDescription,
-        amount: totalAmount > 0 ? -totalAmount : totalAmount,
-        type: 'Debit',
-        status: 'Successful',
-        date: new Date(),
-    });
-
-    return newTransactionRef.id;
 }
+
 
 export async function getTransactions(): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
@@ -296,7 +327,7 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     await checkAndSeedServices();
     const servicesCol = collection(db, 'services');
-    const serviceSnapshot = await getDocs(servicesCol);
+    const serviceSnapshot = await getDocs(query(servicesCol, orderBy('name')));
     const serviceList = serviceSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -308,11 +339,17 @@ export async function getServices(): Promise<Service[]> {
 }
 
 export async function addService(service: Omit<Service, 'id'>) {
+    if (!service.variations || service.variations.length === 0) {
+        throw new Error("A service must have at least one variation.");
+    }
     const servicesRef = collection(db, 'services');
     await addDoc(servicesRef, service);
 }
 
 export async function updateService(id: string, data: Partial<Omit<Service, 'id'>>) {
+    if (data.variations && data.variations.length === 0) {
+        throw new Error("A service must have at least one variation.");
+    }
     const serviceRef = doc(db, 'services', id);
     await updateDoc(serviceRef, data);
 }
@@ -329,32 +366,38 @@ export async function bulkUpdateFees(updateType: 'increase_percentage' | 'increa
         const serviceSnapshot = await getDocs(servicesRef);
         serviceSnapshot.forEach(serviceDoc => {
             const service = serviceDoc.data() as Service;
-            const currentFees = service.fees || { Customer: 0, Vendor: 0, Admin: 0 };
-            const newFees = { ...currentFees };
+            if (!service.variations) return;
 
-            for (const role in newFees) {
-                if (Object.prototype.hasOwnProperty.call(newFees, role)) {
-                    const currentFee = newFees[role as keyof typeof newFees];
-                    let newFee = currentFee;
+            const updatedVariations = service.variations.map(variation => {
+                const currentFees = variation.fees || { Customer: 0, Vendor: 0, Admin: 0 };
+                const newFees = { ...currentFees };
 
-                    switch(updateType) {
-                        case 'increase_percentage':
-                            newFee = currentFee * (1 + value / 100);
-                            break;
-                        case 'increase_fixed':
-                            newFee = currentFee + value;
-                            break;
-                        case 'decrease_percentage':
-                            newFee = currentFee * (1 - value / 100);
-                            break;
-                        case 'decrease_fixed':
-                            newFee = currentFee - value;
-                            break;
+                for (const role in newFees) {
+                    if (Object.prototype.hasOwnProperty.call(newFees, role)) {
+                        const currentFee = newFees[role as keyof typeof newFees];
+                        let newFee = currentFee;
+
+                        switch(updateType) {
+                            case 'increase_percentage':
+                                newFee = currentFee * (1 + value / 100);
+                                break;
+                            case 'increase_fixed':
+                                newFee = currentFee + value;
+                                break;
+                            case 'decrease_percentage':
+                                newFee = currentFee * (1 - value / 100);
+                                break;
+                            case 'decrease_fixed':
+                                newFee = currentFee - value;
+                                break;
+                        }
+                        newFees[role as keyof typeof newFees] = Math.max(0, Math.round(newFee * 100) / 100); // Ensure fee is not negative and round to 2 decimal places
                     }
-                    newFees[role as keyof typeof newFees] = Math.max(0, newFee); // Ensure fee is not negative
                 }
-            }
-            transaction.update(serviceDoc.ref, { fees: newFees });
+                return { ...variation, fees: newFees };
+            });
+
+            transaction.update(serviceDoc.ref, { variations: updatedVariations });
         });
     });
 }
