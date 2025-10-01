@@ -6,6 +6,7 @@ import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, ad
 import { app } from './client-app';
 import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
+import { callProviderAPI } from '@/services/api-handler';
 
 
 const db = getFirestore(app);
@@ -171,7 +172,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     // Fetch all providers and filter by the one linked to the service, then sort by priority
     const allProviders = await getApiProviders();
     const serviceProviders = allProviders
-        .filter(p => p.id === service.apiProviderId) // In a multi-provider setup, this would check an array
+        .filter(p => p.id === service.apiProviderId && p.status === 'Active')
         .sort((a, b) => a.priority === 'Primary' ? -1 : b.priority === 'Primary' ? 1 : 0);
 
     if (serviceProviders.length === 0) {
@@ -187,8 +188,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     for (const provider of serviceProviders) {
         // --- Calculate Cost and Prepare API Request ---
         try {
-            let requestBody;
-            let endpoint;
+            let requestBody: Record<string, any> = {};
+            let endpoint: string = '';
+            let method: 'GET' | 'POST' = 'POST';
 
             switch (service.category) {
                 case 'Airtime': {
@@ -205,7 +207,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     totalCost = amount - discount;
                     description = `${service.name} (₦${amount}) for ${inputs.mobile_number}`;
                     
-                    endpoint = `${provider.baseUrl}/topup/`;
+                    endpoint = '/topup/';
                     requestBody = {
                         network: service.provider,
                         amount: inputs.amount,
@@ -223,7 +225,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     totalCost = variation.price + fee;
                     description = `${variation.name} for ${inputs.mobile_number}`;
 
-                    endpoint = `${provider.baseUrl}/data/`;
+                    endpoint = '/data/';
                     requestBody = {
                         network: inputs.network,
                         mobile_number: inputs.mobile_number,
@@ -240,7 +242,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     totalCost = inputs.amount + fee;
                     description = `Electricity payment for ${inputs.meterNumber}`;
 
-                    endpoint = `${provider.baseUrl}/billpayment/`;
+                    endpoint = '/billpayment/';
                     requestBody = {
                         disco_name: service.provider,
                         amount: inputs.amount,
@@ -257,7 +259,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     totalCost = variation.price + fee;
                     description = `${variation.name} for ${inputs.smart_card_number}`;
 
-                    endpoint = `${provider.baseUrl}/billpayment/`;
+                    endpoint = '/billpayment/';
                     requestBody = {
                         disco_name: service.provider, // `dstv`, `gotv`, etc.
                         amount: inputs.amount,
@@ -278,7 +280,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     totalCost = variation.price + fee;
                     description = `${variation.name} E-Pin Purchase`;
                     
-                    endpoint = `${provider.baseUrl}/epin/`;
+                    endpoint = '/epin/';
                     requestBody = {
                         exam_name: service.provider,
                         quantity: 1,
@@ -293,7 +295,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     totalCost = (variation.price + fee) * inputs.quantity;
                     description = `${inputs.quantity} x ₦${variation.price} ${service.name} E-Pin(s)`;
 
-                    endpoint = `${provider.baseUrl}/rechargepin/`;
+                    endpoint = '/rechargepin/';
                     requestBody = {
                         network: inputs.network,
                         network_amount: inputs.network_amount,
@@ -312,26 +314,16 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             }
 
             // --- Execute API Call ---
-            if (!endpoint || !requestBody) {
-                throw new Error("Service configuration error: missing endpoint or request body.");
+            if (!endpoint) {
+                throw new Error("Service configuration error: missing endpoint.");
             }
            
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Token ${provider.apiKey}`,
-                    'Content-Type': 'application/json',
-                    ...(provider.requestHeaders ? JSON.parse(provider.requestHeaders) : {})
-                },
-                body: JSON.stringify(requestBody),
-            });
-
-            const responseData = await response.json();
-            if (!response.ok || responseData.status === 'error' || responseData.Status === 'failed') {
-                throw new Error(responseData.message || responseData.msg || `API Error: ${response.statusText}`);
+            apiResponse = await callProviderAPI(provider, endpoint, method, requestBody);
+            
+            if (apiResponse.status === 'error' || apiResponse.Status === 'failed') {
+                 throw new Error(apiResponse.message || apiResponse.msg || `API Error from ${provider.name}`);
             }
             
-            apiResponse = responseData;
             successfulProvider = provider;
             break; // Exit loop on success
 
@@ -506,7 +498,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     
     if (snapshot.empty) {
         const initialProviders: Omit<ApiProvider, 'id'>[] = [
-            { name: 'HusmoData', description: 'Primary provider for VTU services.', baseUrl: 'https://husmodataapi.com/api', status: 'Active', priority: 'Primary', apiKey: '66f2e5c39ac8640f13cd888f161385b12f7e5e92', apiSecret: '', requestHeaders: '{}', transactionCharge: 0 },
+            { name: 'HusmoData', description: 'Primary provider for VTU services.', baseUrl: 'https://husmodataapi.com/api', status: 'Active', priority: 'Primary', auth_type: 'Token', apiKey: '66f2e5c39ac8640f13cd888f161385b12f7e5e92', apiSecret: '', requestHeaders: '{}', transactionCharge: 0 },
         ];
         const batch = writeBatch(db);
         initialProviders.forEach(provider => {
@@ -553,4 +545,3 @@ export async function deleteAirtimePrice(id: string) {
     const priceRef = doc(db, 'airtimePrices', id);
     await deleteDoc(priceRef);
 }
-

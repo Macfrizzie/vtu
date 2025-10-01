@@ -36,6 +36,7 @@ const providerFormSchema = z.object({
   name: z.string().min(2, 'Provider name must be at least 2 characters.'),
   description: z.string().optional(),
   baseUrl: z.string().url('Please enter a valid URL.'),
+  auth_type: z.enum(['None', 'Token', 'API Key']),
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
   requestHeaders: z.string().refine(val => {
@@ -68,6 +69,7 @@ export default function AdminApiProvidersPage() {
       name: '',
       description: '',
       baseUrl: '',
+      auth_type: 'Token',
       apiKey: '',
       apiSecret: '',
       requestHeaders: '{}',
@@ -110,6 +112,7 @@ export default function AdminApiProvidersPage() {
           name: '',
           description: '',
           baseUrl: '',
+          auth_type: 'Token',
           apiKey: '',
           apiSecret: '',
           requestHeaders: '{}',
@@ -193,7 +196,7 @@ export default function AdminApiProvidersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Provider Name</TableHead>
-                  <TableHead>Base URL</TableHead>
+                  <TableHead>Auth Type</TableHead>
                   <TableHead>Charge (₦)</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead className="text-center">Status</TableHead>
@@ -204,7 +207,9 @@ export default function AdminApiProvidersPage() {
                 {providers.map((provider) => (
                   <TableRow key={provider.id}>
                     <TableCell className="font-medium">{provider.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{provider.baseUrl}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{provider.auth_type}</Badge>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">₦{(provider.transactionCharge || 0).toFixed(2)}</TableCell>
                     <TableCell>
                         <Badge variant={provider.priority === 'Primary' ? 'default' : 'secondary'}>
@@ -316,41 +321,59 @@ export default function AdminApiProvidersPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <FormField
+                  control={form.control}
+                  name="auth_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Authentication Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                          <SelectItem value="None">None</SelectItem>
+                          <SelectItem value="Token">Authorization: Token</SelectItem>
+                          <SelectItem value="API Key">Authorization: (API Key)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
                     control={form.control}
                     name="apiKey"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>API Key</FormLabel>
+                        <FormLabel>API Key / Token</FormLabel>
                         <FormControl>
-                            <Input type="password" placeholder="Enter API Key" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="apiSecret"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>API Secret / Private Key</FormLabel>
-                        <FormControl>
-                           <Input type="password" placeholder="Enter API Secret" {...field} />
+                            <Input type="password" placeholder="Enter API Key or Token" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
               </div>
+              <FormField
+                control={form.control}
+                name="apiSecret"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>API Secret / Private Key</FormLabel>
+                    <FormControl>
+                        <Input type="password" placeholder="Enter API Secret" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+              />
 
                <FormField
                 control={form.control}
                 name="requestHeaders"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Request Headers (JSON)</FormLabel>
+                    <FormLabel>Custom Request Headers (JSON)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder='{ "Content-Type": "application/json" }' className="font-mono text-xs" {...field} />
+                      <Textarea placeholder='{ "x-api-key": "some-other-key" }' className="font-mono text-xs" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -420,5 +443,4 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
-
     

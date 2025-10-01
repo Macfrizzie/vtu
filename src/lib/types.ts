@@ -64,7 +64,8 @@ export type ApiProvider = {
   name:string;
   description?: string;
   baseUrl: string;
-  apiKey: string; // Will store the API Token
+  auth_type: 'None' | 'Token' | 'API Key';
+  apiKey: string; // Will store the API Token or Key
   apiSecret?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
