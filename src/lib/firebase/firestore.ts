@@ -168,24 +168,23 @@ export async function purchaseService(uid: string, serviceId: string, variationI
         throw new Error("This service is not linked to an API provider.");
     }
     
-    // For now, we assume a single provider. In a multi-provider setup, you'd fetch all linked providers.
-    const providers = [service.apiProviderId]; // This would be an array of provider IDs from the service
+    // Fetch all providers and filter by the one linked to the service, then sort by priority
+    const allProviders = await getApiProviders();
+    const serviceProviders = allProviders
+        .filter(p => p.id === service.apiProviderId) // In a multi-provider setup, this would check an array
+        .sort((a, b) => a.priority === 'Primary' ? -1 : b.priority === 'Primary' ? 1 : 0);
+
+    if (serviceProviders.length === 0) {
+        throw new Error("No active API provider found for this service.");
+    }
     
     let totalCost = 0;
     let description = `${service.name} Purchase`;
     let apiResponse: any;
     let successfulProvider: ApiProvider | null = null;
-    let lastError: Error | null = null;
+    let lastError: Error | null = new Error("No API providers were attempted.");
 
-    for (const providerId of providers) {
-        const providerRef = doc(db, 'apiProviders', providerId);
-        const providerSnap = await getDoc(providerRef);
-        if (!providerSnap.exists()) {
-            lastError = new Error(`API Provider with ID ${providerId} not found.`);
-            continue; // Try next provider
-        }
-        const provider = providerSnap.data() as ApiProvider;
-
+    for (const provider of serviceProviders) {
         // --- Calculate Cost and Prepare API Request ---
         try {
             let requestBody;
@@ -283,6 +282,23 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     requestBody = {
                         exam_name: service.provider,
                         quantity: 1,
+                    };
+                    break;
+                }
+                case 'Recharge Card': {
+                    const variation = service.variations.find(v => v.id === variationId);
+                    if (!variation) throw new Error("Selected denomination not found.");
+
+                    const fee = variation.fees?.[userData.role] || 0;
+                    totalCost = (variation.price + fee) * inputs.quantity;
+                    description = `${inputs.quantity} x ₦${variation.price} ${service.name} E-Pin(s)`;
+
+                    endpoint = `${provider.baseUrl}/rechargepin/`;
+                    requestBody = {
+                        network: inputs.network,
+                        network_amount: inputs.network_amount,
+                        quantity: inputs.quantity,
+                        name_on_card: inputs.name_on_card,
                     };
                     break;
                 }

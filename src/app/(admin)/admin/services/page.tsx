@@ -37,7 +37,7 @@ const serviceVariationSchema = z.object({
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
   provider: z.string().min(1, 'Service code is required (e.g., 1 for MTN, dstv, etc).'),
-  category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Other']),
+  category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Recharge Card', 'Other']),
   status: z.enum(['Active', 'Inactive']),
   apiProviderId: z.string().optional(),
   variations: z.array(serviceVariationSchema).optional(),
@@ -305,7 +305,7 @@ export default function AdminServicesPage() {
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Other'].map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                        {['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Recharge Card', 'Other'].map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -339,7 +339,7 @@ export default function AdminServicesPage() {
                 )} />
               </div>
 
-             {['Data', 'Cable', 'Electricity', 'Education'].includes(category) && (
+             {['Data', 'Cable', 'Electricity', 'Education', 'Recharge Card'].includes(category) && (
                 <div className="space-y-4 pt-4 border-t">
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold">Service Variations (e.g., Plans)</h3>
@@ -468,5 +468,3 @@ export default function AdminServicesPage() {
     </div>
   );
 }
-
-    

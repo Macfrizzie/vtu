@@ -52,7 +52,7 @@ export type Service = {
   id: string;
   name: string;
   provider: string; // This can be a service code like '1' (for MTN), 'dstv' etc.
-  category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
+  category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Recharge Card' | 'Other';
   status: 'Active' | 'Inactive';
   apiProviderId: string; // Link to an ApiProvider
   variations: ServiceVariation[];
@@ -92,5 +92,3 @@ export type DataPlan = {
     planName: string;
     price: number;
 };
-
-    

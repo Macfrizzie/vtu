@@ -44,14 +44,7 @@ const fundWalletImage = PlaceHolderImages.find(
 const getServiceUrl = (service: Service) => {
     if (service.status === 'Inactive' || !service.name) return '#';
 
-    const name = service.name.toLowerCase();
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
-    
-    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
-    if (name.includes('data')) return `/dashboard/services/data${query}`;
-    if (name.includes('electric')) return `/dashboard/services/electricity${query}`;
-    if (name.includes('cable') || name.includes('dstv') || name.includes('gotv')) return `/dashboard/services/cable${query}`;
-    if (name.includes('waec') || name.includes('neco') || name.includes('jamb') || name.includes('pin')) return `/dashboard/services/education${query}`;
     
     // Fallback based on category if name doesn't match
     if (service.category) {
@@ -62,6 +55,7 @@ const getServiceUrl = (service: Service) => {
             case 'electricity': return `/dashboard/services/electricity${query}`;
             case 'cable': return `/dashboard/services/cable${query}`;
             case 'education': return `/dashboard/services/education${query}`;
+            case 'recharge card': return `/dashboard/services/recharge-card${query}`;
         }
     }
 
@@ -69,15 +63,16 @@ const getServiceUrl = (service: Service) => {
 }
 
 
-const getServiceIcon = (serviceName: string) => {
-    const name = serviceName.toLowerCase();
-    if (name.includes('airtime')) return <Phone size={24} />;
-    if (name.includes('data')) return <Wifi size={24} />;
-    if (name.includes('electric')) return <Zap size={24} />;
-    if (name.includes('cable') || name.includes('dstv')) return <Tv size={24} />;
-    if (name.includes('e-pins') || name.includes('education') || name.includes('waec') || name.includes('neco')) return <GraduationCap size={24} />;
-    if (name.includes('card')) return <CreditCard size={24} />;
-    if (name.includes('betting')) return <Gamepad2 size={24} />;
+const getServiceIcon = (service: Service) => {
+    const category = service.category.toLowerCase();
+    if (category.includes('airtime')) return <Phone size={24} />;
+    if (category.includes('data')) return <Wifi size={24} />;
+    if (category.includes('electric')) return <Zap size={24} />;
+    if (category.includes('cable') || category.includes('dstv')) return <Tv size={24} />;
+    if (category.includes('education') || category.includes('waec') || category.includes('neco')) return <GraduationCap size={24} />;
+    if (category.includes('recharge card')) return <Ticket size={24} />;
+    if (category.includes('card')) return <CreditCard size={24} />;
+    if (category.includes('betting')) return <Gamepad2 size={24} />;
     return <HelpCircle size={24} />;
 };
 
@@ -121,7 +116,7 @@ export default function DashboardPage() {
                 const links = activeServices.slice(0, 3).map(service => (
                     <Link href={getServiceUrl(service)} key={service.id}>
                         <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                            <div className="text-muted-foreground">{getServiceIcon(service.name)}</div>
+                            <div className="text-muted-foreground">{getServiceIcon(service)}</div>
                             <span className="text-xs font-medium">{service.name.split(' ')[0]}</span>
                         </div>
                     </Link>
