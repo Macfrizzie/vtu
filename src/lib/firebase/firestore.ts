@@ -42,7 +42,7 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata' },
+            { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata', variations: [] },
             { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata', variations: [] },
             { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata', variations: [] },
             { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [] },
@@ -453,7 +453,7 @@ export async function addAirtimePrice(price: Omit<AirtimePrice, 'id'>) {
 
 export async function getAirtimePrices(): Promise<AirtimePrice[]> {
     const pricesCol = collection(db, 'airtimePrices');
-s    const snapshot = await getDocs(query(pricesCol));
+    const snapshot = await getDocs(query(pricesCol));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AirtimePrice));
 }
 
@@ -461,3 +461,5 @@ export async function deleteAirtimePrice(id: string) {
     const priceRef = doc(db, 'airtimePrices', id);
     await deleteDoc(priceRef);
 }
+
+    
