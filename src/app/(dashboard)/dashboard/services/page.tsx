@@ -4,32 +4,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Phone, Wifi, Zap, Tv, Ticket, CreditCard, Gamepad2, HelpCircle, GraduationCap } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { ServiceIcon } from '@/components/service-icon';
 
-const getServiceIcon = (service: Service) => {
-  if (!service.category) return <HelpCircle className="h-8 w-8 text-primary" />;
-  const cat = service.category.toLowerCase();
-  
-  switch(cat) {
-    case 'airtime': return <Phone className="h-8 w-8 text-primary" />;
-    case 'data': return <Wifi className="h-8 w-8 text-primary" />;
-    case 'electricity': return <Zap className="h-8 w-8 text-primary" />;
-    case 'cable': return <Tv className="h-8 w-8 text-primary" />;
-    case 'education': return <GraduationCap className="h-8 w-8 text-primary" />;
-    case 'recharge card': return <Ticket className="h-8 w-8 text-primary" />;
-    default: return <HelpCircle className="h-8 w-8 text-primary" />;
-  }
-};
 
 const getServiceUrl = (service: Service) => {
     if (service.status === 'Inactive' || !service.name) return '#';
 
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
     
-    // Fallback based on category if name doesn't match
     if (service.category) {
         const category = service.category.toLowerCase();
         switch(category) {
@@ -82,7 +68,7 @@ export default function ServicesPage() {
                     <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors h-full">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
-                                {getServiceIcon(service)}
+                                <ServiceIcon category={service.category} />
                                 <span className="text-center font-medium">{service.name}</span>
                                 {service.status === 'Inactive' && <div className="text-xs text-destructive font-semibold absolute bottom-2">Coming Soon</div>}
                             </CardContent>

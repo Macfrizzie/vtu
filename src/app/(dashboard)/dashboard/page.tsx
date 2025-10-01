@@ -7,35 +7,27 @@ import {
   Eye,
   Plus,
   ArrowRight,
-  Wifi,
-  Zap,
-  Phone,
   MoreHorizontal,
   Loader2,
-  Tv,
-  Ticket,
-  Gamepad2,
-  HelpCircle,
-  CreditCard,
-  GraduationCap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
-import { DstvLogo, KudaLogo, MtnLogo } from '@/components/icons';
+import { DstvLogo, MtnLogo } from '@/components/icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser } from '@/context/user-context';
 import { useEffect, useState } from 'react';
 import type { Transaction, Service } from '@/lib/types';
 import { getUserTransactions, getServices } from '@/lib/firebase/firestore';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
   CarouselContent,
   CarouselItem,
 } from "@/components/ui/carousel"
+import { ServiceIcon } from '@/components/service-icon';
+
 
 const fundWalletImage = PlaceHolderImages.find(
   img => img.id === 'feature-wallet'
@@ -62,30 +54,11 @@ const getServiceUrl = (service: Service) => {
     return '#';
 }
 
-
-const getServiceIcon = (service: Service) => {
-    if (!service.category) return <HelpCircle size={24} className="text-muted-foreground" />;
-    const category = service.category.toLowerCase();
-
-    switch(category) {
-        case 'airtime': return <Phone size={24} className="text-muted-foreground" />;
-        case 'data': return <Wifi size={24} className="text-muted-foreground" />;
-        case 'electricity': return <Zap size={24} className="text-muted-foreground" />;
-        case 'cable': return <Tv size={24} className="text-muted-foreground" />;
-        case 'education': return <GraduationCap size={24} className="text-muted-foreground" />;
-        case 'recharge card': return <Ticket size={24} className="text-muted-foreground" />;
-        case 'card': return <CreditCard size={24} className="text-muted-foreground" />;
-        case 'betting': return <Gamepad2 size={24} className="text-muted-foreground" />;
-        default: return <HelpCircle size={24} className="text-muted-foreground" />;
-    }
-};
-
-
 const getTransactionIcon = (description: string) => {
     const desc = description.toLowerCase();
     if (desc.includes('mtn')) return <MtnLogo className="h-6 w-6" />;
     if (desc.includes('dstv')) return <DstvLogo className="h-8 w-8" />;
-    if (desc.includes('electric')) return <KudaLogo className="h-8 w-8" />; // Placeholder
+    if (desc.includes('electric')) return <Zap className="h-6 w-6 text-yellow-500" />;
     if (desc.includes('wallet funding')) return (
          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
             <Plus size={20} className="text-blue-600" />
@@ -120,7 +93,7 @@ export default function DashboardPage() {
                 const links = activeServices.slice(0, 3).map(service => (
                     <Link href={getServiceUrl(service)} key={service.id}>
                         <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                            {getServiceIcon(service)}
+                            <ServiceIcon category={service.category} className="h-6 w-6 text-muted-foreground" />
                             <span className="text-xs font-medium">{service.name.split(' ')[0]}</span>
                         </div>
                     </Link>
