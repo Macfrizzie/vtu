@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -163,132 +164,142 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     if (!serviceSnap.exists()) throw new Error("Service not found.");
     const service = { id: serviceSnap.id, ...serviceSnap.data() } as Service;
 
-    let totalCost = 0;
-    let description = `${service.name} Purchase`;
-    let apiResponse: any;
-
     if (!service.apiProviderId) {
         throw new Error("This service is not linked to an API provider.");
     }
+    
+    // For now, we assume a single provider. In a multi-provider setup, you'd fetch all linked providers.
+    const providers = [service.apiProviderId]; // This would be an array of provider IDs from the service
+    
+    let totalCost = 0;
+    let description = `${service.name} Purchase`;
+    let apiResponse: any;
+    let successfulProvider: ApiProvider | null = null;
+    let lastError: Error | null = null;
 
-    const providerRef = doc(db, 'apiProviders', service.apiProviderId);
-    const providerSnap = await getDoc(providerRef);
-    if (!providerSnap.exists()) {
-        throw new Error("API Provider configured for this service not found.");
-    }
-    const provider = providerSnap.data() as ApiProvider;
-
-    // --- Calculate Cost and Prepare API Request ---
-    let requestBody;
-    let endpoint;
-
-    switch (service.category) {
-        case 'Airtime': {
-            const priceRuleQuery = query(collection(db, 'airtimePrices'), 
-                where('networkId', '==', service.provider),
-                where('apiProviderId', '==', service.apiProviderId)
-            );
-            const priceRuleSnap = await getDocs(priceRuleQuery);
-            if (priceRuleSnap.empty) throw new Error("No pricing rule found for this network.");
-            const priceRule = priceRuleSnap.docs[0].data() as AirtimePrice;
-
-            const amount = inputs.amount;
-            const discount = (amount * priceRule.discountPercent) / 100;
-            totalCost = amount - discount;
-            description = `${service.name} (₦${amount}) for ${inputs.mobile_number}`;
-            
-            endpoint = `${provider.baseUrl}/topup/`;
-            requestBody = {
-                network: service.provider, // This is the network_id
-                amount: inputs.amount,
-                mobile_number: inputs.mobile_number,
-                Ported_number: true, // Assuming ported number support by default
-                airtime_type: "VTU"
-            };
-            break;
+    for (const providerId of providers) {
+        const providerRef = doc(db, 'apiProviders', providerId);
+        const providerSnap = await getDoc(providerRef);
+        if (!providerSnap.exists()) {
+            lastError = new Error(`API Provider with ID ${providerId} not found.`);
+            continue; // Try next provider
         }
-        case 'Data': {
-            const variation = service.variations.find(v => v.id === variationId);
-            if (!variation) throw new Error("Selected data plan not found for this service.");
-            
-            const fee = variation.fees?.[userData.role] || 0;
-            totalCost = variation.price + fee;
-            description = `${variation.name} for ${inputs.mobile_number}`;
+        const provider = providerSnap.data() as ApiProvider;
 
-            endpoint = `${provider.baseUrl}/data/`;
-            requestBody = {
-                network: inputs.network, // This is the network_id from service.provider
-                mobile_number: inputs.mobile_number,
-                plan: inputs.plan, // This is the variationId
-                Ported_number: true
-            };
-            break;
-        }
-        case 'Electricity': {
-            const variation = service.variations.find(v => v.id === variationId);
-            if (!variation) throw new Error("Internal configuration error: Service variation not found for electricity.");
-
-            const fee = variation.fees?.[userData.role] || 0;
-            totalCost = inputs.amount + fee;
-            description = `Electricity payment for ${inputs.meterNumber}`;
-
-            endpoint = `${provider.baseUrl}/billpayment/`;
-            requestBody = {
-                disco_name: service.provider, // The service.provider holds the disco_name (e.g., 'ikeja-electric')
-                amount: inputs.amount,
-                meter_number: inputs.meterNumber,
-                MeterType: inputs.meterType === 'prepaid' ? '1' : '2'
-            };
-            break;
-        }
-        case 'Education': {
-            const variation = service.variations.find(v => v.id === variationId);
-            if (!variation) throw new Error("Selected E-Pin type not found.");
-
-            const fee = variation.fees?.[userData.role] || 0;
-            totalCost = variation.price + fee;
-            description = `${variation.name} E-Pin Purchase`;
-            
-            endpoint = `${provider.baseUrl}/epin/`;
-            requestBody = {
-                exam_name: service.provider, // The service.provider holds the exam name (e.g., 'WAEC')
-                quantity: 1, // Buying one pin at a time
-            };
-            break;
-        }
-        case 'Cable': {
-            const variation = service.variations.find(v => v.id === variationId);
-            if (!variation) throw new Error("Selected package not found for this service.");
-
-            const fee = variation.fees?.[userData.role] || 0;
-            totalCost = variation.price + fee;
-            description = `${variation.name} for ${inputs.smart_card_number}`;
-
-            endpoint = `${provider.baseUrl}/billpayment/`;
-            requestBody = {
-                disco_name: service.provider, // `dstv`, `gotv`, etc.
-                amount: inputs.amount,
-                meter_number: inputs.smart_card_number,
-                variation_code: inputs.variation_code,
-                customer_name: inputs.customer_name,
-                customer_number: '0', // Not required for cable
-                customer_reference: '0', // Not required for cable
-                customer_address: '0' // Not required for cable
-            };
-            break;
-        }
-        default:
-            throw new Error(`Service category "${service.category}" is not supported for purchases yet.`);
-    }
-
-    // --- Validate Balance ---
-    if (userData.walletBalance < totalCost) {
-        throw new Error(`Insufficient balance. You need ₦${totalCost.toLocaleString()}, but have ₦${userData.walletBalance.toLocaleString()}.`);
-    }
-
-    // --- Execute API Call ---
-    if (endpoint && requestBody) {
+        // --- Calculate Cost and Prepare API Request ---
         try {
+            let requestBody;
+            let endpoint;
+
+            switch (service.category) {
+                case 'Airtime': {
+                    const priceRuleQuery = query(collection(db, 'airtimePrices'), 
+                        where('networkId', '==', service.provider),
+                        where('apiProviderId', '==', provider.id)
+                    );
+                    const priceRuleSnap = await getDocs(priceRuleQuery);
+                    if (priceRuleSnap.empty) throw new Error(`No pricing rule found for this network with provider ${provider.name}.`);
+                    const priceRule = priceRuleSnap.docs[0].data() as AirtimePrice;
+
+                    const amount = inputs.amount;
+                    const discount = (amount * priceRule.discountPercent) / 100;
+                    totalCost = amount - discount;
+                    description = `${service.name} (₦${amount}) for ${inputs.mobile_number}`;
+                    
+                    endpoint = `${provider.baseUrl}/topup/`;
+                    requestBody = {
+                        network: service.provider,
+                        amount: inputs.amount,
+                        mobile_number: inputs.mobile_number,
+                        Ported_number: true,
+                        airtime_type: "VTU"
+                    };
+                    break;
+                }
+                case 'Data': {
+                    const variation = service.variations.find(v => v.id === variationId);
+                    if (!variation) throw new Error("Selected data plan not found for this service.");
+                    
+                    const fee = variation.fees?.[userData.role] || 0;
+                    totalCost = variation.price + fee;
+                    description = `${variation.name} for ${inputs.mobile_number}`;
+
+                    endpoint = `${provider.baseUrl}/data/`;
+                    requestBody = {
+                        network: inputs.network,
+                        mobile_number: inputs.mobile_number,
+                        plan: inputs.plan,
+                        Ported_number: true
+                    };
+                    break;
+                }
+                case 'Electricity': {
+                    const variation = service.variations.find(v => v.id === variationId);
+                    if (!variation) throw new Error("Internal configuration error: Service variation not found for electricity.");
+
+                    const fee = variation.fees?.[userData.role] || 0;
+                    totalCost = inputs.amount + fee;
+                    description = `Electricity payment for ${inputs.meterNumber}`;
+
+                    endpoint = `${provider.baseUrl}/billpayment/`;
+                    requestBody = {
+                        disco_name: service.provider,
+                        amount: inputs.amount,
+                        meter_number: inputs.meterNumber,
+                        MeterType: inputs.meterType === 'prepaid' ? '1' : '2'
+                    };
+                    break;
+                }
+                 case 'Cable': {
+                    const variation = service.variations.find(v => v.id === variationId);
+                    if (!variation) throw new Error("Selected package not found for this service.");
+
+                    const fee = variation.fees?.[userData.role] || 0;
+                    totalCost = variation.price + fee;
+                    description = `${variation.name} for ${inputs.smart_card_number}`;
+
+                    endpoint = `${provider.baseUrl}/billpayment/`;
+                    requestBody = {
+                        disco_name: service.provider, // `dstv`, `gotv`, etc.
+                        amount: inputs.amount,
+                        meter_number: inputs.smart_card_number,
+                        variation_code: inputs.variation_code,
+                        customer_name: inputs.customer_name,
+                        customer_number: '0',
+                        customer_reference: '0',
+                        customer_address: '0'
+                    };
+                    break;
+                }
+                case 'Education': {
+                    const variation = service.variations.find(v => v.id === variationId);
+                    if (!variation) throw new Error("Selected E-Pin type not found.");
+
+                    const fee = variation.fees?.[userData.role] || 0;
+                    totalCost = variation.price + fee;
+                    description = `${variation.name} E-Pin Purchase`;
+                    
+                    endpoint = `${provider.baseUrl}/epin/`;
+                    requestBody = {
+                        exam_name: service.provider,
+                        quantity: 1,
+                    };
+                    break;
+                }
+                default:
+                    throw new Error(`Service category "${service.category}" is not supported for purchases yet.`);
+            }
+
+            // --- Validate Balance ---
+            if (userData.walletBalance < totalCost) {
+                throw new Error(`Insufficient balance. You need ₦${totalCost.toLocaleString()}, but have ₦${userData.walletBalance.toLocaleString()}.`);
+            }
+
+            // --- Execute API Call ---
+            if (!endpoint || !requestBody) {
+                throw new Error("Service configuration error: missing endpoint or request body.");
+            }
+           
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
@@ -303,28 +314,35 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             if (!response.ok || responseData.status === 'error' || responseData.Status === 'failed') {
                 throw new Error(responseData.message || responseData.msg || `API Error: ${response.statusText}`);
             }
+            
             apiResponse = responseData;
-        } catch (apiError: any) {
-            throw new Error(`API provider error: ${apiError.message}`);
+            successfulProvider = provider;
+            break; // Exit loop on success
+
+        } catch (error: any) {
+            console.error(`Attempt with provider ${provider.name} failed:`, error.message);
+            lastError = error;
+            continue; // Try next provider
         }
-    } else {
-        // Fallback for simulation if needed, though we aim for full API integration.
-        console.log(`Simulating purchase for ${service.name}. No endpoint/body configured.`);
-        apiResponse = { status: 'success', message: 'Simulated purchase successful' };
     }
 
-    // --- Deduct from wallet and log transaction ---
+    if (!successfulProvider) {
+        throw lastError || new Error("All API providers failed or were unavailable for this service.");
+    }
+    
+    // --- Deduct from wallet and log transaction on success ---
     await updateDoc(userRef, { walletBalance: increment(-totalCost) });
     
     await addDoc(collection(db, 'transactions'), {
         userId: uid,
         userEmail,
         description,
-        amount: -totalCost, // Log the actual amount deducted
+        amount: -totalCost,
         type: 'Debit',
         status: 'Successful',
         date: new Date(),
         apiResponse: JSON.stringify(apiResponse),
+        apiProvider: successfulProvider.name,
     });
 
     return apiResponse;
@@ -519,3 +537,4 @@ export async function deleteAirtimePrice(id: string) {
     const priceRef = doc(db, 'airtimePrices', id);
     await deleteDoc(priceRef);
 }
+

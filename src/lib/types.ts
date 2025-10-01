@@ -1,4 +1,5 @@
 
+
 export type User = {
   id: string;
   uid: string;
@@ -33,6 +34,7 @@ export type Transaction = {
   userId: string;
   userEmail?: string;
   apiResponse?: string;
+  apiProvider?: string;
 };
 
 export type ServiceVariation = {
