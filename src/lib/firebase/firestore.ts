@@ -47,7 +47,7 @@ async function checkAndSeedServices() {
             { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata', variations: [] },
             { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata', variations: [] },
             { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata', variations: [] },
-            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [{id: 'prepaid', name: 'Prepaid Payment', price: 0}, {id: 'postpaid', name: 'Postpaid Payment', price: 0}] },
+            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [{id: 'prepaid', name: 'Prepaid Payment', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 }}, {id: 'postpaid', name: 'Postpaid Payment', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 }}] },
         ];
 
         const batch = writeBatch(db);
@@ -395,7 +395,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -405,6 +405,9 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
+    
+    // Sort transactions by date in descending order (newest first)
+    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
 }
