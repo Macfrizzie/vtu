@@ -207,9 +207,23 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             };
             break;
         }
-        case 'Data':
-            // To be implemented
+        case 'Data': {
+            const variation = service.variations.find(v => v.id === variationId);
+            if (!variation) throw new Error("Selected data plan not found for this service.");
+            
+            const fee = variation.fees?.[userData.role] || 0;
+            totalCost = variation.price + fee;
+            description = `${variation.name} for ${inputs.mobile_number}`;
+
+            endpoint = `${provider.baseUrl}/data/`;
+            requestBody = {
+                network: inputs.network, // This is the network_id from service.provider
+                mobile_number: inputs.mobile_number,
+                plan: inputs.plan, // This is the variationId
+                Ported_number: true
+            };
             break;
+        }
         case 'Electricity':
             // To be implemented
             break;
@@ -461,5 +475,3 @@ export async function deleteAirtimePrice(id: string) {
     const priceRef = doc(db, 'airtimePrices', id);
     await deleteDoc(priceRef);
 }
-
-    
