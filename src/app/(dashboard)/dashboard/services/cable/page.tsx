@@ -31,40 +31,16 @@ import {
 } from '@/components/ui/select';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
-import { Loader2, Sparkles, UserCheck } from 'lucide-react';
-import { purchaseService } from '@/lib/firebase/firestore';
+import { useEffect, useState, useMemo } from 'react';
+import { Loader2, UserCheck, Sparkles } from 'lucide-react';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import type { Service, ServiceVariation } from '@/lib/types';
 import { useSearchParams } from 'next/navigation';
-import { cn } from '@/lib/utils';
-
-const packages: { [key: string]: { id: string; label: string; price: number }[] } = {
-  dstv: [
-    { id: 'dstv-padi', label: 'DStv Padi (₦3,950)', price: 3950 },
-    { id: 'dstv-yanga', label: 'DStv Yanga (₦5,500)', price: 5500 },
-    { id: 'dstv-confam', label: 'DStv Confam (₦9,300)', price: 9300 },
-    { id: 'dstv-premium', label: 'DStv Premium (₦31,000)', price: 31000 },
-  ],
-  gotv: [
-    { id: 'gotv-smallie', label: 'GOtv Smallie (₦1,300)', price: 1300 },
-    { id: 'gotv-jinja', label: 'GOtv Jinja (₦2,700)', price: 2700 },
-    { id: 'gotv-jollie', label: 'GOtv Jollie (₦4,150)', price: 4150 },
-    { id: 'gotv-max', label: 'GOtv MAX (₦5,700)', price: 5700 },
-    { id: 'gotv-supa', label: 'GOtv Supa (₦7,600)', price: 7600 },
-  ],
-  startimes: [
-    { id: 'startimes-nova', label: 'StarTimes Nova (₦1,700)', price: 1700 },
-    { id: 'startimes-basic', label: 'StarTimes Basic (₦2,300)', price: 2300 },
-    { id: 'startimes-classic', label: 'StarTimes Classic (₦3,500)', price: 3500 },
-    { id: 'startimes-super', label: 'StarTimes Super (₦5,600)', price: 5600 },
-  ],
-};
-
-const validProviders = ['dstv', 'gotv', 'startimes'] as const;
 
 const formSchema = z.object({
-  provider: z.enum(validProviders, { required_error: 'Please select a provider.'}),
+  serviceId: z.string().min(1, 'Please select a provider.'),
   smartCardNumber: z.string().regex(/^\d{10,12}$/, 'Please enter a valid smart card number (10-12 digits).'),
-  package: z.string().min(1, 'Please select a package.'),
+  variationId: z.string().min(1, 'Please select a package.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -75,25 +51,45 @@ export default function CableTvPage() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
-  const searchParams = useSearchParams();
-  const initialProvider = searchParams.get('provider')?.toLowerCase();
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      serviceId: '',
       smartCardNumber: '',
+      variationId: '',
     },
   });
 
   useEffect(() => {
-    if (initialProvider && validProviders.includes(initialProvider as any)) {
-      form.setValue('provider', initialProvider as FormData['provider']);
+    async function fetchServices() {
+        setServicesLoading(true);
+        try {
+            const allServices = await getServices();
+            setServices(allServices.filter(s => s.category === 'Cable' && s.status === 'Active'));
+        } catch (error) {
+            console.error("Failed to fetch cable services:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
+        } finally {
+            setServicesLoading(false);
+        }
     }
-  }, [initialProvider, form]);
+    fetchServices();
+  }, [toast]);
+  
 
-  const selectedProvider = form.watch('provider');
+  const selectedServiceId = form.watch('serviceId');
   const smartCardValue = form.watch('smartCardNumber');
-  const availablePackages = selectedProvider ? packages[selectedProvider] : [];
+
+  const availablePackages = useMemo(() => {
+    const selectedService = services.find(s => s.id === selectedServiceId);
+    return selectedService?.variations || [];
+  }, [selectedServiceId, services]);
+
+  const selectedVariationId = form.watch('variationId');
+  const selectedVariation = availablePackages.find(v => v.id === selectedVariationId);
 
   async function handleVerify() {
     setIsVerifying(true);
@@ -128,43 +124,47 @@ export default function CableTvPage() {
         return;
     }
 
-    const selectedPackage = availablePackages.find(p => p.id === values.package);
-    if (!selectedPackage) {
+    if (!selectedVariation) {
       toast({ variant: 'destructive', title: 'Invalid Package', description: 'The selected package could not be found.' });
       return;
     }
 
-    if (userData.walletBalance < selectedPackage.price) {
+    const totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
+
+    if (userData.walletBalance < totalCost) {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${selectedPackage.price.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires ₦${totalCost.toLocaleString()}.`,
       });
       return;
     }
 
     setIsPurchasing(true);
     try {
-      const description = `${selectedPackage.label.split('(')[0]} for ${values.smartCardNumber}`;
-      await purchaseService(user.uid, selectedPackage.price, description, user.email!, values.provider);
+      const purchaseInputs = { smartCardNumber: values.smartCardNumber };
+      await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
-        description: `${selectedPackage.label} for ${values.smartCardNumber} was purchased.`,
+        description: `${selectedVariation.name} for ${values.smartCardNumber} was purchased.`,
       });
       form.reset();
       setCustomerName(null);
     } catch (error) {
       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       toast({
         variant: 'destructive',
         title: 'Purchase Failed',
-        description: 'Something went wrong. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setIsPurchasing(false);
     }
   }
+
+  const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0) : 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -192,28 +192,29 @@ export default function CableTvPage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="provider"
+                name="serviceId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cable Provider</FormLabel>
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
-                        form.resetField('package');
+                        form.resetField('variationId');
                         form.resetField('smartCardNumber');
                         setCustomerName(null);
                       }}
                       value={field.value}
+                      disabled={servicesLoading}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a provider" />
+                          <SelectValue placeholder={servicesLoading ? "Loading..." : "Select a provider"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="dstv">DSTV</SelectItem>
-                        <SelectItem value="gotv">GOtv</SelectItem>
-                        <SelectItem value="startimes">StarTimes</SelectItem>
+                        {services.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -249,14 +250,14 @@ export default function CableTvPage() {
 
               <FormField
                 control={form.control}
-                name="package"
+                name="variationId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Subscription Package</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={!selectedProvider}
+                      disabled={!selectedServiceId}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -264,11 +265,15 @@ export default function CableTvPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {availablePackages.map(p => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.label}
-                          </SelectItem>
-                        ))}
+                        {availablePackages.map(p => {
+                          const fee = p.fees?.[userData?.role || 'Customer'] || 0;
+                          const finalPrice = p.price + fee;
+                          return (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} (₦{finalPrice.toLocaleString()})
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -279,7 +284,7 @@ export default function CableTvPage() {
             <CardFooter>
                  <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !customerName}>
                     {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Purchase Subscription
+                    {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Subscription')}
                 </Button>
             </CardFooter>
           </form>

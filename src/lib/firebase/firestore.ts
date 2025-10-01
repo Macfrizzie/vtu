@@ -79,6 +79,24 @@ async function checkAndSeedServices() {
                     { id: 'mtn-vtu', name: 'MTN VTU', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } },
                 ]
             },
+             { 
+                name: 'WAEC Result Pin', 
+                provider: 'waec', 
+                category: 'Education',
+                status: 'Active', 
+                variations: [
+                    { id: 'waec-pin-1', name: 'WAEC Result Checker PIN', price: 3500, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
+                ]
+            },
+             { 
+                name: 'Eko Electricity (EKEDC)', 
+                provider: 'ekedc', 
+                category: 'Electricity',
+                status: 'Active', 
+                variations: [
+                    { id: 'ekedc-postpaid', name: 'EKEDC Bill Payment', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                ]
+            },
         ];
 
         const batch = writeBatch(db);
@@ -253,6 +271,11 @@ export async function purchaseService(
                         "quantity": inputs.quantity || 1,
                     };
                     break;
+                case 'Cable':
+                     console.log(`Simulating Cable purchase for ${service.name}. No specific API logic implemented.`);
+                     // In a real scenario, you'd construct the API call for cable TV here.
+                     apiResponse = { status: 'success', message: 'Simulated Cable TV purchase successful' };
+                     break;
                 default:
                     console.log(`Simulating purchase for ${service.category}. No specific API logic implemented.`);
                     break;
@@ -274,7 +297,7 @@ export async function purchaseService(
                     throw new Error(`API provider error: ${response.statusText}. Details: ${errorBody}`);
                 }
                 apiResponse = await response.json();
-            } else {
+            } else if (!apiResponse) {
                  apiResponse = { status: 'success', message: 'Simulated purchase successful' };
             }
 
@@ -286,7 +309,7 @@ export async function purchaseService(
         // If API call is successful, deduct from wallet and log transaction
         transaction.update(userRef, { walletBalance: increment(-totalAmount) });
         
-        const description = service.category === 'Airtime' ? `${service.name} for ${inputs.phone}` : `${variation.name} for ${inputs.meterNumber || inputs.phone || service.name}`;
+        const description = service.category === 'Airtime' ? `${service.name} for ${inputs.phone}` : `${variation.name} for ${inputs.smartCardNumber || inputs.meterNumber || inputs.phone || service.name}`;
 
         const newTransactionRef = doc(collection(db, 'transactions'));
         transaction.set(newTransactionRef, {
