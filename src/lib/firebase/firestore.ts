@@ -178,48 +178,111 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
 }
 
 
-export async function purchaseService(uid: string, variation: ServiceVariation, description: string, userEmail: string) {
+export async function purchaseService(
+    uid: string,
+    serviceId: string,
+    variationId: string,
+    inputs: Record<string, any>,
+    userEmail: string
+) {
     await checkAndSeedServices();
     return await runTransaction(db, async (transaction) => {
         const userRef = doc(db, 'users', uid);
-        const userSnap = await transaction.get(userRef);
-
-        if (!userSnap.exists()) {
-            throw new Error("User not found.");
-        }
-        const userData = userSnap.data() as UserData;
-        const userRole = userData.role;
-
-        const serviceFee = variation.fees?.[userRole] ?? 0;
-        const totalAmount = variation.price + serviceFee;
+        const serviceRef = doc(db, 'services', serviceId);
         
-        let finalDescription = description;
-        if (serviceFee > 0) {
-            finalDescription = `${description} (Fee: ₦${serviceFee})`;
+        const [userSnap, serviceSnap] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(serviceRef)
+        ]);
+
+        if (!userSnap.exists()) throw new Error("User not found.");
+        if (!serviceSnap.exists()) throw new Error("Service not found.");
+
+        const userData = userSnap.data() as UserData;
+        const service = serviceSnap.data() as Service;
+        
+        const variation = service.variations.find(v => v.id === variationId);
+        if (!variation) throw new Error("Service variation not found.");
+
+        let apiProvider: ApiProvider | null = null;
+        if (service.apiProviderId) {
+            const apiProviderRef = doc(db, 'apiProviders', service.apiProviderId);
+            const apiProviderSnap = await transaction.get(apiProviderRef);
+            if (apiProviderSnap.exists()) {
+                apiProvider = apiProviderSnap.data() as ApiProvider;
+            }
         }
+        
+        // Calculate total cost
+        const purchaseAmount = service.category === 'Airtime' || service.category === 'Electricity' ? inputs.amount : variation.price;
+        const serviceFee = variation.fees?.[userData.role] || 0;
+        const totalAmount = purchaseAmount + serviceFee;
         
         if (userData.walletBalance < totalAmount) {
-            throw new Error(`Insufficient wallet balance. You need ₦${totalAmount}, but have ₦${userData.walletBalance}.`);
+            throw new Error(`Insufficient balance. You need ₦${totalAmount.toLocaleString()}, but have ₦${userData.walletBalance.toLocaleString()}.`);
         }
         
-        transaction.update(userRef, {
-            walletBalance: increment(-totalAmount)
-        });
+        let apiResponse;
+        if (apiProvider) {
+            let requestBody: any = {};
+            let endpoint = '';
+
+            switch(service.category) {
+                case 'Electricity':
+                    endpoint = 'billpayment/'; // As per Husmodata docs
+                    requestBody = {
+                        "disco_name": service.provider, // Use service provider code for disco name
+                        "amount": inputs.amount,
+                        "meter_number": inputs.meterNumber,
+                        "MeterType": inputs.meterType === 'prepaid' ? 1 : 2
+                    };
+                    break;
+                // Add cases for other services like Airtime, Data, E-pins here
+                default:
+                    throw new Error(`API integration for service category "${service.category}" is not implemented yet.`);
+            }
+
+            const response = await fetch(`${apiProvider.baseUrl}${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Token ${apiProvider.apiKey}`,
+                    'Content-Type': 'application/json',
+                    ...(apiProvider.requestHeaders ? JSON.parse(apiProvider.requestHeaders) : {})
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) {
+                 const errorBody = await response.text();
+                 throw new Error(`API provider error: ${response.statusText}. Details: ${errorBody}`);
+            }
+            apiResponse = await response.json();
+        } else {
+            console.log("Simulating purchase as no API provider is configured.");
+            apiResponse = { status: 'success', message: 'Simulated purchase successful' };
+        }
+        
+        // If API call is successful, deduct from wallet and log transaction
+        transaction.update(userRef, { walletBalance: increment(-totalAmount) });
+        
+        const description = `${variation.name} for ${inputs.meterNumber || inputs.phone || service.name}`;
 
         const newTransactionRef = doc(collection(db, 'transactions'));
         transaction.set(newTransactionRef, {
             userId: uid,
             userEmail: userEmail,
-            description: finalDescription,
+            description: `${description} (Fee: ₦${serviceFee})`,
             amount: totalAmount > 0 ? -totalAmount : totalAmount,
             type: 'Debit',
             status: 'Successful',
             date: new Date(),
+            apiResponse: JSON.stringify(apiResponse),
         });
 
         return newTransactionRef.id;
     });
 }
+
 
 
 export async function getTransactions(): Promise<Transaction[]> {
@@ -402,7 +465,7 @@ export async function addUser(user: Omit<User, 'id' | 'uid' | 'lastLogin' | 'wal
 
 export async function getApiProviders(): Promise<ApiProvider[]> {
     const providersCol = collection(db, 'apiProviders');
-    const snapshot = await getDocs(providersCol);
+    const snapshot = await getDocs(query(providersCol));
     
     if (snapshot.empty) {
         const initialProviders: Omit<ApiProvider, 'id'>[] = [
@@ -445,5 +508,3 @@ export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
     await deleteDoc(providerRef);
 }
-
-    

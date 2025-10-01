@@ -31,22 +31,13 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { purchaseService } from '@/lib/firebase/firestore';
-import { useSearchParams } from 'next/navigation';
-
-const discoMapping: { [key: string]: string } = {
-    'ikedc': 'ikeja',
-    'ekedc': 'eko',
-    'aedc': 'abuja',
-    'ibedc': 'ibadan',
-    'kedco': 'kano',
-    'phed': 'portharcourt',
-};
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import type { Service } from '@/lib/types';
 
 const formSchema = z.object({
-  disco: z.string().min(1, 'Please select a distributor.'),
+  serviceId: z.string().min(1, 'Please select a distributor.'),
   meterType: z.enum(['prepaid', 'postpaid'], {
     required_error: 'Please select a meter type.',
   }),
@@ -54,73 +45,104 @@ const formSchema = z.object({
   amount: z.coerce.number().min(100, 'Amount must be at least ₦100.'),
 });
 
+type FormData = z.infer<typeof formSchema>;
+
 export default function ElectricityPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const searchParams = useSearchParams();
-  const provider = searchParams.get('provider');
+  const [services, setServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      serviceId: '',
       meterType: 'prepaid',
       meterNumber: '',
       amount: 1000,
     },
   });
-
+  
   useEffect(() => {
-    if (provider) {
-        const discoKey = provider.toLowerCase();
-        const disco = discoMapping[discoKey];
-        if (disco) {
-            form.setValue('disco', disco);
-        }
+    async function fetchServices() {
+      setServicesLoading(true);
+      try {
+        const allServices = await getServices();
+        setServices(allServices.filter(s => s.category === 'Electricity' && s.status === 'Active'));
+      } catch (error) {
+        console.error("Failed to fetch electricity services:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not load distributors.' });
+      } finally {
+        setServicesLoading(false);
+      }
     }
-  }, [provider, form]);
+    fetchServices();
+  }, [toast]);
+  
+  const selectedServiceId = form.watch('serviceId');
+  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedVariation = selectedService?.variations[0]; // Assuming one variation for electricity
 
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormData) {
     if (!user || !userData) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: 'You must be logged in to make a purchase.',
-      });
+      toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
+    
+    if (!selectedVariation) {
+        toast({ variant: 'destructive', title: 'Invalid Service', description: 'Please select a valid distributor.' });
+        return;
+    }
+    
+    const serviceFee = selectedVariation.fees?.[userData.role] || 0;
+    const totalCost = values.amount + serviceFee;
 
-    if (userData.walletBalance < values.amount) {
+    if (userData.walletBalance < totalCost) {
       toast({
         variant: 'destructive',
         title: 'Insufficient Funds',
-        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires at least ₦${values.amount.toLocaleString()}.`,
+        description: `Your balance is ₦${userData.walletBalance.toLocaleString()}, but the purchase requires ₦${totalCost.toLocaleString()}.`,
       });
       return;
     }
 
     setIsPurchasing(true);
     try {
-      const description = `${values.disco.toUpperCase()} Electricity payment for ${values.meterNumber}`;
-      await purchaseService(user.uid, values.amount, description, user.email!, values.disco);
+      const purchaseInputs = {
+        meterNumber: values.meterNumber,
+        meterType: values.meterType,
+        amount: values.amount,
+      };
+
+      await purchaseService(user.uid, values.serviceId, selectedVariation.id, purchaseInputs, user.email!);
+      
       forceRefetch();
       toast({
         title: 'Payment Successful!',
         description: `Your payment of ₦${values.amount.toLocaleString()} for meter ${values.meterNumber} was successful.`,
       });
-      form.reset();
+      form.reset({ serviceId: '', meterType: 'prepaid', meterNumber: '', amount: 1000 });
     } catch (error) {
       console.error(error);
       toast({
         variant: 'destructive',
         title: 'Payment Failed',
-        description: 'Something went wrong. Please try again.',
+        description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       });
     } finally {
       setIsPurchasing(false);
     }
   }
+
+  const serviceFee = useMemo(() => {
+    if (!selectedVariation || !userData) return 0;
+    return selectedVariation.fees?.[userData.role] || 0;
+  }, [selectedVariation, userData]);
+
+  const amount = form.watch('amount');
+  const totalCost = amount + serviceFee;
+
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -150,23 +172,20 @@ export default function ElectricityPage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="disco"
+                name="serviceId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Distributor (Disco)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select your electricity distributor" />
+                          <SelectValue placeholder={servicesLoading ? "Loading..." : "Select your electricity distributor"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="ikeja">Ikeja Electric (IKEDC)</SelectItem>
-                        <SelectItem value="eko">Eko Electric (EKEDC)</SelectItem>
-                        <SelectItem value="abuja">Abuja Electric (AEDC)</SelectItem>
-                        <SelectItem value="ibadan">Ibadan Electric (IBEDC)</SelectItem>
-                        <SelectItem value="kano">Kano Electric (KEDCO)</SelectItem>
-                        <SelectItem value="portharcourt">Port Harcourt Electric (PHED)</SelectItem>
+                        {services.map(service => (
+                             <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -231,9 +250,15 @@ export default function ElectricityPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing}>
+              
+              <div className="text-sm text-muted-foreground">
+                <p>Service Fee: ₦{serviceFee.toLocaleString()}</p>
+                <p className="font-semibold">Total to Pay: ₦{totalCost.toLocaleString()}</p>
+              </div>
+
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedServiceId}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Pay Bill
+                {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Pay Bill')}
               </Button>
             </CardContent>
           </form>

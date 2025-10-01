@@ -33,6 +33,7 @@ export type Transaction = {
   status: 'Successful' | 'Pending' | 'Failed';
   userId: string;
   userEmail?: string;
+  apiResponse?: string;
 };
 
 export type ServiceFee = {
@@ -60,14 +61,14 @@ export type Service = {
 
 export type ApiProvider = {
   id: string;
-  name: string;
-  description: string;
+  name:string;
+  description?: string;
   baseUrl: string;
-  apiKey: string;
-  apiSecret: string;
-  requestHeaders: string; // JSON string
+  apiKey: string; // Will store the API Token
+  apiSecret?: string;
+  requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';
-  transactionCharge: number;
+  transactionCharge?: number;
   services?: string[]; // Array of service IDs this provider handles
 };
