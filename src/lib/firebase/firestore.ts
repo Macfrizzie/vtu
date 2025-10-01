@@ -500,14 +500,20 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     const snapshot = await getDocs(query(providersCol));
     
     if (snapshot.empty) {
-        const initialProviders: Omit<ApiProvider, 'id'>[] = [
-            { name: 'HusmoData', description: 'Primary provider for VTU services.', baseUrl: 'https://husmodataapi.com/api', status: 'Active', priority: 'Primary', auth_type: 'Token', apiKey: '66f2e5c39ac8640f13cd888f161385b12f7e5e92', apiSecret: '', requestHeaders: '{}', transactionCharge: 0 },
-        ];
-        const batch = writeBatch(db);
-        initialProviders.forEach(provider => {
-            batch.set(doc(providersCol, 'husmodata'), provider); // Use a predictable ID
-        });
-        await batch.commit();
+        const initialProvider: Omit<ApiProvider, 'id'> = { 
+            name: 'HusmoData', 
+            description: 'Primary provider for VTU services.', 
+            baseUrl: 'https://husmodataapi.com/api', 
+            status: 'Active', 
+            priority: 'Primary', 
+            auth_type: 'Token', 
+            apiKey: '66f2e5c39ac8640f13cd888f161385b12f7e5e92', 
+            apiSecret: '', 
+            requestHeaders: '{}', 
+            transactionCharge: 0 
+        };
+        
+        await setDoc(doc(providersCol, 'husmodata'), initialProvider);
         
         const newSnapshot = await getDocs(providersCol);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
