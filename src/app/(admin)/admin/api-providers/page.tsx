@@ -31,6 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
+import { fetchHusmoDataNetworks } from '@/services/husmodata';
 
 const providerFormSchema = z.object({
   name: z.string().min(2, 'Provider name must be at least 2 characters.'),
@@ -60,6 +61,7 @@ export default function AdminApiProvidersPage() {
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTesting, setIsTesting] = useState<string | null>(null);
   const [editingProvider, setEditingProvider] = useState<ApiProvider | null>(null);
   const { toast } = useToast();
 
@@ -169,6 +171,19 @@ export default function AdminApiProvidersPage() {
     }
   }
 
+  async function handleTestConnection(provider: ApiProvider) {
+    setIsTesting(provider.id);
+    try {
+        await fetchHusmoDataNetworks(provider.baseUrl, provider.apiKey);
+        toast({ title: 'Connection Successful!', description: `Successfully connected to ${provider.name}.` });
+    } catch (error) {
+        console.error("Failed to connect to provider:", error);
+        toast({ variant: 'destructive', title: 'Connection Failed', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
+    } finally {
+        setIsTesting(null);
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -231,7 +246,10 @@ export default function AdminApiProvidersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleFormOpen(provider)}>Edit</DropdownMenuItem>
-                          <DropdownMenuItem disabled>Test Connection</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleTestConnection(provider)} disabled={isTesting === provider.id}>
+                            {isTesting === provider.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Test Connection
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                            <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -443,4 +461,6 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
+    
+
     
