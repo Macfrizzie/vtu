@@ -1,5 +1,6 @@
 
 
+
 export type User = {
   id: string;
   uid: string;
@@ -36,17 +37,6 @@ export type Transaction = {
   apiResponse?: string;
 };
 
-export type ServiceVariation = {
-  id: string;
-  name: string;
-  price: number;
-  fees: {
-    Customer: number;
-    Vendor: number;
-    Admin: number;
-  };
-};
-
 export type Service = {
   id: string;
   name: string;
@@ -54,7 +44,6 @@ export type Service = {
   category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Other';
   status: 'Active' | 'Inactive';
   apiProviderId?: string; // Link to an ApiProvider
-  variations: ServiceVariation[];
 };
 
 
@@ -73,3 +62,4 @@ export type ApiProvider = {
 };
 
     
+

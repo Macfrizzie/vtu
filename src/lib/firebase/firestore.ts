@@ -1,10 +1,11 @@
 
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData, ServiceVariation } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 
 
@@ -43,10 +44,10 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'MTN Airtime', provider: 'MTN NG', category: 'Airtime', status: 'Active', variations: [{ id: 'mtn-airtime', name: 'MTN Airtime VTU', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } }] },
-            { name: 'Airtel Data', provider: 'Airtel NG', category: 'Data', status: 'Active', variations: [{ id: 'airtel-1gb', name: '1GB - 30 Days', price: 300, fees: { Customer: 10, Vendor: 5, Admin: 0 } }] },
-            { name: 'DSTV Subscription', provider: 'MultiChoice', category: 'Cable', status: 'Inactive', variations: [{ id: 'dstv-padi', name: 'DStv Padi', price: 2150, fees: { Customer: 50, Vendor: 25, Admin: 0 } }] },
-            { name: 'Ikeja Electric', provider: 'IKEDC', category: 'Electricity', status: 'Active', variations: [{ id: 'ikedc-prepaid', name: 'Prepaid Token', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 } }] },
+            { name: 'MTN Airtime', provider: 'MTN NG', category: 'Airtime', status: 'Active' },
+            { name: 'Airtel Data', provider: 'Airtel NG', category: 'Data', status: 'Active' },
+            { name: 'DSTV Subscription', provider: 'MultiChoice', category: 'Cable', status: 'Inactive' },
+            { name: 'Ikeja Electric', provider: 'IKEDC', category: 'Electricity', status: 'Active' },
         ];
 
         const batch = writeBatch(db);
@@ -161,27 +162,24 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     const serviceRef = doc(db, 'services', serviceId);
     const serviceSnap = await getDoc(serviceRef);
     if (!serviceSnap.exists()) throw new Error("Service not found.");
-
+    
     const service = serviceSnap.data() as Service;
-    const variation = service.variations?.find(v => v.id === variationId);
-    if (!variation) throw new Error("Service variation not found.");
+
+    // This logic needs to be updated to use the new pricing model.
+    // For now, it will fail as variations are removed from the service type.
+    // We will replace this with a call to fetch pricing from the new pricing collection.
+
+    const totalCost = inputs.amount || 100; // Placeholder
+    const description = `${service.name} for ${inputs.phone || inputs.smartCardNumber || inputs.meterNumber || ''}`;
 
     const userData = userSnap.data() as UserData;
-    const userRole = userData.role || 'Customer';
-    const serviceFee = variation.fees?.[userRole] ?? 0;
-    
-    // For services like Airtime, amount is from input, not variation price
-    const baseAmount = service.category === 'Airtime' ? inputs.amount : variation.price;
-    const totalCost = baseAmount + serviceFee;
-    
     if (userData.walletBalance < totalCost) {
         throw new Error(`Insufficient balance. You need ₦${totalCost}, but have ₦${userData.walletBalance}.`);
     }
 
     // In a real app, here you would make the API call to the service provider.
     let apiResponse = { status: 'success', message: 'Simulated purchase successful' };
-    const description = `${variation.name} for ${inputs.phone || inputs.smartCardNumber || inputs.meterNumber || ''}`;
-
+    
     if (service.apiProviderId) {
         const providerRef = doc(db, 'apiProviders', service.apiProviderId);
         const providerSnap = await getDoc(providerRef);
@@ -253,7 +251,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     await addDoc(collection(db, 'transactions'), {
         userId: uid,
         userEmail,
-        description: `${description} (Fee: ₦${serviceFee})`,
+        description: `${description} (Fee: ₦0)`, // Fee needs to be recalculated
         amount: -totalCost,
         type: 'Debit',
         status: 'Successful',
@@ -387,46 +385,15 @@ export async function addUser(user: Omit<User, 'id' | 'uid' | 'lastLogin' | 'wal
   });
 }
 
-export async function bulkUpdateFees(updateType: string, value: number) {
-    const servicesRef = collection(db, 'services');
-    const snapshot = await getDocs(servicesRef);
-    const batch = writeBatch(db);
-
-    snapshot.docs.forEach(doc => {
-        const service = doc.data() as Service;
-        const updatedVariations = service.variations?.map((variation: ServiceVariation) => {
-            const newFees = { ...variation.fees };
-            for (const role in newFees) {
-                const key = role as keyof typeof newFees;
-                const currentFee = newFees[key];
-                let newFee = currentFee;
-
-                switch (updateType) {
-                    case 'increase_percentage':
-                        newFee += currentFee * (value / 100);
-                        break;
-                    case 'increase_fixed':
-                        newFee += value;
-                        break;
-                    case 'decrease_percentage':
-                        newFee -= currentFee * (value / 100);
-                        break;
-                    case 'decrease_fixed':
-                        newFee -= value;
-                        break;
-                }
-                newFees[key] = Math.max(0, Math.round(newFee * 100) / 100); // Ensure non-negative and round to 2 decimal places
-            }
-            return { ...variation, fees: newFees };
-        });
-        
-        if (updatedVariations) {
-            batch.update(doc.ref, { variations: updatedVariations });
-        }
-    });
-
-    await batch.commit();
+export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
+    const providersCol = collection(db, 'apiProviders');
+    const snapshot = await getDocs(query(providersCol, where('status', '==', 'Active')));
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name as string,
+    }));
 }
+
 
 // --- API Provider Functions ---
 
@@ -452,16 +419,6 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
 }
-
-export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
-    const providersCol = collection(db, 'apiProviders');
-    const snapshot = await getDocs(query(providersCol, where('status', '==', 'Active')));
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name as string,
-    }));
-}
-
 
 export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
     const providersCol = collection(db, 'apiProviders');

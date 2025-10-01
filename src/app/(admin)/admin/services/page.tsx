@@ -3,34 +3,22 @@
 
 import { useEffect, useState } from 'react';
 import * as z from 'zod';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Loader2, TrendingUp, Trash2, GripVertical } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect, bulkUpdateFees } from '@/lib/firebase/firestore';
-import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
+import { getServices, addService, updateService, updateServiceStatus, getApiProvidersForSelect } from '@/lib/firebase/firestore';
+import type { Service, ApiProvider } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
-
-const variationSchema = z.object({
-  id: z.string().min(1, "Variation ID is required."),
-  name: z.string().min(3, "Variation name must be at least 3 characters."),
-  price: z.coerce.number().min(0, "Price cannot be negative."),
-  fees: z.object({
-    Customer: z.coerce.number().min(0, "Fee cannot be negative."),
-    Vendor: z.coerce.number().min(0, "Fee cannot be negative."),
-    Admin: z.coerce.number().min(0, "Fee cannot be negative."),
-  }),
-});
 
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
@@ -38,12 +26,6 @@ const serviceFormSchema = z.object({
   category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Other']),
   status: z.enum(['Active', 'Inactive']),
   apiProviderId: z.string().optional(),
-  variations: z.array(variationSchema).min(1, 'At least one service variation is required.'),
-});
-
-const bulkUpdateSchema = z.object({
-  updateType: z.enum(['increase_percentage', 'increase_fixed', 'decrease_percentage', 'decrease_fixed']),
-  value: z.coerce.number().min(0, "Value must be positive."),
 });
 
 type SimpleProvider = Pick<ApiProvider, 'id' | 'name'>;
@@ -53,7 +35,6 @@ export default function AdminServicesPage() {
   const [apiProviders, setApiProviders] = useState<SimpleProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isBulkUpdateOpen, setIsBulkUpdateOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
@@ -66,21 +47,7 @@ export default function AdminServicesPage() {
       category: 'Data',
       status: 'Active',
       apiProviderId: 'none',
-      variations: [],
     },
-  });
-
-  const { fields, append, remove, move } = useFieldArray({
-    control: form.control,
-    name: "variations",
-  });
-
-  const bulkUpdateForm = useForm<z.infer<typeof bulkUpdateSchema>>({
-    resolver: zodResolver(bulkUpdateSchema),
-    defaultValues: {
-      updateType: 'increase_percentage',
-      value: 10,
-    }
   });
 
   async function fetchData() {
@@ -118,7 +85,6 @@ export default function AdminServicesPage() {
         category: 'Data',
         status: 'Active',
         apiProviderId: 'none',
-        variations: [{ id: '', name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } }],
       });
     }
     setIsFormOpen(true);
@@ -166,21 +132,6 @@ export default function AdminServicesPage() {
     }
   };
 
-  async function onBulkUpdateSubmit(values: z.infer<typeof bulkUpdateSchema>) {
-    setIsSubmitting(true);
-    try {
-      await bulkUpdateFees(values.updateType, values.value);
-      toast({ title: 'Success!', description: 'All service fees have been updated.' });
-      setIsBulkUpdateOpen(false);
-      await fetchData();
-    } catch (error) {
-      console.error("Failed to bulk update fees:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update service fees.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
   const getProviderName = (providerId?: string) => {
     if (!providerId) return 'N/A';
     return apiProviders.find(p => p.id === providerId)?.name || 'Unknown';
@@ -188,25 +139,20 @@ export default function AdminServicesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Service Management</h1>
-          <p className="text-muted-foreground">Configure and manage all services and their variations.</p>
+          <p className="text-muted-foreground">Add or edit the services offered on the platform.</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setIsBulkUpdateOpen(true)} className="w-full sm:w-auto">
-                <TrendingUp className="mr-2 h-4 w-4" /> Bulk Update Prices
-            </Button>
-            <Button onClick={() => handleFormOpen(null)} className="w-full sm:w-auto">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Service
-            </Button>
-        </div>
+        <Button onClick={() => handleFormOpen(null)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Service
+        </Button>
       </div>
       
       <Card>
         <CardHeader>
           <CardTitle>Available Services</CardTitle>
-           <CardDescription>A list of all configurable services on the platform.</CardDescription>
+           <CardDescription>A list of all services available on the platform.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -220,7 +166,6 @@ export default function AdminServicesPage() {
                   <TableHead>Service Name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>API Provider</TableHead>
-                  <TableHead>Variations</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -231,7 +176,6 @@ export default function AdminServicesPage() {
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell>{service.category}</TableCell>
                     <TableCell className="text-muted-foreground">{getProviderName(service.apiProviderId)}</TableCell>
-                    <TableCell>{service.variations?.length || 0}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={service.status === 'Active' ? 'default' : 'destructive'} className={cn(service.status === 'Active' && 'bg-green-500 hover:bg-green-600')}>
                         {service.status}
@@ -262,16 +206,16 @@ export default function AdminServicesPage() {
       </Card>
       
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
-        <DialogContent className="sm:max-w-4xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>{editingService ? 'Edit' : 'Add New'} Service</DialogTitle>
             <DialogDescription>
-              Fill in the details for the service and its variations.
+              Fill in the details for the service. Pricing is managed on the Pricing page.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[80vh] overflow-y-auto pr-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Service Name</FormLabel>
@@ -325,82 +269,8 @@ export default function AdminServicesPage() {
                   </FormItem>
                 )} />
               </div>
-              
-              <div className="space-y-4 rounded-md border p-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Service Variations / Plans</h4>
-                   <Button type="button" size="sm" variant="outline" onClick={() => append({ id: `var_${Date.now()}`, name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } })}>
-                      <PlusCircle className="mr-2 h-4 w-4" /> Add Variation
-                    </Button>
-                </div>
-                <FormMessage>{form.formState.errors.variations?.root?.message}</FormMessage>
 
-                <div className="space-y-4">
-                  {fields.map((item, index) => (
-                    <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start border p-3 rounded-lg relative">
-                      <div className="col-span-12 md:col-span-1 flex justify-center items-center h-full">
-                         <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab" />
-                      </div>
-
-                      <div className="col-span-12 md:col-span-11 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                         <FormField control={form.control} name={`variations.${index}.id`} render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Variation ID</FormLabel>
-                              <FormControl><Input placeholder="e.g. mtn-1gb" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
-                          <FormField control={form.control} name={`variations.${index}.name`} render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Variation Name</FormLabel>
-                              <FormControl><Input placeholder="e.g. 1GB - 30 Days" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
-                          <FormField control={form.control} name={`variations.${index}.price`} render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Base Price (₦)</FormLabel>
-                              <FormControl><Input type="number" placeholder="250" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
-
-                        <div className="col-span-full grid grid-cols-3 gap-2 mt-2 border-t pt-2">
-                           <FormField control={form.control} name={`variations.${index}.fees.Customer`} render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Customer Fee</FormLabel>
-                                <FormControl><Input type="number" {...field} /></FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )} />
-                            <FormField control={form.control} name={`variations.${index}.fees.Vendor`} render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Vendor Fee</FormLabel>
-                                <FormControl><Input type="number" {...field} /></FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )} />
-                            <FormField control={form.control} name={`variations.${index}.fees.Admin`} render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Admin Fee</FormLabel>
-                                <FormControl><Input type="number" {...field} /></FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )} />
-                        </div>
-                      </div>
-                      
-                      <div className="absolute top-2 right-2">
-                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <DialogFooter>
+              <DialogFooter className="pt-4">
                  <Button type="button" variant="outline" onClick={handleFormClose} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -409,61 +279,6 @@ export default function AdminServicesPage() {
               </DialogFooter>
             </form>
           </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Bulk Update Dialog */}
-      <Dialog open={isBulkUpdateOpen} onOpenChange={setIsBulkUpdateOpen}>
-        <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle>Bulk Update Service Fees</DialogTitle>
-                <DialogDescription>
-                    Apply a pricing adjustment to all services at once. This action cannot be undone.
-                </DialogDescription>
-            </DialogHeader>
-            <Form {...bulkUpdateForm}>
-                <form onSubmit={bulkUpdateForm.handleSubmit(onBulkUpdateSubmit)} className="space-y-4 py-4">
-                    <FormField
-                        control={bulkUpdateForm.control}
-                        name="updateType"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Update Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="increase_percentage">Increase by Percentage (%)</SelectItem>
-                                    <SelectItem value="increase_fixed">Increase by Fixed Amount (₦)</SelectItem>
-                                    <SelectItem value="decrease_percentage">Decrease by Percentage (%)</SelectItem>
-                                    <SelectItem value="decrease_fixed">Decrease by Fixed Amount (₦)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={bulkUpdateForm.control}
-                        name="value"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Value</FormLabel>
-                                <FormControl>
-                                    <Input type="number" placeholder="e.g., 10" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsBulkUpdateOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Apply Update
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </Form>
         </DialogContent>
       </Dialog>
     </div>

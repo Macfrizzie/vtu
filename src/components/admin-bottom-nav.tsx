@@ -3,15 +3,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Zap, History, Plug } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, History, Plug, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
     { href: '/admin/dashboard', title: 'Overview', icon: <LayoutDashboard /> },
     { href: '/admin/users', title: 'Users', icon: <Users /> },
     { href: '/admin/services', title: 'Services', icon: <Zap /> },
+    { href: '/admin/pricing', title: 'Pricing', icon: <DollarSign /> },
     { href: '/admin/transactions', title: 'Transactions', icon: <History /> },
-    { href: '/admin/api-providers', title: 'APIs', icon: <Plug /> },
 ];
 
 export function AdminBottomNav() {
@@ -54,5 +54,3 @@ export function AdminBottomNav() {
     </div>
   );
 }
-
-    
