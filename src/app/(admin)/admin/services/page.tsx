@@ -123,7 +123,7 @@ export default function AdminServicesPage() {
     setIsSubmitting(true);
     const dataToSubmit = {
       ...values,
-      apiProviderId: values.apiProviderId || '',
+      apiProviderId: values.apiProviderId === 'none' ? '' : values.apiProviderId,
     };
     
     try {
@@ -314,10 +314,10 @@ export default function AdminServicesPage() {
                 <FormField control={form.control} name="apiProviderId" render={({ field }) => (
                   <FormItem>
                     <FormLabel>API Provider</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select a Provider" /></SelectTrigger></FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {apiProviders.map(provider => (<SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>))}
                       </SelectContent>
                     </Select>
