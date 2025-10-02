@@ -194,8 +194,8 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 endpoint = '/topup/';
                 requestBody = {
                     network: variationId, // The ID from the variation is the network ID
-                    mobile_number: inputs.mobile_number,
                     amount: baseAmount,
+                    mobile_number: inputs.mobile_number,
                     Ported_number: true,
                     airtime_type: "VTU"
                 };
@@ -333,14 +333,14 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "Airtime", provider: "airtime", category: 'Airtime' },
-            { name: "Data Bundles", provider: "data", category: 'Data' },
-            { name: "Electricity Bill", provider: "electricity", category: 'Electricity' },
-            { name: "Cable TV", provider: "cable", category: 'Cable' },
-            { name: "E-pins", provider: "education", category: 'Education' },
-            { name: "Recharge Card", provider: "recharge-card", category: 'Recharge Card' },
-            { name: "Data Card", provider: "data-card", category: 'Data Card' },
-            { name: "Betting", provider: "betting", category: 'Betting' },
+            { name: "Airtime", category: 'Airtime', provider: '' },
+            { name: "Data Bundles", category: 'Data', provider: '' },
+            { name: "Electricity Bill", category: 'Electricity', provider: '' },
+            { name: "Cable TV", category: 'Cable', provider: '' },
+            { name: "E-pins", category: 'Education', provider: '' },
+            { name: "Recharge Card", category: 'Recharge Card', provider: '' },
+            { name: "Data Card", category: 'Data Card', provider: '' },
+            { name: "Betting", category: 'Betting', provider: '' },
         ];
         coreServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
@@ -428,7 +428,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             status: 'Active', 
             priority: 'Primary', 
             auth_type: 'Token', 
-            apiKey: '66f2e5c39ac8640f13cd888f161385b12f7e5e92', 
+            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', 
             apiSecret: '', 
             requestHeaders: '{}', 
             transactionCharge: 0 
@@ -505,3 +505,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
