@@ -82,31 +82,28 @@ export async function verifySmartCard(baseUrl: string, apiKey: string, serviceId
 }
 
 export async function fetchHusmoDataPlans(baseUrl: string, apiKey: string, networkId: string): Promise<DataPlan[]> {
-    const endpoint = `/get/data/?network_id=${networkId}`;
+    const endpoint = `/data-plans/?network_id=${networkId}`;
     const response = await makeApiRequest<{ DATAPLANS: DataPlan[] }>(baseUrl, apiKey, endpoint);
     return response.DATAPLANS;
 }
 
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
-    const endpoint = '/billpayment/';
-    const body = {
-        disco_name: 'test',
-        amount: '0',
-        meter_number: '0000000000',
-        MeterType: 'prepaid'
-    };
-
     try {
-        const response = await makeApiRequest(baseUrl, apiKey, endpoint, {
+        // We use a known-good but invalid request to test credentials.
+        // A 400 error means the credentials are correct.
+        const response = await makeApiRequest(baseUrl, apiKey, '/billpayment/', {
             method: 'POST',
-            body: JSON.stringify(body),
+            body: JSON.stringify({
+                disco_name: 'test-invalid',
+                amount: '0',
+                meter_number: '0000000000',
+                MeterType: 'invalid-type'
+            }),
         });
         return response;
     } catch (error) {
         if (error instanceof Error && error.message.includes('API Error (400)')) {
-            // A 400 error on this test endpoint means our credentials are correct,
-            // but the dummy data is invalid, which is expected.
-            // So we treat it as a successful connection.
+            // This is the expected outcome for a successful connection test with invalid data.
             return { status: 'success', message: 'Connection successful (test endpoint returned 400 as expected).' };
         }
         // Re-throw any other errors (e.g., 401 Unauthorized, 404 Not Found, 500 Server Error)
@@ -116,3 +113,4 @@ export async function testHusmoDataConnection(baseUrl: string, apiKey: string): 
     
 
     
+
