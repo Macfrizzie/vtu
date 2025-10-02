@@ -61,7 +61,7 @@ async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: stri
 }
 
 export async function fetchHusmoDataNetworks(baseUrl: string, apiKey: string): Promise<Network[]> {
-    const response = await makeApiRequest<{ network: Network[] }>(baseUrl, apiKey, '/get/network/');
+    const response = await makeApiRequest<{ network: Network[] }>(baseUrl, apiKey, '/network-list/');
     return response.network;
 }
 
