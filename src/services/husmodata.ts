@@ -81,12 +81,6 @@ export async function verifySmartCard(baseUrl: string, apiKey: string, serviceId
     });
 }
 
-export async function fetchHusmoDataPlans(baseUrl: string, apiKey: string, networkId: string): Promise<DataPlan[]> {
-    const endpoint = `/data-plans/?network_id=${networkId}`;
-    const response = await makeApiRequest<{ DATAPLANS: DataPlan[] }>(baseUrl, apiKey, endpoint);
-    return response.DATAPLANS;
-}
-
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
     try {
         // We use a known-good but invalid request to test credentials.
@@ -113,6 +107,7 @@ export async function testHusmoDataConnection(baseUrl: string, apiKey: string): 
     
 
     
+
 
 
 

@@ -20,7 +20,6 @@ import { getServices, addService, updateService, updateServiceStatus, getApiProv
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchHusmoDataPlans, type DataPlan } from '@/services/husmodata';
 
 
 const serviceVariationSchema = z.object({
@@ -51,7 +50,6 @@ export default function AdminServicesPage() {
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isFetchingPlans, setIsFetchingPlans] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
 
@@ -162,47 +160,6 @@ export default function AdminServicesPage() {
   }
   
   const category = form.watch("category");
-  const apiProviderId = form.watch("apiProviderId");
-  const serviceProviderCode = form.watch("provider");
-
-  const handleFetchPlans = async () => {
-    if (!apiProviderId || !serviceProviderCode) {
-      toast({ variant: 'destructive', title: 'Missing Info', description: 'Please select an API Provider and enter a Service Code first.' });
-      return;
-    }
-    
-    const provider = apiProviders.find(p => p.id === apiProviderId);
-    if (!provider) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Could not find the selected API provider.' });
-        return;
-    }
-
-    setIsFetchingPlans(true);
-    try {
-        const plans: DataPlan[] = await fetchHusmoDataPlans(provider.baseUrl, provider.apiKey, serviceProviderCode);
-        
-        if (!plans || plans.length === 0) {
-            toast({ variant: 'destructive', title: 'No Plans Found', description: 'The API did not return any data plans for this network.' });
-            return;
-        }
-
-        const newVariations = plans.map(plan => ({
-            id: plan.plan_id.toString(),
-            name: plan.plan,
-            price: Number(plan.amount),
-            fees: { Customer: 0, Vendor: 0, Admin: 0 }
-        }));
-        
-        replace(newVariations);
-        toast({ title: 'Success!', description: `${plans.length} data plans have been imported.` });
-
-    } catch (error) {
-        console.error(error);
-        toast({ variant: 'destructive', title: 'Failed to Fetch Plans', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
-    } finally {
-        setIsFetchingPlans(false);
-    }
-  }
 
   return (
     <div className="space-y-8">
@@ -344,18 +301,6 @@ export default function AdminServicesPage() {
                   <div className="flex justify-between items-center">
                     <h3 className="text-lg font-semibold">Service Variations (e.g., Plans)</h3>
                     <div className="flex gap-2">
-                       {category === 'Data' && (
-                         <Button
-                           type="button"
-                           variant="secondary"
-                           size="sm"
-                           onClick={handleFetchPlans}
-                           disabled={isFetchingPlans || !apiProviderId || !serviceProviderCode}
-                         >
-                           {isFetchingPlans ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DownloadCloud className="mr-2 h-4 w-4" />}
-                           Fetch Plans
-                         </Button>
-                       )}
                         <Button
                         type="button"
                         variant="outline"
@@ -376,7 +321,7 @@ export default function AdminServicesPage() {
                                 name={`variations.${index}.id`}
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Variation ID</FormLabel>
+                                    <FormLabel>Variation ID (Plan ID)</FormLabel>
                                     <FormControl><Input placeholder="API Plan/Variation ID" {...field} /></FormControl>
                                   </FormItem>
                                 )}
