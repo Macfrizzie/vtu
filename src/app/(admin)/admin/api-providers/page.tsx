@@ -31,7 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
-import { fetchHusmoDataNetworks } from '@/services/husmodata';
+import { testHusmoDataConnection } from '@/services/husmodata';
 
 const providerFormSchema = z.object({
   name: z.string().min(2, 'Provider name must be at least 2 characters.'),
@@ -174,7 +174,7 @@ export default function AdminApiProvidersPage() {
   async function handleTestConnection(provider: ApiProvider) {
     setIsTesting(provider.id);
     try {
-        await fetchHusmoDataNetworks(provider.baseUrl, provider.apiKey);
+        await testHusmoDataConnection(provider.baseUrl, provider.apiKey);
         toast({ title: 'Connection Successful!', description: `Successfully connected to ${provider.name}.` });
     } catch (error) {
         console.error("Failed to connect to provider:", error);
@@ -349,7 +349,7 @@ export default function AdminApiProvidersPage() {
                         <SelectContent>
                           <SelectItem value="None">None</SelectItem>
                           <SelectItem value="Token">Authorization: Token</SelectItem>
-                          <SelectItem value="API Key">Authorization: (API Key)</SelectItem>
+                          <SelectItem value="API Key">Authorization: API Key</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -461,6 +461,8 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
+    
+
     
 
     

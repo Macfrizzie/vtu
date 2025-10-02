@@ -1,6 +1,8 @@
 
 'use server';
 
+import { callProviderAPI } from "./api-handler";
+
 export type Network = {
     id: number;
     network_name: string;
@@ -83,5 +85,23 @@ export async function fetchHusmoDataPlans(baseUrl: string, apiKey: string, netwo
     const response = await makeApiRequest<{ DATAPLANS: DataPlan[] }>(baseUrl, apiKey, endpoint);
     return response.DATAPLANS;
 }
+
+export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
+    // We use a known valid endpoint with dummy data.
+    // Even if it returns a logical error (e.g., "Invalid meter"), a successful API response (not a 4xx/5xx) means the connection is good.
+    const endpoint = '/billpayment/';
+    const body = {
+        disco_name: 'test',
+        amount: '0',
+        meter_number: '0000000000',
+        MeterType: '1'
+    };
+
+    return makeApiRequest(baseUrl, apiKey, endpoint, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    });
+}
+    
 
     
