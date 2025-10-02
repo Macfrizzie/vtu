@@ -195,7 +195,7 @@ export async function purchaseService(uid: string, serviceId: string, inputs: Re
                 totalCost = baseAmount - markup; // For airtime, markup is a discount
                 description = `${service.name} for ${inputs.mobile_number}`;
                 
-                const networkId = networkMap[service.provider.toLowerCase()];
+                const networkId = networkMap[service.provider.toLowerCase().trim()];
                 if (!networkId) {
                     throw new Error(`Configuration Error: Network ID not found for provider: ${service.provider}`);
                 }
@@ -345,13 +345,13 @@ export async function getServices(): Promise<Service[]> {
             { name: "Glo", provider: "glo", category: 'Airtime' },
             { name: "Airtel", provider: "airtel", category: 'Airtime' },
             { name: "9mobile", provider: "9mobile", category: 'Airtime' },
-            { name: "Data Bundles", provider: "", category: 'Data' },
-            { name: "Electricity Bill", provider: "", category: 'Electricity' },
-            { name: "Cable TV", provider: "", category: 'Cable' },
-            { name: "E-pins", provider: "", category: 'Education' },
-            { name: "Recharge Card", provider: "", category: 'Recharge Card' },
-            { name: "Data Card", provider: "", category: 'Data Card' },
-            { name: "Betting", provider: "", category: 'Betting' },
+            { name: "Data Bundles", provider: "data", category: 'Data' },
+            { name: "Electricity Bill", provider: "electricity", category: 'Electricity' },
+            { name: "Cable TV", provider: "cable", category: 'Cable' },
+            { name: "E-pins", provider: "education", category: 'Education' },
+            { name: "Recharge Card", provider: "recharge-card", category: 'Recharge Card' },
+            { name: "Data Card", provider: "data-card", category: 'Data Card' },
+            { name: "Betting", provider: "betting", category: 'Betting' },
         ];
         coreServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
@@ -510,4 +510,6 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+    
+
     
