@@ -10,15 +10,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Edit, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Edit, Loader2, PlusCircle, Trash2, MoreHorizontal } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, updateService, getApiProviders } from '@/lib/firebase/firestore';
+import { getServices, updateService, addService, deleteService, getApiProviders } from '@/lib/firebase/firestore';
 import type { Service, ApiProvider } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 const serviceFormSchema = z.object({
   status: z.enum(['Active', 'Inactive']),
@@ -30,11 +42,16 @@ const serviceFormSchema = z.object({
   })),
 });
 
+const addServiceFormSchema = z.object({
+    name: z.string().min(3, "Service name is required."),
+});
+
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
@@ -46,6 +63,13 @@ export default function AdminServicesPage() {
       markupType: 'none',
       markupValue: 0,
       apiProviderIds: [],
+    },
+  });
+
+   const addForm = useForm<z.infer<typeof addServiceFormSchema>>({
+    resolver: zodResolver(addServiceFormSchema),
+    defaultValues: {
+      name: '',
     },
   });
 
@@ -70,7 +94,7 @@ export default function AdminServicesPage() {
 
   useEffect(() => {
     fetchData();
-  }, [toast]);
+  }, []);
 
   const handleFormOpen = (service: Service) => {
     setEditingService(service);
@@ -104,6 +128,33 @@ export default function AdminServicesPage() {
       setIsSubmitting(false);
     }
   }
+  
+  async function onAddSubmit(values: z.infer<typeof addServiceFormSchema>) {
+    setIsSubmitting(true);
+    try {
+        await addService(values);
+        toast({ title: 'Success!', description: `${values.name} service has been created.` });
+        addForm.reset();
+        setIsAddFormOpen(false);
+        await fetchData();
+    } catch (error) {
+        console.error("Failed to add service:", error);
+        toast({ variant: 'destructive', title: 'Error', description: `Failed to add service. ${error instanceof Error ? error.message : ''}` });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete(serviceId: string) {
+    try {
+      await deleteService(serviceId);
+      toast({ title: 'Service Deleted', description: 'The service has been removed.' });
+      await fetchData();
+    } catch (error) {
+      console.error("Failed to delete service:", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete service.' });
+    }
+  }
 
   const getProviderDetails = (providerLinks: { id: string, priority: 'Primary' | 'Fallback' }[] | undefined) => {
       if (!providerLinks || providerLinks.length === 0) return 'N/A';
@@ -120,6 +171,35 @@ export default function AdminServicesPage() {
             <h1 className="text-3xl font-bold">Service Management</h1>
             <p className="text-muted-foreground">Link core services to API providers and set global markup rules.</p>
         </div>
+         <Dialog open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
+            <DialogTrigger asChild>
+                <Button><PlusCircle className="mr-2 h-4 w-4" /> Add Service</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add New Service</DialogTitle>
+                    <DialogDescription>Create a new core service for your platform.</DialogDescription>
+                </DialogHeader>
+                 <Form {...addForm}>
+                    <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4 py-4">
+                        <FormField control={addForm.control} name="name" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Service Name</FormLabel>
+                                <FormControl><Input placeholder="e.g., Betting" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsAddFormOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Add Service
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
       </div>
       
       <Card>
@@ -159,11 +239,39 @@ export default function AdminServicesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                       <div className="flex items-center justify-end gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleFormOpen(service)}>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleFormOpen(service)}>
                                 <Edit className="mr-2 h-4 w-4" /> Edit
-                            </Button>
-                        </div>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                               <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete this service and all associated pricing.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(service.id)}>Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

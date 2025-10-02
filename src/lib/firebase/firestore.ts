@@ -4,7 +4,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData, DataPlan, CablePlan, Disco } from '../types';
+import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -297,22 +297,20 @@ export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const snapshot = await getDocs(query(servicesCol, orderBy("name")));
 
-    const coreServices = [
-        { name: "Airtime top-up", provider: "airtime" },
-        { name: "Data Bundles", provider: "data" },
-        { name: "Electricity Bill", provider: "electricity" },
-        { name: "Cable TV", provider: "cable" },
-        { name: "E-pins", provider: "education" },
-        { name: "Recharge Card", provider: "recharge-card" },
-    ];
-
     if (snapshot.empty) {
         const batch = writeBatch(db);
+        const coreServices = [
+            { name: "Airtime top-up" },
+            { name: "Data Bundles" },
+            { name: "Electricity Bill" },
+            { name: "Cable TV" },
+            { name: "E-pins" },
+            { name: "Recharge Card" },
+        ];
         coreServices.forEach((service) => {
-            const docRef = doc(servicesCol, service.provider);
+            const docRef = doc(servicesCol); // Auto-generate ID
             batch.set(docRef, {
                 name: service.name,
-                provider: service.provider,
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
@@ -328,10 +326,28 @@ export async function getServices(): Promise<Service[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 }
 
+export async function addService(data: { name: string }) {
+    const servicesCol = collection(db, 'services');
+    await addDoc(servicesCol, {
+        ...data,
+        status: 'Active',
+        markupType: 'none',
+        markupValue: 0,
+        apiProviderIds: [],
+    });
+}
+
+
 export async function updateService(id: string, data: Partial<Service>) {
     const serviceRef = doc(db, 'services', id);
     await updateDoc(serviceRef, data);
 }
+
+export async function deleteService(id: string) {
+    const serviceRef = doc(db, 'services', id);
+    await deleteDoc(serviceRef);
+}
+
 
 export async function addUser(data: Omit<UserData, 'uid' | 'createdAt' | 'lastLogin' | 'walletBalance'>) {
     const usersRef = collection(db, 'users');
@@ -449,4 +465,5 @@ export async function deleteDisco(id: string) {
     
 
     
+
 
