@@ -139,10 +139,12 @@ export function ApiConnectorClient() {
             </div>
           )}
           {!isLoading && !result && (
-             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center p-4 rounded-lg border-2 border-dashed">
-                <Wand2 className="h-10 w-10 text-muted-foreground" />
-                <p className="mt-4 font-semibold text-muted-foreground">Waiting for input</p>
-                <p className="text-sm text-muted-foreground">Fill out the form to generate suggestions.</p>
+             <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center p-4 rounded-lg border-2 border-dashed border-muted-foreground/30">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                    <Wand2 className="h-8 w-8 text-primary" />
+                </div>
+                <p className="mt-4 font-semibold">Waiting for input</p>
+                <p className="text-sm text-muted-foreground max-w-xs mx-auto">Fill out the form on the left to get AI-powered suggestions for your new API integration.</p>
             </div>
           )}
           {result && (

@@ -11,6 +11,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Form,
@@ -111,7 +112,8 @@ export default function DataPage() {
 
     setIsPurchasing(true);
     try {
-      const purchaseInputs = { mobile_number: values.phone, plan: values.variationId, network: selectedService?.provider };
+      const networkName = selectedService?.name.split(' ')[0];
+      const purchaseInputs = { mobile_number: values.phone, plan: values.variationId, network: networkName };
       await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
@@ -236,11 +238,13 @@ export default function DataPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedVariationId}>
-                {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || loading || !selectedVariationId}>
+                {isPurchasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Data')}
               </Button>
-            </CardContent>
+            </CardFooter>
           </form>
         </Form>
       </Card>

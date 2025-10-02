@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Link from 'next/link';
 import { OverviewChart } from './overview-chart';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminDashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -91,31 +92,43 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Users"
-          value={loading ? '...' : users.length.toLocaleString()}
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
-          href="/admin/users"
-        />
-        <StatCard
-          title="Total Transactions"
-          value={loading ? '...' : transactions.length.toLocaleString()}
-          icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
-          href="/admin/transactions"
-        />
-        <StatCard
-          title="Total Revenue (Debits)"
-          value={loading ? '...' : `₦${totalRevenue.toLocaleString()}`}
-          icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-          href="/admin/transactions"
-        />
-        <StatCard
-          title="Pending Transactions"
-          value={loading ? '...' : pendingTransactions.toString()}
-          icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
-          variant={pendingTransactions > 0 ? 'destructive' : 'default'}
-          href="/admin/transactions"
-        />
+        {loading ? (
+            <>
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+            </>
+        ) : (
+            <>
+                <StatCard
+                  title="Total Users"
+                  value={users.length.toLocaleString()}
+                  icon={<Users className="h-4 w-4 text-muted-foreground" />}
+                  href="/admin/users"
+                />
+                <StatCard
+                  title="Total Transactions"
+                  value={transactions.length.toLocaleString()}
+                  icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
+                  href="/admin/transactions"
+                />
+                <StatCard
+                  title="Total Revenue (Debits)"
+                  value={`₦${totalRevenue.toLocaleString()}`}
+                  icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
+                  href="/admin/transactions"
+                />
+                <StatCard
+                  title="Pending Transactions"
+                  value={pendingTransactions.toString()}
+                  icon={<AlertCircle className="h-4 w-4 text-muted-foreground" />}
+                  variant={pendingTransactions > 0 ? 'destructive' : 'default'}
+                  href="/admin/transactions"
+                />
+            </>
+        )}
+        
       </div>
 
       {loading && (
@@ -265,6 +278,20 @@ function StatCard({
         </Card>
     </Link>
   );
+}
+
+function StatCardSkeleton() {
+    return (
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+                <Skeleton className="h-7 w-20" />
+            </CardContent>
+        </Card>
+    )
 }
 
 function ActionCard({ title, description, icon, href }: { title: string, description: string, icon: React.ReactNode, href: string }) {

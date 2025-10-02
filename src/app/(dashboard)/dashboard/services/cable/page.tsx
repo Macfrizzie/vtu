@@ -91,6 +91,8 @@ export default function CableTvPage() {
   const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId), [selectedServiceId, services]);
 
   const availablePackages = useMemo(() => {
+    // In a real scenario, these might be fetched based on the selectedService.
+    // For now, we'll assume they are stored in the variations.
     return selectedService?.variations || [];
   }, [selectedService]);
 
@@ -102,13 +104,15 @@ export default function CableTvPage() {
     setCustomerName(null);
     form.clearErrors('smartCardNumber');
 
-    if (!selectedService || !selectedService.apiProviderId) {
+    if (!selectedService || !selectedService.apiProviderIds || selectedService.apiProviderIds.length === 0) {
         toast({ variant: 'destructive', title: 'Configuration Error', description: 'Selected service is not linked to an API provider.' });
         setIsVerifying(false);
         return;
     }
 
-    const provider = apiProviders.find(p => p.id === selectedService.apiProviderId);
+    const providerInfo = selectedService.apiProviderIds[0]; // Use primary provider
+    const provider = apiProviders.find(p => p.id === providerInfo.id);
+
     if (!provider) {
         toast({ variant: 'destructive', title: 'Configuration Error', description: 'API provider not found.' });
         setIsVerifying(false);
@@ -116,10 +120,15 @@ export default function CableTvPage() {
     }
 
     try {
+      if(!selectedService.name) {
+          throw new Error("Selected service does not have a valid provider name for verification.");
+      }
+      const serviceProviderName = selectedService.name.split(' ')[0].toLowerCase();
+
       const verificationResult = await verifySmartCard(
           provider.baseUrl,
-          provider.apiKey,
-          selectedService.provider, // 'dstv', 'gotv', etc.
+          provider.apiKey || '',
+          serviceProviderName,
           smartCardValue
       );
       
@@ -132,7 +141,7 @@ export default function CableTvPage() {
       setCustomerName(name);
       toast({
         title: 'Verification Successful',
-        description: 'Customer name has been retrieved.',
+        description: `Customer: ${name}`,
       });
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : 'Could not verify smart card number. Please check and try again.';

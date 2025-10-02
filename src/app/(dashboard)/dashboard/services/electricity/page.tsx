@@ -11,6 +11,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Form,
@@ -82,7 +83,7 @@ export default function ElectricityPage() {
   
   const selectedServiceId = form.watch('serviceId');
   const selectedService = services.find(s => s.id === selectedServiceId);
-  const selectedVariation = selectedService?.variations[0]; // Assuming one variation for electricity
+  const selectedVariation = selectedService?.variations?.[0];
 
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
@@ -115,7 +116,11 @@ export default function ElectricityPage() {
         amount: values.amount,
       };
 
-      await purchaseService(user.uid, values.serviceId, selectedVariation.id, purchaseInputs, user.email!);
+      if (!selectedService?.name) {
+          throw new Error("Service name not found");
+      }
+
+      await purchaseService(user.uid, values.serviceId, selectedService.name, purchaseInputs, user.email!);
       
       forceRefetch();
       toast({
@@ -255,12 +260,13 @@ export default function ElectricityPage() {
                 <p>Service Fee: ₦{serviceFee.toLocaleString()}</p>
                 <p className="font-semibold">Total to Pay: ₦{totalCost.toLocaleString()}</p>
               </div>
-
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedServiceId}>
+            </CardContent>
+            <CardFooter>
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || loading || !selectedServiceId}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Pay Bill')}
               </Button>
-            </CardContent>
+            </CardFooter>
           </form>
         </Form>
       </Card>

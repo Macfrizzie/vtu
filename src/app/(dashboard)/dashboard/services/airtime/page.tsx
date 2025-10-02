@@ -12,6 +12,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Form,
@@ -235,11 +236,13 @@ export default function AirtimePage() {
                     <span>₦{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !airtimeService}>
-                {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Purchase Airtime')}
-              </Button>
             </CardContent>
+             <CardFooter>
+                <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || loading || !airtimeService}>
+                    {isPurchasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Airtime')}
+                </Button>
+            </CardFooter>
           </form>
         </Form>
       </Card>

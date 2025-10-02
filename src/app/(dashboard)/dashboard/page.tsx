@@ -27,6 +27,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel"
 import { ServiceIcon } from '@/components/service-icon';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const getServiceUrl = (service: Service) => {
@@ -100,13 +101,15 @@ export default function DashboardPage() {
 
     const getTransactionServiceName = (description: string): Service['name'] | undefined => {
         const lowerDescription = description.toLowerCase();
-
+    
         if (lowerDescription.includes('wallet funding')) return undefined;
+        
+        // Prioritize specific keywords
         if (lowerDescription.includes('airtime')) return 'Airtime';
         if (lowerDescription.includes('data')) return 'Data';
         if (lowerDescription.includes('electricity') || lowerDescription.includes('electric')) return 'Electricity';
-        if (lowerDescription.includes('cable') || lowerDescription.includes('dstv') || lowerDescription.includes('gotv') || lowerDescription.includes('startimes')) return 'Cable TV';
-        if (lowerDescription.includes('education') || lowerDescription.includes('waec') || lowerDescription.includes('neco') || lowerDescription.includes('jamb')) return 'Education';
+        if (lowerDescription.includes('dstv') || lowerDescription.includes('gotv') || lowerDescription.includes('startimes') || lowerDescription.includes('cable')) return 'Cable TV';
+        if (lowerDescription.includes('waec') || lowerDescription.includes('neco') || lowerDescription.includes('jamb') || lowerDescription.includes('education')) return 'Education';
         if (lowerDescription.includes('recharge card')) return 'Recharge Card';
         
         // Fallback to searching by service category
@@ -158,9 +161,9 @@ export default function DashboardPage() {
         <div className="grid grid-cols-4 gap-3">
             {dataLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center animate-pulse">
-                        <div className="h-6 w-6 bg-muted rounded-md"></div>
-                        <div className="h-3 w-10 bg-muted rounded-md"></div>
+                    <div key={i} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
+                        <Skeleton className="h-6 w-6 rounded-md" />
+                        <Skeleton className="h-3 w-10" />
                     </div>
                 ))
             ) : (
@@ -225,8 +228,21 @@ export default function DashboardPage() {
           </Link>
         </div>
         {dataLoading ? (
-            <div className="flex justify-center items-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin" />
+            <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i} className="rounded-xl p-4 shadow-none">
+                        <CardContent className="flex items-center justify-between p-0">
+                            <div className="flex items-center gap-4">
+                                <Skeleton className="h-10 w-10 rounded-full" />
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-32" />
+                                    <Skeleton className="h-3 w-24" />
+                                </div>
+                            </div>
+                            <Skeleton className="h-5 w-16" />
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
         ) : transactions.length === 0 ? (
             <div className="text-center text-muted-foreground py-10">
@@ -275,8 +291,3 @@ export default function DashboardPage() {
       </section>
     </div>
   );
-
-    
-
-
-    
