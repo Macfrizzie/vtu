@@ -31,7 +31,12 @@ export function AirtimePricingTab() {
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
-  const [networks, setNetworks] = useState<Network[]>([]);
+  const [networks, setNetworks] = useState<{id: string, name: string}[]>([
+      { id: '1', name: 'MTN' },
+      { id: '2', name: 'GLO' },
+      { id: '3', name: '9MOBILE' },
+      { id: '4', name: 'AIRTEL' },
+  ]);
   const [airtimePrices, setAirtimePrices] = useState<AirtimePrice[]>([]);
 
   const form = useForm<z.infer<typeof airtimePriceFormSchema>>({
@@ -42,16 +47,11 @@ export function AirtimePricingTab() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const providers = await getApiProviders();
-      setApiProviders(providers);
-      const husmoProvider = providers.find(p => p.id === 'husmodata');
-      if (!husmoProvider) throw new Error("HusmoData provider configuration not found.");
-
-      const [fetchedNetworks, prices] = await Promise.all([
-        fetchHusmoDataNetworks(husmoProvider.baseUrl, husmoProvider.apiKey),
+      const [providers, prices] = await Promise.all([
+        getApiProviders(),
         getAirtimePrices(),
       ]);
-      setNetworks(fetchedNetworks);
+      setApiProviders(providers.filter(p => p.status === 'Active'));
       setAirtimePrices(prices);
     } catch (error) {
       console.error(error);
@@ -68,10 +68,10 @@ export function AirtimePricingTab() {
   const onSubmit = async (values: z.infer<typeof airtimePriceFormSchema>) => {
     setIsSubmitting(true);
     try {
-      const selectedNetwork = networks.find(n => n.id.toString() === values.networkId);
+      const selectedNetwork = networks.find(n => n.id === values.networkId);
       if (!selectedNetwork) throw new Error('Selected network not found.');
 
-      const dataToSubmit = { ...values, networkName: selectedNetwork.network_name, serviceId: 'airtime' };
+      const dataToSubmit = { ...values, networkName: selectedNetwork.name, serviceId: 'airtime' };
       await addAirtimePrice(dataToSubmit);
       toast({ title: 'Success', description: 'Airtime price rule added.' });
       await fetchData();
@@ -115,7 +115,7 @@ export function AirtimePricingTab() {
             <FormField control={form.control} name="networkId" render={({ field }) => (
               <FormItem>
                 <FormLabel>Network</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={loading || networks.length === 0}><FormControl><SelectTrigger><SelectValue placeholder={networks.length === 0 ? "No networks found" : "Select Network"} /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.id.toString()}>{n.network_name}</SelectItem>)}</SelectContent></Select><FormMessage />
+                <Select onValueChange={field.onChange} value={field.value} disabled={loading}><FormControl><SelectTrigger><SelectValue placeholder="Select Network" /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.id.toString()}>{n.name}</SelectItem>)}</SelectContent></Select><FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name="discountPercent" render={({ field }) => (
@@ -134,96 +134,128 @@ export function AirtimePricingTab() {
   );
 }
 
-// --- Service-based Pricing Tab ---
-const serviceVariationSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  price: z.coerce.number(),
-  fees: z.object({
-    Customer: z.coerce.number().min(0).default(0),
-    Vendor: z.coerce.number().min(0).default(0),
-    Admin: z.coerce.number().min(0).default(0),
-  }).default({ Customer: 0, Vendor: 0, Admin: 0 }),
+// --- Data Pricing Tab ---
+const dataPlanSchema = z.object({
+    id: z.string().min(1, "Data ID is required"),
+    network: z.string().min(1, "Network is required"),
+    planType: z.string().min(1, "Plan type is required"),
+    size: z.string().min(1, "Size is required"),
+    amount: z.coerce.number().min(0, "Amount must be a positive number"),
+    validity: z.string().min(1, "Validity is required"),
+    percentageIncrease: z.coerce.number().optional(),
+    fixedAmountIncrease: z.coerce.number().optional(),
 });
-const servicePricingFormSchema = z.object({ variations: z.array(serviceVariationSchema) });
 
-function ServicePricingCard({ service, onSave }: { service: Service, onSave: (serviceId: string, variations: ServiceVariation[]) => Promise<void> }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const form = useForm<z.infer<typeof servicePricingFormSchema>>({
-    resolver: zodResolver(servicePricingFormSchema),
-    defaultValues: { variations: service.variations },
-  });
+export function DataPricingTab() {
+    const { toast } = useToast();
+    // This component will manage its own state for data plans
+    // In a real app, this would be fetched from Firestore.
+    // For now, we'll manage it in local state to demonstrate UI.
+    const [dataPlans, setDataPlans] = useState<z.infer<typeof dataPlanSchema>[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { fields } = useFieldArray({ control: form.control, name: "variations" });
+    const form = useForm<z.infer<typeof dataPlanSchema>>({
+        resolver: zodResolver(dataPlanSchema),
+        defaultValues: {
+            id: '',
+            network: '1', // Default to MTN
+            planType: 'SME',
+            size: '',
+            amount: 0,
+            validity: '30 days/1 month',
+        }
+    });
 
-  const onSubmit = async (values: z.infer<typeof servicePricingFormSchema>) => {
-    setIsSubmitting(true);
-    await onSave(service.id, values.variations);
-    setIsSubmitting(false);
-  };
+    const onSubmit = (values: z.infer<typeof dataPlanSchema>) => {
+        setIsSubmitting(true);
+        // Here you would typically save to Firestore
+        console.log("Adding data plan:", values);
+        setDataPlans(prev => [...prev, values]);
+        toast({ title: "Data Plan Added", description: `${values.size} for ${values.network} has been added.` });
+        form.reset();
+        setIsSubmitting(false);
+    }
+    
+     const networks = [
+        { id: '1', name: 'MTN' },
+        { id: '2', name: 'GLO' },
+        { id: '3', name: '9MOBILE' },
+        { id: '4', name: 'AIRTEL' },
+    ];
+    
+    const validities = ['1 day', '2 days', '3 days', '7 days', '30 days/1 month'];
 
-  return (
-    <Card>
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardHeader>
-            <CardTitle>{service.name}</CardTitle>
-            <CardDescription>{service.variations.length} plan(s) available. Set role-based convenience fees below.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 max-h-96 overflow-y-auto">
-            {fields.map((field, index) => (
-              <div key={field.id} className="p-4 border rounded-lg space-y-2">
-                <h4 className="font-semibold">{field.name}</h4>
-                <div className="text-sm text-muted-foreground">Base Price: ₦{field.price.toLocaleString()}</div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                  <FormField control={form.control} name={`variations.${index}.fees.Customer`} render={({ field }) => (<FormItem><FormLabel>Customer Fee (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name={`variations.${index}.fees.Vendor`} render={({ field }) => (<FormItem><FormLabel>Vendor Fee (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={form.control} name={`variations.${index}.fees.Admin`} render={({ field }) => (<FormItem><FormLabel>Admin Fee (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} <Save className="mr-2 h-4 w-4" /> Save Changes for {service.name}</Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
-  )
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Data Plan Pricing</CardTitle>
+                <CardDescription>Manually input data plans and set markup rules. APIs should be linked on the Services page.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end p-4 border rounded-lg">
+                        <FormField control={form.control} name="id" render={({ field }) => (
+                            <FormItem><FormLabel>Data ID</FormLabel><FormControl><Input placeholder="e.g., 101" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                         <FormField control={form.control} name="network" render={({ field }) => (
+                            <FormItem><FormLabel>Network</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="planType" render={({ field }) => (
+                            <FormItem><FormLabel>Plan Type</FormLabel><FormControl><Input placeholder="SME, Corporate, etc." {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="size" render={({ field }) => (
+                            <FormItem><FormLabel>Size</FormLabel><FormControl><Input placeholder="500MB, 1GB, etc." {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                         <FormField control={form.control} name="amount" render={({ field }) => (
+                            <FormItem><FormLabel>Amount (Base Price)</FormLabel><FormControl><Input type="number" placeholder="e.g., 300" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="validity" render={({ field }) => (
+                            <FormItem><FormLabel>Validity</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{validities.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )} />
+                        <div className="lg:col-span-3">
+                             <Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Data Plan</Button>
+                        </div>
+                    </form>
+                </Form>
+                 <Table>
+                    <TableHeader><TableRow><TableHead>Data ID</TableHead><TableHead>Network</TableHead><TableHead>Size</TableHead><TableHead>Base Price</TableHead><TableHead>Validity</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {dataPlans.map((plan, index) => (
+                            <TableRow key={index}><TableCell>{plan.id}</TableCell><TableCell>{networks.find(n => n.id === plan.network)?.name}</TableCell><TableCell>{plan.size}</TableCell><TableCell>₦{plan.amount}</TableCell><TableCell>{plan.validity}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>
+                        ))}
+                         {dataPlans.length === 0 && (
+                            <TableRow><TableCell colSpan={6} className="text-center h-24 text-muted-foreground">No data plans added yet.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    );
 }
+
+
+// --- Generic Service Pricing Tabs ---
 
 function GenericServicePricingTab({ category, title, description }: { category: Service['category'], title: string, description: string }) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<Service[]>([]);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const allServices = await getServices();
-      setServices(allServices.filter(s => s.category === category && s.status === 'Active' && s.variations?.length > 0));
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: `Failed to fetch ${category} services.` });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+        const allServices = await getServices();
+        setServices(allServices.filter(s => s.category === category && s.status === 'Active'));
+        } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Error', description: `Failed to fetch ${category} services.` });
+        } finally {
+        setLoading(false);
+        }
+    };
     fetchData();
-  }, []);
-
-  const handleSave = async (serviceId: string, variations: ServiceVariation[]) => {
-    try {
-      await updateServiceVariations(serviceId, variations);
-      toast({ title: 'Success!', description: 'Pricing has been updated.' });
-      await fetchData(); // Refetch to ensure data is consistent
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Save Failed', description: 'Could not save pricing changes.' });
-    }
-  }
+  }, [category, toast]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-60"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -233,45 +265,31 @@ function GenericServicePricingTab({ category, title, description }: { category: 
     return (
         <Card>
             <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
-            <CardContent><p className="text-muted-foreground">No active {category.toLowerCase()} services with configurable plans found. Please add or configure them in the 'Services' tab first.</p></CardContent>
+            <CardContent><p className="text-muted-foreground">No active {category.toLowerCase()} services found. Please add or configure them in the 'Services' tab first.</p></CardContent>
         </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-        <Card>
-            <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription>{description}</CardDescription>
-            </CardHeader>
-        </Card>
-        <Accordion type="single" collapsible className="w-full space-y-4">
-            {services.map(service => (
-                <AccordionItem value={service.id} key={service.id} className="border-none">
-                    <Card className="overflow-hidden">
-                        <AccordionTrigger className="p-6 hover:no-underline">
-                            <CardTitle>{service.name}</CardTitle>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                           <ServicePricingCard service={service} onSave={handleSave} />
-                        </AccordionContent>
-                    </Card>
-                </AccordionItem>
-            ))}
-        </Accordion>
-    </div>
+    <Card>
+        <CardHeader>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription>{description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <p className="text-muted-foreground">Manual plan entry for this category will be implemented here.</p>
+        </CardContent>
+    </Card>
   )
 }
 
-export function DataPricingTab() {
-  return <GenericServicePricingTab category="Data" title="Data Plan Pricing" description="Set convenience fees for each data plan. The final price for a user will be 'Base Price' + 'Role Fee'." />;
-}
 
 export function CablePricingTab() {
-  return <GenericServicePricingTab category="Cable" title="Cable TV Pricing" description="Set convenience fees for each Cable TV package." />;
+  return <GenericServicePricingTab category="Cable" title="Cable TV Pricing" description="Manually input cable TV packages and set markup rules." />;
 }
 
 export function ElectricityPricingTab() {
-  return <GenericServicePricingTab category="Electricity" title="Electricity Bill Pricing" description="Set a convenience fee for electricity bill payments." />;
+  return <GenericServicePricingTab category="Electricity" title="Electricity Bill Pricing" description="Manually input DISCOs and set convenience fees." />;
 }
+
+    

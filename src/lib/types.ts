@@ -55,7 +55,6 @@ export type Service = {
   category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Recharge Card' | 'Other';
   status: 'Active' | 'Inactive';
   apiProviderId: string; // Link to an ApiProvider
-  variations: ServiceVariation[];
 };
 
 
@@ -93,3 +92,5 @@ export type DataPlan = {
     planName: string;
     price: number;
 };
+
+    

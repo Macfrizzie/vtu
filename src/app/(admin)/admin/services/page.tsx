@@ -3,35 +3,22 @@
 
 import { useEffect, useState } from 'react';
 import * as z from 'zod';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, MoreHorizontal, Loader2, Trash2, GripVertical, DownloadCloud } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Loader2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getServices, addService, updateService, updateServiceStatus, getApiProviders } from '@/lib/firebase/firestore';
-import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
+import type { Service, ApiProvider } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Textarea } from '@/components/ui/textarea';
-
-
-const serviceVariationSchema = z.object({
-  id: z.string(),
-  name: z.string().min(1, 'Variation name is required.'),
-  price: z.coerce.number().min(0, 'Price must be 0 or greater.'),
-  fees: z.object({
-    Customer: z.coerce.number().min(0).default(0),
-    Vendor: z.coerce.number().min(0).default(0),
-    Admin: z.coerce.number().min(0).default(0),
-  }).default({ Customer: 0, Vendor: 0, Admin: 0 }),
-});
 
 const serviceFormSchema = z.object({
   name: z.string().min(3, 'Service name must be at least 3 characters.'),
@@ -39,10 +26,7 @@ const serviceFormSchema = z.object({
   category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Recharge Card', 'Other']),
   status: z.enum(['Active', 'Inactive']),
   apiProviderId: z.string().optional(),
-  variations: z.array(serviceVariationSchema).optional(),
 });
-
-type SimpleProvider = Pick<ApiProvider, 'id' | 'name'>;
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -61,13 +45,7 @@ export default function AdminServicesPage() {
       category: 'Data',
       status: 'Active',
       apiProviderId: '',
-      variations: [],
     },
-  });
-
-  const { fields, append, remove, move, replace } = useFieldArray({
-    control: form.control,
-    name: "variations",
   });
 
   async function fetchData() {
@@ -97,7 +75,6 @@ export default function AdminServicesPage() {
       form.reset({
         ...service,
         apiProviderId: service.apiProviderId || '',
-        variations: service.variations || [],
       });
     } else {
       form.reset({
@@ -106,7 +83,6 @@ export default function AdminServicesPage() {
         category: 'Data',
         status: 'Active',
         apiProviderId: '',
-        variations: [],
       });
     }
     setIsFormOpen(true);
@@ -166,7 +142,7 @@ export default function AdminServicesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Service Management</h1>
-          <p className="text-muted-foreground">Add, edit, and manage all platform services and their pricing variations.</p>
+          <p className="text-muted-foreground">Link services to their respective API providers.</p>
         </div>
         <Button onClick={() => handleFormOpen(null)}>
             <PlusCircle className="mr-2 h-4 w-4" /> Add Service
@@ -176,7 +152,7 @@ export default function AdminServicesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Available Services</CardTitle>
-           <CardDescription>A list of all services available on the platform.</CardDescription>
+           <CardDescription>A list of all services and their linked API providers.</CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -190,7 +166,6 @@ export default function AdminServicesPage() {
                   <TableHead>Service Name</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>API Provider</TableHead>
-                  <TableHead>Variations</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                   <TableHead><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -201,7 +176,6 @@ export default function AdminServicesPage() {
                     <TableCell className="font-medium">{service.name}</TableCell>
                     <TableCell>{service.category}</TableCell>
                     <TableCell className="text-muted-foreground">{getProviderName(service.apiProviderId)}</TableCell>
-                    <TableCell>{service.variations?.length || 0}</TableCell>
                     <TableCell className="text-center">
                       <Badge variant={service.status === 'Active' ? 'default' : 'destructive'} className={cn(service.status === 'Active' && 'bg-green-500 hover:bg-green-600')}>
                         {service.status}
@@ -232,11 +206,11 @@ export default function AdminServicesPage() {
       </Card>
       
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingService ? 'Edit' : 'Add New'} Service</DialogTitle>
             <DialogDescription>
-              Fill in the details for the service. For Data and Cable, add pricing variations below.
+              Link a service to an API provider. Detailed pricing is handled in the Pricing page.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -295,110 +269,6 @@ export default function AdminServicesPage() {
                   </FormItem>
                 )} />
               </div>
-
-             {['Data', 'Cable', 'Electricity', 'Education', 'Recharge Card'].includes(category) && (
-                <div className="space-y-4 pt-4 border-t">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-semibold">Service Variations (e.g., Plans)</h3>
-                    <div className="flex gap-2">
-                        <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => append({ id: `var_${Date.now()}`, name: '', price: 0, fees: { Customer: 0, Vendor: 0, Admin: 0 } })}
-                        >
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Variation
-                        </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {fields.map((field, index) => (
-                      <Card key={field.id} className="p-4 bg-muted/50">
-                        <div className="flex gap-4">
-                          <div className="flex-grow space-y-2">
-                             <FormField
-                                control={form.control}
-                                name={`variations.${index}.id`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Variation ID (Plan ID)</FormLabel>
-                                    <FormControl><Input placeholder="API Plan/Variation ID" {...field} /></FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            <FormField
-                              control={form.control}
-                              name={`variations.${index}.name`}
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Variation Name</FormLabel>
-                                  <FormControl><Input placeholder="e.g., 1.5GB - 30 Days" {...field} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                              <FormField
-                                control={form.control}
-                                name={`variations.${index}.price`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Price (₦)</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`variations.${index}.fees.Customer`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Fee (Cust.)</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={form.control}
-                                name={`variations.${index}.fees.Vendor`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Fee (Vendor)</FormLabel>
-                                    <FormControl><Input type="number" {...field} /></FormControl>
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-center justify-center gap-1">
-                             <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="cursor-grab"
-                                onDragStart={(e) => e.dataTransfer.setData('text/plain', index.toString())}
-                                draggable
-                              >
-                               <GripVertical className="h-5 w-5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive"
-                              onClick={() => remove(index)}
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-
               <DialogFooter className="pt-4">
                  <Button type="button" variant="outline" onClick={handleFormClose} disabled={isSubmitting}>Cancel</Button>
                 <Button type="submit" disabled={isSubmitting}>
@@ -413,3 +283,5 @@ export default function AdminServicesPage() {
     </div>
   );
 }
+
+    
