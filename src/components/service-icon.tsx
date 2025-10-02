@@ -27,9 +27,6 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('data bundles')) {
     return <Wifi {...iconProps} />;
   }
-   if (name.includes('data card')) {
-    return <CreditCard {...iconProps} />;
-  }
   if (name.includes('electricity')) {
     return <Zap {...iconProps} />;
   }
@@ -42,9 +39,6 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('recharge card')) {
     return <Ticket {...iconProps} />;
   }
-  if (name.includes('betting')) {
-    return <Gamepad2 {...iconProps} />;
-  }
-
+  
   return <HelpCircle {...iconProps} />;
 }

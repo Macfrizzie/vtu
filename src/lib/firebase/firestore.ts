@@ -304,8 +304,6 @@ export async function getServices(): Promise<Service[]> {
         { name: "Cable TV", provider: "cable" },
         { name: "E-pins", provider: "education" },
         { name: "Recharge Card", provider: "recharge-card" },
-        { name: "Betting", provider: "betting" },
-        { name: "Data Card", provider: "data-card" },
     ];
 
     if (snapshot.empty) {
@@ -451,3 +449,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
