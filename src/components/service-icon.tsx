@@ -39,6 +39,12 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('recharge card')) {
     return <Ticket {...iconProps} />;
   }
+  if (name.includes('betting')) {
+    return <Gamepad2 {...iconProps} />;
+  }
+  if (name.includes('data card')) {
+    return <CreditCard {...iconProps} />;
+  }
   
   return <HelpCircle {...iconProps} />;
 }
