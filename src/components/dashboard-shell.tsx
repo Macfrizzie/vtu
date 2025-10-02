@@ -59,7 +59,7 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
           ))}
         </nav>
       </aside>
-      <div className="flex flex-col sm:pl-64">
+      <div className="flex flex-col sm:pl-60">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <Sheet>
             <SheetTrigger asChild>
@@ -103,7 +103,7 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
               </nav>
             </div>
         </header>
-        <main className="flex-1 overflow-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-auto p-4 sm:p-6 pb-16 sm:pb-0">
           {children}
         </main>
       </div>

@@ -39,7 +39,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <UserProvider>
       <DashboardShell navItems={navItems} userRole="Admin">
-          <div className="pb-16 sm:pb-0">{children}</div>
+          {children}
       </DashboardShell>
       <AdminBottomNav />
     </UserProvider>
