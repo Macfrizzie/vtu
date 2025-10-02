@@ -36,6 +36,7 @@ const serviceFormSchema = z.object({
   status: z.enum(['Active', 'Inactive']),
   markupType: z.enum(['none', 'percentage', 'fixed']),
   markupValue: z.coerce.number().min(0, 'Markup value must be non-negative.'),
+  endpoint: z.string().optional(),
   apiProviderIds: z.array(z.object({
       id: z.string(),
       priority: z.enum(['Primary', 'Fallback']),
@@ -75,6 +76,7 @@ export default function AdminServicesPage() {
       status: 'Active',
       markupType: 'none',
       markupValue: 0,
+      endpoint: '',
       apiProviderIds: [],
       variations: [],
     },
@@ -123,6 +125,7 @@ export default function AdminServicesPage() {
       status: service.status,
       markupType: service.markupType || 'none',
       markupValue: service.markupValue || 0,
+      endpoint: service.endpoint || '',
       apiProviderIds: service.apiProviderIds || [],
       variations: service.variations || [],
     });
@@ -443,6 +446,13 @@ export default function AdminServicesPage() {
                     </Select>
                     <FormMessage />
                   </FormItem>
+                )} />
+                <FormField control={editForm.control} name="endpoint" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Service Endpoint</FormLabel>
+                        <FormControl><Input placeholder="/topup/" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
                 )} />
               </div>
 

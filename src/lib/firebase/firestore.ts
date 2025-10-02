@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -166,8 +167,12 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     for (const provider of serviceProviders) {
         try {
             let requestBody: Record<string, any> = {};
-            let endpoint: string = '';
-            const method: 'GET' | 'POST' = 'POST';
+            const endpoint: string = service.endpoint || '';
+            const method: 'GET' | 'POST' = 'POST'; // Assuming POST for most purchases
+
+            if (!endpoint) {
+                throw new Error(`Configuration Error: No endpoint URL is defined for the '${service.name}' service.`);
+            }
 
             // --- Service-specific logic ---
             if (service.category === 'Airtime') {
@@ -177,6 +182,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 }
 
                 let markup = 0;
+                // Markup is treated as a discount for airtime
                 if (service.markupType === 'percentage' && service.markupValue) {
                     markup = (baseAmount * service.markupValue) / 100;
                 } else if (service.markupType === 'fixed' && service.markupValue) {
@@ -190,7 +196,6 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 }
                 description = `${network.name} Airtime for ${inputs.mobile_number}`;
 
-                endpoint = '/topup/';
                 requestBody = {
                     network: variationId, // The ID from the variation is the network ID
                     amount: baseAmount,
@@ -332,18 +337,19 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "Airtime", category: 'Airtime'},
-            { name: "Data Bundles", category: 'Data' },
-            { name: "Electricity Bill", category: 'Electricity' },
-            { name: "Cable TV", category: 'Cable' },
-            { name: "E-pins", category: 'Education' },
-            { name: "Recharge Card", category: 'Recharge Card' },
+            { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
+            { name: "Data Bundles", category: 'Data', endpoint: '/data/' },
+            { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
+            { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
+            { name: "E-pins", category: 'Education', endpoint: '/epin/'},
+            { name: "Recharge Card", category: 'Recharge Card', endpoint: '/recharge-card/'},
         ];
         coreServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
                 name: service.name,
                 category: service.category,
+                endpoint: service.endpoint,
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
@@ -364,11 +370,11 @@ export async function addService(data: { name: string; category: string }) {
     const servicesCol = collection(db, 'services');
     await addDoc(servicesCol, {
         ...data,
-        provider: '',
         status: 'Active',
         markupType: 'none',
         markupValue: 0,
         apiProviderIds: [],
+        endpoint: '',
     });
 }
 
@@ -501,4 +507,3 @@ export async function deleteDisco(id: string) {
     
 
     
-
