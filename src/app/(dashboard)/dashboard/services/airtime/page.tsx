@@ -37,7 +37,7 @@ import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 
 const formSchema = z.object({
-  serviceId: z.string().min(1, 'Please select a network.'),
+  networkId: z.string().min(1, 'Please select a network.'),
   phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number.'),
   amount: z.coerce.number().min(50, 'Amount must be at least ₦50.'),
 });
@@ -48,13 +48,13 @@ export default function AirtimePage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
+  const [airtimeService, setAirtimeService] = useState<Service | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      serviceId: '',
+      networkId: '',
       phone: '',
       amount: 100,
     },
@@ -65,9 +65,10 @@ export default function AirtimePage() {
       setServicesLoading(true);
       try {
         const allServices = await getServices();
-        setServices(allServices.filter(s => s.category === 'Airtime' && s.status === 'Active'));
+        const service = allServices.find(s => s.category === 'Airtime' && s.status === 'Active');
+        setAirtimeService(service || null);
       } catch (error) {
-        console.error("Failed to fetch airtime data:", error);
+        console.error("Failed to fetch airtime service:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load networks.' });
       } finally {
         setServicesLoading(false);
@@ -75,24 +76,22 @@ export default function AirtimePage() {
     }
     fetchData();
   }, [toast]);
-
-  const selectedServiceId = form.watch('serviceId');
-  const selectedService = services.find(s => s.id === selectedServiceId);
+  
   const amount = form.watch('amount');
   
   const { totalCost, discount } = useMemo(() => {
-    if (!selectedService || !amount) return { totalCost: 0, discount: 0 };
+    if (!airtimeService || !amount) return { totalCost: 0, discount: 0 };
     
     let calculatedDiscount = 0;
     // Markup is treated as a discount for airtime
-    if (selectedService.markupType === 'percentage' && selectedService.markupValue) {
-        calculatedDiscount = (amount * selectedService.markupValue) / 100;
-    } else if (selectedService.markupType === 'fixed' && selectedService.markupValue) {
-        calculatedDiscount = selectedService.markupValue;
+    if (airtimeService.markupType === 'percentage' && airtimeService.markupValue) {
+        calculatedDiscount = (amount * airtimeService.markupValue) / 100;
+    } else if (airtimeService.markupType === 'fixed' && airtimeService.markupValue) {
+        calculatedDiscount = airtimeService.markupValue;
     }
     const finalCost = amount - calculatedDiscount;
     return { totalCost: finalCost > 0 ? finalCost : 0, discount: calculatedDiscount };
-  }, [amount, selectedService]);
+  }, [amount, airtimeService]);
 
 
   async function onSubmit(values: FormData) {
@@ -105,8 +104,8 @@ export default function AirtimePage() {
       return;
     }
     
-    if (!selectedService) {
-        toast({ variant: 'destructive', title: 'Invalid Service', description: 'Please select a valid network.' });
+    if (!airtimeService) {
+        toast({ variant: 'destructive', title: 'Service Unavailable', description: 'Airtime service is not currently available.' });
         return;
     }
     
@@ -125,14 +124,14 @@ export default function AirtimePage() {
           mobile_number: values.phone, 
           amount: values.amount,
       };
-      await purchaseService(user.uid, values.serviceId, purchaseInputs, user.email!);
+      await purchaseService(user.uid, airtimeService.id, values.networkId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
         description: `Your airtime purchase for ${values.phone} was successful.`,
       });
       form.reset({
-        serviceId: '',
+        networkId: '',
         phone: '',
         amount: 100,
       });
@@ -178,20 +177,20 @@ export default function AirtimePage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="serviceId"
+                name="networkId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Network</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading || !airtimeService}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder={servicesLoading ? "Loading..." : "Select a network"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {services.map(service => (
-                           <SelectItem key={service.id} value={service.id}>
-                               {service.name}
+                        {airtimeService?.variations?.map(network => (
+                           <SelectItem key={network.id} value={network.id}>
+                               {network.name}
                            </SelectItem>
                         ))}
                       </SelectContent>
@@ -236,7 +235,7 @@ export default function AirtimePage() {
                     <span>₦{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedService}>
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !airtimeService}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Purchase Airtime')}
               </Button>

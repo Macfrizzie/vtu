@@ -129,7 +129,7 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
     });
 }
 
-export async function purchaseService(uid: string, serviceId: string, inputs: Record<string, any>, userEmail: string) {
+export async function purchaseService(uid: string, serviceId: string, variationId: string, inputs: Record<string, any>, userEmail: string) {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) throw new Error("User not found.");
@@ -177,24 +177,23 @@ export async function purchaseService(uid: string, serviceId: string, inputs: Re
                     throw new Error("Invalid airtime amount provided.");
                 }
 
-                // Calculate total cost including markup
                 let markup = 0;
                 if (service.markupType === 'percentage' && service.markupValue) {
                     markup = (baseAmount * service.markupValue) / 100;
                 } else if (service.markupType === 'fixed' && service.markupValue) {
                     markup = service.markupValue;
                 }
-                totalCost = baseAmount - markup; // For airtime, markup is a discount
-                description = `${service.name} for ${inputs.mobile_number}`;
+                totalCost = baseAmount - markup;
                 
-                const networkId = service.provider;
-                if (!['1', '2', '3', '4'].includes(networkId)) {
-                    throw new Error(`Configuration Error: Service provider code '${networkId}' is not a valid network ID.`);
+                const network = service.variations?.find(v => v.id === variationId);
+                if (!network) {
+                     throw new Error(`Configuration Error: Network with ID '${variationId}' not found in service variations.`);
                 }
+                description = `${network.name} Airtime for ${inputs.mobile_number}`;
 
                 endpoint = '/topup/';
                 requestBody = {
-                    network: networkId,
+                    network: variationId, // The ID from the variation is the network ID
                     mobile_number: inputs.mobile_number,
                     amount: baseAmount,
                     Ported_number: true,
@@ -203,7 +202,7 @@ export async function purchaseService(uid: string, serviceId: string, inputs: Re
             }
             // ... other services (Data, Cable etc.) would have their own else if blocks here
             else {
-                throw new Error(`Purchase logic for service "${service.name}" is not implemented.`);
+                throw new Error(`Purchase logic for service category "${service.category}" is not implemented.`);
             }
 
             if (userData.walletBalance < totalCost) {
@@ -334,10 +333,7 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "MTN", provider: "1", category: 'Airtime' },
-            { name: "Glo", provider: "2", category: 'Airtime' },
-            { name: "Airtel", provider: "4", category: 'Airtime' },
-            { name: "9mobile", provider: "3", category: 'Airtime' },
+            { name: "Airtime", provider: "airtime", category: 'Airtime' },
             { name: "Data Bundles", provider: "data", category: 'Data' },
             { name: "Electricity Bill", provider: "electricity", category: 'Electricity' },
             { name: "Cable TV", provider: "cable", category: 'Cable' },
@@ -356,6 +352,7 @@ export async function getServices(): Promise<Service[]> {
                 markupType: "none",
                 markupValue: 0,
                 apiProviderIds: [],
+                variations: [],
             });
         });
         await batch.commit();

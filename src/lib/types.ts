@@ -37,6 +37,13 @@ export type Transaction = {
   apiProvider?: string;
 };
 
+export type ServiceVariation = {
+  id: string; // variation_code, plan_id, or network_id
+  name: string;
+  price: number;
+  fees?: { [key in UserData['role']]: number };
+};
+
 export type Service = {
   id: string; // e.g., 'airtime'
   name: string; // e.g., 'Airtime', 'Data'
@@ -46,6 +53,7 @@ export type Service = {
   apiProviderIds?: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
   markupType?: 'percentage' | 'fixed' | 'none'; // Global markup for this service
   markupValue?: number; // The actual percentage or fixed amount
+  variations?: ServiceVariation[];
 };
 
 export type ApiProvider = {

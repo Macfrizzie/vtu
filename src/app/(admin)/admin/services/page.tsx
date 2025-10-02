@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import * as z from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -40,12 +40,24 @@ const serviceFormSchema = z.object({
       id: z.string(),
       priority: z.enum(['Primary', 'Fallback']),
   })),
+  variations: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      price: z.number().optional(), // Not used for Airtime but good for consistency
+  })),
 });
 
 const addServiceFormSchema = z.object({
     name: z.string().min(3, "Service name is required."),
     category: z.string().min(3, "Category is required."),
 });
+
+const allAirtimeNetworks = [
+    { id: '1', name: 'MTN'},
+    { id: '2', name: 'Glo'},
+    { id: '4', name: 'Airtel'},
+    { id: '3', name: '9mobile'},
+];
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -64,6 +76,7 @@ export default function AdminServicesPage() {
       markupType: 'none',
       markupValue: 0,
       apiProviderIds: [],
+      variations: [],
     },
   });
 
@@ -74,6 +87,12 @@ export default function AdminServicesPage() {
       category: '',
     },
   });
+  
+  const { fields, append, remove } = useFieldArray({
+    control: editForm.control,
+    name: "variations"
+  });
+
 
   const markupType = editForm.watch('markupType');
 
@@ -105,6 +124,7 @@ export default function AdminServicesPage() {
       markupType: service.markupType || 'none',
       markupValue: service.markupValue || 0,
       apiProviderIds: service.apiProviderIds || [],
+      variations: service.variations || [],
     });
     setIsFormOpen(true);
   };
@@ -358,6 +378,57 @@ export default function AdminServicesPage() {
                   </FormItem>
                 )}
               />
+
+              {editingService?.category === 'Airtime' && (
+                <FormField
+                  control={editForm.control}
+                  name="variations"
+                  render={() => (
+                    <FormItem>
+                      <div className="mb-4">
+                        <FormLabel className="text-base">Available Networks</FormLabel>
+                        <p className="text-sm text-muted-foreground">Select which networks to offer for airtime purchase.</p>
+                      </div>
+                      <div className="space-y-2">
+                        {allAirtimeNetworks.map((network, index) => (
+                          <FormField
+                            key={network.id}
+                            control={editForm.control}
+                            name="variations"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={network.id}
+                                  className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm"
+                                >
+                                  <div className="space-y-0.5">
+                                    <FormLabel className="text-sm">{network.name}</FormLabel>
+                                  </div>
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.some(v => v.id === network.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...field.value, { id: network.id, name: network.name, price: 0 }])
+                                          : field.onChange(
+                                              field.value?.filter(
+                                                (value) => value.id !== network.id
+                                              )
+                                            )
+                                      }}
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={editForm.control} name="status" render={({ field }) => (
