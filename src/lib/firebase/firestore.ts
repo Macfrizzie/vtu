@@ -4,7 +4,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco } from '../types';
+import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -129,7 +129,7 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
     });
 }
 
-export async function purchaseService(uid: string, serviceId: string, variationId: string, inputs: Record<string, any>, userEmail: string) {
+export async function purchaseService(uid: string, serviceId: string, inputs: Record<string, any>, userEmail: string) {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     if (!userSnap.exists()) throw new Error("User not found.");
@@ -168,9 +168,37 @@ export async function purchaseService(uid: string, serviceId: string, variationI
         try {
             let requestBody: Record<string, any> = {};
             let endpoint: string = '';
-            let method: 'GET' | 'POST' = 'POST';
+            const method: 'GET' | 'POST' = 'POST';
 
-            totalCost = inputs.amount || 100; // Placeholder
+            // --- Service-specific logic ---
+            if (service.name.toLowerCase().includes('airtime')) {
+                const baseAmount = Number(inputs.amount);
+                if (isNaN(baseAmount) || baseAmount <= 0) {
+                    throw new Error("Invalid airtime amount provided.");
+                }
+
+                // Calculate total cost including markup
+                let markup = 0;
+                if (service.markupType === 'percentage' && service.markupValue) {
+                    markup = (baseAmount * service.markupValue) / 100;
+                } else if (service.markupType === 'fixed' && service.markupValue) {
+                    markup = service.markupValue;
+                }
+                totalCost = baseAmount - markup; // For airtime, markup is a discount
+                description = `${service.name} for ${inputs.mobile_number}`;
+                
+                endpoint = '/topup/';
+                requestBody = {
+                    network_id: inputs.networkId,
+                    mobile_number: inputs.mobile_number,
+                    amount: baseAmount,
+                    Ported_number: true // As per HusmoData docs
+                };
+            }
+            // ... other services (Data, Cable etc.) would have their own else if blocks here
+            else {
+                throw new Error(`Purchase logic for service "${service.name}" is not implemented.`);
+            }
 
             if (userData.walletBalance < totalCost) {
                 throw new Error(`Insufficient balance. You need ₦${totalCost.toLocaleString()}, but have ₦${userData.walletBalance.toLocaleString()}.`);
@@ -300,17 +328,18 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "Airtime top-up" },
-            { name: "Data Bundles" },
-            { name: "Electricity Bill" },
-            { name: "Cable TV" },
-            { name: "E-pins" },
-            { name: "Recharge Card" },
+            { name: "Airtime top-up", provider: "" },
+            { name: "Data Bundles", provider: "" },
+            { name: "Electricity Bill", provider: "" },
+            { name: "Cable TV", provider: "" },
+            { name: "E-pins", provider: "" },
+            { name: "Recharge Card", provider: "" },
         ];
         coreServices.forEach((service) => {
             const docRef = doc(servicesCol); // Auto-generate ID
             batch.set(docRef, {
                 name: service.name,
+                provider: service.provider,
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
@@ -330,6 +359,7 @@ export async function addService(data: { name: string }) {
     const servicesCol = collection(db, 'services');
     await addDoc(servicesCol, {
         ...data,
+        provider: '',
         status: 'Active',
         markupType: 'none',
         markupValue: 0,
@@ -395,7 +425,8 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             transactionCharge: 0 
         };
         
-        await setDoc(doc(providersCol, 'husmodata'), initialProvider);
+        const docRef = doc(providersCol);
+        await setDoc(docRef, initialProvider);
         
         const newSnapshot = await getDocs(providersCol);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
@@ -467,3 +498,6 @@ export async function deleteDisco(id: string) {
     
 
 
+
+
+    

@@ -32,8 +32,8 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { purchaseService, getServices, getAirtimePrices } from '@/lib/firebase/firestore';
-import type { Service, AirtimePrice } from '@/lib/types';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import type { Service } from '@/lib/types';
 
 const formSchema = z.object({
   serviceId: z.string().min(1, 'Please select a network.'),
@@ -43,12 +43,18 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
+const networkMap: { [key: string]: string } = {
+    'mtn': '1',
+    'glo': '2',
+    '9mobile': '3',
+    'airtel': '4'
+}
+
 export default function AirtimePage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
-  const [airtimePrices, setAirtimePrices] = useState<AirtimePrice[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -64,12 +70,8 @@ export default function AirtimePage() {
     async function fetchData() {
       setServicesLoading(true);
       try {
-        const [allServices, allPrices] = await Promise.all([
-            getServices(),
-            getAirtimePrices(),
-        ]);
-        setServices(allServices.filter(s => s.category === 'Airtime' && s.status === 'Active'));
-        setAirtimePrices(allPrices);
+        const allServices = await getServices();
+        setServices(allServices.filter(s => s.name.toLowerCase().includes('airtime') && s.status === 'Active'));
       } catch (error) {
         console.error("Failed to fetch airtime data:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load networks.' });
@@ -82,20 +84,18 @@ export default function AirtimePage() {
 
   const selectedServiceId = form.watch('serviceId');
   const selectedService = services.find(s => s.id === selectedServiceId);
-  const networkId = selectedService?.provider; // Assuming service.provider holds the networkId for husmodata
-
-  const applicablePriceRule = useMemo(() => {
-    if (!selectedService || !networkId) return null;
-    return airtimePrices.find(p => p.networkId === networkId && p.apiProviderId === selectedService.apiProviderId) || null;
-  }, [selectedService, networkId, airtimePrices]);
-
   const amount = form.watch('amount');
   
   const { totalCost, discount } = useMemo(() => {
-    if (!applicablePriceRule) return { totalCost: amount, discount: 0 };
-    const discountAmount = (amount * applicablePriceRule.discountPercent) / 100;
-    return { totalCost: amount - discountAmount, discount: discountAmount };
-  }, [amount, applicablePriceRule]);
+    if (!selectedService) return { totalCost: amount, discount: 0 };
+    let calculatedDiscount = 0;
+    if (selectedService.markupType === 'percentage' && selectedService.markupValue) {
+        calculatedDiscount = (amount * selectedService.markupValue) / 100;
+    } else if (selectedService.markupType === 'fixed' && selectedService.markupValue) {
+        calculatedDiscount = selectedService.markupValue;
+    }
+    return { totalCost: amount - calculatedDiscount, discount: calculatedDiscount };
+  }, [amount, selectedService]);
 
 
   async function onSubmit(values: FormData) {
@@ -122,9 +122,20 @@ export default function AirtimePage() {
         return;
     }
 
+    const networkProviderName = selectedService.provider.toLowerCase();
+    const networkId = networkMap[networkProviderName];
+    if (!networkId) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: `Network ID not found for provider: ${selectedService.provider}` });
+        return;
+    }
+
     setIsPurchasing(true);
     try {
-      const purchaseInputs = { mobile_number: values.phone, amount: values.amount, network: networkId };
+      const purchaseInputs = { 
+          mobile_number: values.phone, 
+          amount: values.amount,
+          networkId: networkId
+      };
       await purchaseService(user.uid, values.serviceId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
@@ -247,3 +258,5 @@ export default function AirtimePage() {
     </div>
   );
 }
+
+    
