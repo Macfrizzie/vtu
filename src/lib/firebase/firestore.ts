@@ -3,7 +3,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData, DataPlan } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, DataPlan, CablePlan, Disco } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -408,4 +408,34 @@ export async function getDataPlans(): Promise<DataPlan[]> {
 export async function deleteDataPlan(id: string) {
     await deleteDoc(doc(db, 'dataPlans', id));
 }
+
+// --- Cable Plan Pricing Functions ---
+export async function addCablePlan(plan: Omit<CablePlan, 'id'>) {
+    await addDoc(collection(db, 'cablePlans'), plan);
+}
+
+export async function getCablePlans(): Promise<CablePlan[]> {
+    const snapshot = await getDocs(query(collection(db, 'cablePlans')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CablePlan));
+}
+
+export async function deleteCablePlan(id: string) {
+    await deleteDoc(doc(db, 'cablePlans', id));
+}
+
+// --- Disco Pricing Functions ---
+export async function addDisco(disco: Omit<Disco, 'id'>) {
+    await addDoc(collection(db, 'discos'), disco);
+}
+
+export async function getDiscos(): Promise<Disco[]> {
+    const snapshot = await getDocs(query(collection(db, 'discos')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Disco));
+}
+
+export async function deleteDisco(id: string) {
+    await deleteDoc(doc(db, 'discos', id));
+}
+    
+
     

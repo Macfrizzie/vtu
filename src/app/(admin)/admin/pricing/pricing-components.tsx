@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addDataPlan, getDataPlans, deleteDataPlan } from '@/lib/firebase/firestore';
-import type { DataPlan } from '@/lib/types';
+import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco } from '@/lib/firebase/firestore';
+import type { DataPlan, CablePlan, Disco } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +23,12 @@ const networks = [
     { id: '2', name: 'GLO' },
     { id: '3', name: '9MOBILE' },
     { id: '4', name: 'AIRTEL' },
+];
+
+const cableProviders = [
+    { id: '1', name: 'GOTV' },
+    { id: '2', name: 'DSTV' },
+    { id: '3', name: 'Startimes' },
 ];
 
 // --- Data Pricing Tab ---
@@ -152,25 +158,202 @@ export function DataPricingTab() {
     );
 }
 
-// --- Placeholder for other tabs ---
-function PlaceholderPricingTab({ title, description }: { title: string, description: string }) {
-  return (
-    <Card>
-        <CardHeader>
-            <CardTitle>{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <p className="text-muted-foreground">Manual plan entry for this category will be implemented here. The UI will be similar to the Data Pricing tab.</p>
-        </CardContent>
-    </Card>
-  )
-}
+
+// --- Cable Pricing Tab ---
+const cablePlanSchema = z.object({
+    providerId: z.string().min(1, "Provider is required"),
+    planId: z.string().min(1, "Cable Plan ID is required"),
+    planName: z.string().min(3, "Plan name is required"),
+    basePrice: z.coerce.number().min(0, "Amount must be a positive number"),
+});
 
 export function CablePricingTab() {
-  return <PlaceholderPricingTab title="Cable TV Pricing" description="Manually input cable TV packages and set their base prices." />;
+    const { toast } = useToast();
+    const [cablePlans, setCablePlans] = useState<CablePlan[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const form = useForm<z.infer<typeof cablePlanSchema>>({
+        resolver: zodResolver(cablePlanSchema),
+        defaultValues: { providerId: '1', planId: '', planName: '', basePrice: 0 }
+    });
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const plans = await getCablePlans();
+            setCablePlans(plans);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch cable plans.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchData(); }, []);
+
+    const onSubmit = async (values: z.infer<typeof cablePlanSchema>) => {
+        setIsSubmitting(true);
+        try {
+            const provider = cableProviders.find(p => p.id === values.providerId);
+            if (!provider) throw new Error("Cable provider not found");
+
+            await addCablePlan({ ...values, providerName: provider.name });
+            toast({ title: "Cable Plan Added" });
+            await fetchData();
+            form.reset();
+        } catch(error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add cable plan.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    const handleDelete = async (planId: string) => {
+        try {
+            await deleteCablePlan(planId);
+            toast({ title: 'Success', description: 'Cable plan deleted.' });
+            await fetchData();
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete cable plan.' });
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Cable TV Base Prices</CardTitle>
+                <CardDescription>Manually input cable TV packages and their base prices.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end p-4 border rounded-lg">
+                        <FormField control={form.control} name="providerId" render={({ field }) => (
+                            <FormItem><FormLabel>Provider</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{cableProviders.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="planId" render={({ field }) => (
+                            <FormItem><FormLabel>Plan ID</FormLabel><FormControl><Input placeholder="e.g., dstv-padi" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="planName" render={({ field }) => (
+                            <FormItem><FormLabel>Plan Name</FormLabel><FormControl><Input placeholder="e.g., Padi" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="basePrice" render={({ field }) => (
+                            <FormItem><FormLabel>Base Price (₦)</FormLabel><FormControl><Input type="number" placeholder="e.g., 2150" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <div className="lg:col-span-4">
+                            <Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Cable Plan</Button>
+                        </div>
+                    </form>
+                </Form>
+                {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
+                 <Table>
+                    <TableHeader><TableRow><TableHead>Provider</TableHead><TableHead>Plan ID</TableHead><TableHead>Plan Name</TableHead><TableHead>Base Price</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {cablePlans.map((plan) => (
+                            <TableRow key={plan.id}><TableCell>{plan.providerName}</TableCell><TableCell>{plan.planId}</TableCell><TableCell>{plan.planName}</TableCell><TableCell>₦{plan.basePrice}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this cable plan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
+                        ))}
+                        {cablePlans.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No cable plans added yet.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
 }
 
+// --- Electricity Pricing Tab ---
+const discoSchema = z.object({
+    discoId: z.string().min(1, "Disco ID is required"),
+    discoName: z.string().min(3, "Disco name is required"),
+});
+
 export function ElectricityPricingTab() {
-  return <PlaceholderPricingTab title="Electricity Bill Pricing" description="Manually input DISCOs and set convenience fees." />;
+    const { toast } = useToast();
+    const [discos, setDiscos] = useState<Disco[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const form = useForm<z.infer<typeof discoSchema>>({
+        resolver: zodResolver(discoSchema),
+        defaultValues: { discoId: '', discoName: '' }
+    });
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const allDiscos = await getDiscos();
+            setDiscos(allDiscos);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch discos.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchData(); }, []);
+
+    const onSubmit = async (values: z.infer<typeof discoSchema>) => {
+        setIsSubmitting(true);
+        try {
+            await addDisco(values);
+            toast({ title: "Disco Added" });
+            await fetchData();
+            form.reset();
+        } catch(error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add disco.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteDisco(id);
+            toast({ title: 'Success', description: 'Disco deleted.' });
+            await fetchData();
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete disco.' });
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Electricity Distributors (Discos)</CardTitle>
+                <CardDescription>Manually input electricity discos. Convenience fees are set globally from the Services page.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-end p-4 border rounded-lg">
+                        <FormField control={form.control} name="discoId" render={({ field }) => (
+                            <FormItem><FormLabel>Disco ID</FormLabel><FormControl><Input placeholder="e.g., ikeja-electric" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="discoName" render={({ field }) => (
+                            <FormItem><FormLabel>Disco Name</FormLabel><FormControl><Input placeholder="e.g., Ikeja Electric" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Disco</Button>
+                    </form>
+                </Form>
+                {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
+                 <Table>
+                    <TableHeader><TableRow><TableHead>Disco ID</TableHead><TableHead>Disco Name</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {discos.map((disco) => (
+                            <TableRow key={disco.id}><TableCell>{disco.discoId}</TableCell><TableCell>{disco.discoName}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this disco.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(disco.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
+                        ))}
+                        {discos.length === 0 && <TableRow><TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No discos added yet.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
 }
+
+    

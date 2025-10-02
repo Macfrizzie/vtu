@@ -1,4 +1,5 @@
 
+
 export type User = {
   id: string;
   uid: string;
@@ -86,4 +87,6 @@ export type Disco = {
     discoId: string;
     discoName: string;
 };
+    
+
     
