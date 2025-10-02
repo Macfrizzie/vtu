@@ -296,7 +296,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -306,6 +306,9 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
+    
+    // Sort by date in descending order (newest first)
+    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
 }
@@ -437,7 +440,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             status: 'Active', 
             priority: 'Primary', 
             auth_type: 'Token', 
-            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', 
+            apiKey: 'f123f29b71619f2ce98956b5c859b2c0d605e16f', 
             apiSecret: '', 
             requestHeaders: '{}', 
             transactionCharge: 0 
@@ -513,3 +516,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
