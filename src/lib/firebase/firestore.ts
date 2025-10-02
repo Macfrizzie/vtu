@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -206,7 +205,15 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             }
             // ... other services (Data, Cable etc.) would have their own else if blocks here
             else {
-                throw new Error(`Purchase logic for service category "${service.category}" is not implemented.`);
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                if (!selectedVariation) {
+                    throw new Error("Could not find the selected service variation.");
+                }
+
+                totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
+
+                // Generic handler for other services
+                requestBody = { ...inputs };
             }
 
             if (userData.walletBalance < totalCost) {
@@ -430,14 +437,13 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             status: 'Active', 
             priority: 'Primary', 
             auth_type: 'Token', 
-            apiKey: 'f123f29b71619f2ce98956b5c859b2c0d605e16f', 
+            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', 
             apiSecret: '', 
             requestHeaders: '{}', 
             transactionCharge: 0 
         };
         
-        const docRef = doc(providersCol);
-        await setDoc(docRef, initialProvider);
+        const docRef = await addDoc(providersCol, initialProvider);
         
         const newSnapshot = await getDocs(providersCol);
         return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
@@ -507,4 +513,5 @@ export async function deleteDisco(id: string) {
     
 
     
+
 
