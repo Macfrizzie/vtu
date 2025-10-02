@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -203,7 +204,6 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     airtime_type: "VTU"
                 };
             }
-            // ... other services (Data, Cable etc.) would have their own else if blocks here
             else {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
                 if (!selectedVariation) {
@@ -344,7 +344,7 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
+             { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
             { name: "Data Bundles", category: 'Data', endpoint: '/data/' },
             { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
             { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
@@ -393,7 +393,7 @@ export async function updateService(id: string, data: Partial<Service>) {
 
 export async function deleteService(id: string) {
     const serviceRef = doc(db, 'services', id);
-    await deleteDoc(serviceRef);
+await deleteDoc(serviceRef);
 }
 
 
@@ -513,5 +513,3 @@ export async function deleteDisco(id: string) {
     
 
     
-
-

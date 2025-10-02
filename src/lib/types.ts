@@ -45,9 +45,9 @@ export type ServiceVariation = {
 };
 
 export type Service = {
-  id: string; // e.g., 'airtime'
-  name: string; // e.g., 'Airtime', 'Data'
-  category: string; // 'Airtime', 'Data', 'Cable', 'Electricity' etc.
+  id: string; 
+  name: string;
+  category: string;
   status: 'Active' | 'Inactive';
   apiProviderIds?: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
   markupType?: 'percentage' | 'fixed' | 'none'; // Global markup for this service
