@@ -11,14 +11,6 @@ import { callProviderAPI } from '@/services/api-handler';
 
 const db = getFirestore(app);
 
-// Network ID mapping
-const networkMap: { [key: string]: string } = {
-    'mtn': '1',
-    'glo': '2',
-    '9mobile': '3',
-    'airtel': '4'
-}
-
 export async function getUserData(uid: string): Promise<UserData | null> {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
@@ -195,17 +187,18 @@ export async function purchaseService(uid: string, serviceId: string, inputs: Re
                 totalCost = baseAmount - markup; // For airtime, markup is a discount
                 description = `${service.name} for ${inputs.mobile_number}`;
                 
-                const networkId = networkMap[service.provider.toLowerCase().trim()];
-                if (!networkId) {
-                    throw new Error(`Configuration Error: Network ID not found for provider: ${service.provider}`);
+                const networkId = service.provider;
+                if (!['1', '2', '3', '4'].includes(networkId)) {
+                    throw new Error(`Configuration Error: Service provider code '${networkId}' is not a valid network ID.`);
                 }
 
                 endpoint = '/topup/';
                 requestBody = {
-                    network_id: networkId,
+                    network: networkId,
                     mobile_number: inputs.mobile_number,
                     amount: baseAmount,
-                    Ported_number: true // As per HusmoData docs
+                    Ported_number: true,
+                    airtime_type: "VTU"
                 };
             }
             // ... other services (Data, Cable etc.) would have their own else if blocks here
@@ -341,10 +334,10 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "MTN", provider: "mtn", category: 'Airtime' },
-            { name: "Glo", provider: "glo", category: 'Airtime' },
-            { name: "Airtel", provider: "airtel", category: 'Airtime' },
-            { name: "9mobile", provider: "9mobile", category: 'Airtime' },
+            { name: "MTN", provider: "1", category: 'Airtime' },
+            { name: "Glo", provider: "2", category: 'Airtime' },
+            { name: "Airtel", provider: "4", category: 'Airtime' },
+            { name: "9mobile", provider: "3", category: 'Airtime' },
             { name: "Data Bundles", provider: "data", category: 'Data' },
             { name: "Electricity Bill", provider: "electricity", category: 'Electricity' },
             { name: "Cable TV", provider: "cable", category: 'Cable' },
@@ -510,6 +503,8 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+    
+
     
 
     
