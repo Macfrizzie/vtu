@@ -24,7 +24,7 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('airtime')) {
     return <Phone {...iconProps} />;
   }
-  if (name.includes('data bundles')) {
+  if (name.includes('data')) { // Changed from 'data bundles' to 'data'
     return <Wifi {...iconProps} />;
   }
   if (name.includes('electricity')) {
@@ -33,7 +33,7 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('cable')) {
     return <Tv {...iconProps} />;
   }
-  if (name.includes('e-pins')) {
+  if (name.includes('education') || name.includes('e-pin')) { // Added 'education'
     return <GraduationCap {...iconProps} />;
   }
   if (name.includes('recharge card')) {
@@ -48,3 +48,5 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   
   return <HelpCircle {...iconProps} />;
 }
+
+    

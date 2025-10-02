@@ -32,7 +32,7 @@ import { ServiceIcon } from '@/components/service-icon';
 const getServiceUrl = (service: Service) => {
     if (service.status === 'Inactive' || !service.name) return '#';
 
-    const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
+    const query = `?provider=${encodeURIComponent(service.name)}&name=${encodeURIComponent(service.name)}`;
     
     // Fallback based on name if it contains keywords
     const name = service.name.toLowerCase();
@@ -99,12 +99,13 @@ export default function DashboardPage() {
     }, [user]);
 
   const getTransactionServiceName = (description: string): Service['name'] | undefined => {
-    if (description.toLowerCase().includes('wallet funding')) {
-        return undefined; // Special case for wallet funding
-    }
-    // Find the service whose name is a substring of the description
-    const service = services.find(s => description.toLowerCase().includes(s.name.toLowerCase()));
-    return service?.name;
+      const lowerDescription = description.toLowerCase();
+      if (lowerDescription.includes('wallet funding')) {
+          return undefined; // Special case for wallet funding
+      }
+      // Find the service whose category is a keyword in the description
+      const service = services.find(s => lowerDescription.includes(s.category.toLowerCase()));
+      return service?.name;
   }
 
   return (
@@ -252,9 +253,10 @@ export default function DashboardPage() {
                         </div>
                         </div>
                         <p
-                        className={cn('font-semibold',
-                            tx.type === 'Credit' ? 'text-green-600' : ''
-                        )}
+                         className={cn(
+                            'font-semibold',
+                            tx.type === 'Credit' ? 'text-green-600' : 'text-red-600'
+                          )}
                         >
                         {tx.type === 'Credit' ? '+' : '-'} ₦{Math.abs(tx.amount).toLocaleString()}
                         </p>
@@ -267,4 +269,5 @@ export default function DashboardPage() {
       </section>
     </div>
   );
-}
+
+    
