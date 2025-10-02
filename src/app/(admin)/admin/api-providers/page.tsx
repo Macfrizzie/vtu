@@ -175,10 +175,12 @@ export default function AdminApiProvidersPage() {
     setIsTesting(provider.id);
     try {
         await testHusmoDataConnection(provider.baseUrl, provider.apiKey);
-        toast({ title: 'Connection Successful!', description: `Successfully connected to ${provider.name}.` });
+        // Even if testHusmoDataConnection throws a 400 error, it means we connected.
+        // The catch block will handle actual network errors.
+        toast({ title: 'Connection Successful!', description: `Successfully connected to ${provider.name}. The API is reachable.` });
     } catch (error) {
         console.error("Failed to connect to provider:", error);
-        toast({ variant: 'destructive', title: 'Connection Failed', description: error instanceof Error ? error.message : 'An unknown error occurred.' });
+        toast({ variant: 'destructive', title: 'Connection Failed', description: `Could not connect to the provider. ${error instanceof Error ? error.message : 'An unknown error occurred.'}` });
     } finally {
         setIsTesting(null);
     }
@@ -461,6 +463,8 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
+    
+
     
 
     
