@@ -11,6 +11,14 @@ import { callProviderAPI } from '@/services/api-handler';
 
 const db = getFirestore(app);
 
+// Network ID mapping
+const networkMap: { [key: string]: string } = {
+    'mtn': '1',
+    'glo': '2',
+    '9mobile': '3',
+    'airtel': '4'
+}
+
 export async function getUserData(uid: string): Promise<UserData | null> {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
@@ -187,9 +195,14 @@ export async function purchaseService(uid: string, serviceId: string, inputs: Re
                 totalCost = baseAmount - markup; // For airtime, markup is a discount
                 description = `${service.name} for ${inputs.mobile_number}`;
                 
+                const networkId = networkMap[service.provider.toLowerCase()];
+                if (!networkId) {
+                    throw new Error(`Configuration Error: Network ID not found for provider: ${service.provider}`);
+                }
+
                 endpoint = '/topup/';
                 requestBody = {
-                    network_id: inputs.networkId,
+                    network_id: networkId,
                     mobile_number: inputs.mobile_number,
                     amount: baseAmount,
                     Ported_number: true // As per HusmoData docs
@@ -328,7 +341,10 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "Airtime top-up", provider: "" },
+            { name: "MTN Airtime", provider: "mtn" },
+            { name: "Glo Airtime", provider: "glo" },
+            { name: "Airtel Airtime", provider: "airtel" },
+            { name: "9mobile Airtime", provider: "9mobile" },
             { name: "Data Bundles", provider: "" },
             { name: "Electricity Bill", provider: "" },
             { name: "Cable TV", provider: "" },
@@ -499,5 +515,7 @@ export async function deleteDisco(id: string) {
 
 
 
+
+    
 
     

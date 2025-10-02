@@ -43,13 +43,6 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-const networkMap: { [key: string]: string } = {
-    'mtn': '1',
-    'glo': '2',
-    '9mobile': '3',
-    'airtel': '4'
-}
-
 export default function AirtimePage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
@@ -122,19 +115,11 @@ export default function AirtimePage() {
         return;
     }
 
-    const networkProviderName = selectedService.provider.toLowerCase();
-    const networkId = networkMap[networkProviderName];
-    if (!networkId) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: `Network ID not found for provider: ${selectedService.provider}` });
-        return;
-    }
-
     setIsPurchasing(true);
     try {
       const purchaseInputs = { 
           mobile_number: values.phone, 
           amount: values.amount,
-          networkId: networkId
       };
       await purchaseService(user.uid, values.serviceId, purchaseInputs, user.email!);
       forceRefetch();
@@ -258,5 +243,7 @@ export default function AirtimePage() {
     </div>
   );
 }
+
+    
 
     
