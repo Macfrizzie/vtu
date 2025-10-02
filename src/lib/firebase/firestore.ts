@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -423,7 +424,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             status: 'Active', 
             priority: 'Primary', 
             auth_type: 'Token', 
-            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', 
+            apiKey: 'f123f29b71619f2ce98956b5c859b2c0d605e16f', 
             apiSecret: '', 
             requestHeaders: '{}', 
             transactionCharge: 0 
@@ -500,3 +501,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
