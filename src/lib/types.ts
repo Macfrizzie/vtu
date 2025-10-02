@@ -37,12 +37,14 @@ export type Transaction = {
 };
 
 export type Service = {
-  id: string; // e.g., 'airtime', 'data'
-  name: string; // e.g., 'Airtime', 'Data'
+  id: string; // e.g., 'mtn-data'
+  name: string; // e.g., 'MTN Data'
+  category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Recharge Card';
+  provider: string; // The service code required by the provider, e.g., 'mtn'
   status: 'Active' | 'Inactive';
-  apiProviderIds: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
-  markupType: 'percentage' | 'fixed' | 'none'; // Global markup for this service
-  markupValue: number; // The actual percentage or fixed amount
+  apiProviderIds?: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
+  markupType?: 'percentage' | 'fixed' | 'none'; // Global markup for this service
+  markupValue?: number; // The actual percentage or fixed amount
 };
 
 export type ApiProvider = {
@@ -51,19 +53,12 @@ export type ApiProvider = {
   description?: string;
   baseUrl: string;
   auth_type: 'None' | 'Token' | 'API Key';
-  apiKey: string; // Will store the API Token or Key
+  apiKey?: string; 
   apiSecret?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
-  priority: 'Primary' | 'Fallback'; // This is now a default, can be overridden per service
+  priority: 'Primary' | 'Fallback';
   transactionCharge?: number;
-};
-
-export type AirtimePrice = {
-    id: string;
-    networkId: string; // "1", "2", "3", "4"
-    networkName: string; // "MTN", "GLO", etc.
-    discountPercent: number; // Admin sets this discount
 };
 
 export type DataPlan = {

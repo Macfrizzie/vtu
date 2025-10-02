@@ -10,16 +10,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Edit, MoreHorizontal, Loader2, Link as LinkIcon, Percent, Plus } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Edit, Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getServices, updateService, getApiProviders } from '@/lib/firebase/firestore';
+import { getServices, updateService, getApiProviders, addService, deleteService } from '@/lib/firebase/firestore';
 import type { Service, ApiProvider } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const serviceFormSchema = z.object({
   status: z.enum(['Active', 'Inactive']),
@@ -28,19 +38,26 @@ const serviceFormSchema = z.object({
   apiProviderIds: z.array(z.object({
       id: z.string(),
       priority: z.enum(['Primary', 'Fallback']),
-  })).min(1, 'You must select at least one API provider.'),
+  })),
 });
+
+const addServiceFormSchema = z.object({
+    name: z.string().min(3, "Service name is required"),
+    category: z.enum(['Airtime', 'Data', 'Cable', 'Electricity', 'Education', 'Recharge Card']),
+    provider: z.string().min(2, "Provider/Service code is required"),
+})
 
 export default function AdminServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isAddFormOpen, setIsAddFormOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof serviceFormSchema>>({
+  const editForm = useForm<z.infer<typeof serviceFormSchema>>({
     resolver: zodResolver(serviceFormSchema),
     defaultValues: {
       status: 'Active',
@@ -49,8 +66,17 @@ export default function AdminServicesPage() {
       apiProviderIds: [],
     },
   });
+
+   const addForm = useForm<z.infer<typeof addServiceFormSchema>>({
+    resolver: zodResolver(addServiceFormSchema),
+    defaultValues: {
+        name: '',
+        category: 'Airtime',
+        provider: '',
+    },
+  });
   
-  const markupType = form.watch('markupType');
+  const markupType = editForm.watch('markupType');
 
   async function fetchData() {
     setLoading(true);
@@ -75,7 +101,7 @@ export default function AdminServicesPage() {
 
   const handleFormOpen = (service: Service) => {
     setEditingService(service);
-    form.reset({
+    editForm.reset({
       status: service.status,
       markupType: service.markupType || 'none',
       markupValue: service.markupValue || 0,
@@ -88,8 +114,13 @@ export default function AdminServicesPage() {
     setIsFormOpen(false);
     setEditingService(null);
   }
+  
+  const handleAddFormClose = () => {
+      setIsAddFormOpen(false);
+      addForm.reset();
+  }
 
-  async function onSubmit(values: z.infer<typeof serviceFormSchema>) {
+  async function onEditSubmit(values: z.infer<typeof serviceFormSchema>) {
     if (!editingService) return;
     setIsSubmitting(true);
     
@@ -105,8 +136,34 @@ export default function AdminServicesPage() {
       setIsSubmitting(false);
     }
   }
+  
+  async function onAddSubmit(values: z.infer<typeof addServiceFormSchema>) {
+    setIsSubmitting(true);
+    try {
+        await addService(values);
+        toast({ title: 'Success!', description: `${values.name} service has been created.` });
+        handleAddFormClose();
+        await fetchData();
+    } catch (error) {
+      console.error("Failed to add service:", error);
+      toast({ variant: 'destructive', title: 'Error', description: `Failed to create service. ${error instanceof Error ? error.message : ''}` });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+  
+  async function handleDeleteService(serviceId: string) {
+      try {
+          await deleteService(serviceId);
+          toast({ title: 'Service Deleted', description: 'The service has been successfully removed.' });
+          await fetchData();
+      } catch (error) {
+          console.error("Failed to delete service:", error);
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete the service.' });
+      }
+  }
 
-  const getProviderDetails = (providerLinks: { id: string, priority: 'Primary' | 'Fallback' }[]) => {
+  const getProviderDetails = (providerLinks: { id: string, priority: 'Primary' | 'Fallback' }[] | undefined) => {
       if (!providerLinks || providerLinks.length === 0) return 'N/A';
       return providerLinks.map(link => {
           const provider = apiProviders.find(p => p.id === link.id);
@@ -116,9 +173,14 @@ export default function AdminServicesPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Service Management</h1>
-        <p className="text-muted-foreground">Link core services to API providers and set global markup rules.</p>
+      <div className="flex items-center justify-between">
+        <div>
+            <h1 className="text-3xl font-bold">Service Management</h1>
+            <p className="text-muted-foreground">Link core services to API providers and set global markup rules.</p>
+        </div>
+        <Button onClick={() => setIsAddFormOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Service
+        </Button>
       </div>
       
       <Card>
@@ -136,6 +198,7 @@ export default function AdminServicesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Service Name</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>API Provider(s)</TableHead>
                   <TableHead>Markup</TableHead>
                   <TableHead className="text-center">Status</TableHead>
@@ -146,9 +209,10 @@ export default function AdminServicesPage() {
                 {services.map((service) => (
                   <TableRow key={service.id}>
                     <TableCell className="font-medium">{service.name}</TableCell>
+                    <TableCell className="text-muted-foreground">{service.category}</TableCell>
                     <TableCell className="text-muted-foreground">{getProviderDetails(service.apiProviderIds)}</TableCell>
                     <TableCell>
-                        {service.markupType === 'none' ? 'None' : 
+                        {service.markupType === 'none' || !service.markupType ? 'None' : 
                          service.markupType === 'percentage' ? `${service.markupValue}%` : `₦${service.markupValue}`
                         }
                     </TableCell>
@@ -158,9 +222,30 @@ export default function AdminServicesPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => handleFormOpen(service)}>
-                            <Edit className="mr-2 h-4 w-4" /> Edit
-                        </Button>
+                       <div className="flex items-center justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleFormOpen(service)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="sm">
+                                      <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This will permanently delete the <strong>{service.name}</strong> service. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteService(service.id)}>Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -170,6 +255,7 @@ export default function AdminServicesPage() {
         </CardContent>
       </Card>
       
+      {/* Edit Service Dialog */}
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -178,11 +264,11 @@ export default function AdminServicesPage() {
               Configure API providers and markup for this service. Base prices are set on the Pricing page.
             </DialogDescription>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4 max-h-[80vh] overflow-y-auto pr-4">
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6 py-4 max-h-[80vh] overflow-y-auto pr-4">
               
                <FormField
-                control={form.control}
+                control={editForm.control}
                 name="apiProviderIds"
                 render={() => (
                   <FormItem>
@@ -193,7 +279,7 @@ export default function AdminServicesPage() {
                     {apiProviders.map((provider) => (
                       <FormField
                         key={provider.id}
-                        control={form.control}
+                        control={editForm.control}
                         name="apiProviderIds"
                         render={({ field }) => {
                           const currentSelection = field.value.find(p => p.id === provider.id);
@@ -239,7 +325,7 @@ export default function AdminServicesPage() {
               />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="status" render={({ field }) => (
+                <FormField control={editForm.control} name="status" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Service Status</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
@@ -260,7 +346,7 @@ export default function AdminServicesPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <FormField control={form.control} name="markupType" render={({ field }) => (
+                 <FormField control={editForm.control} name="markupType" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Markup Type</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
@@ -274,7 +360,7 @@ export default function AdminServicesPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="markupValue" render={({ field }) => (
+                <FormField control={editForm.control} name="markupValue" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Markup Value</FormLabel>
                     <FormControl>
@@ -296,7 +382,76 @@ export default function AdminServicesPage() {
           </Form>
         </DialogContent>
       </Dialog>
+      
+       {/* Add Service Dialog */}
+      <Dialog open={isAddFormOpen} onOpenChange={setIsAddFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Service</DialogTitle>
+            <DialogDescription>
+              Create a new core service category for your platform.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...addForm}>
+            <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4 py-4">
+              <FormField
+                control={addForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., MTN Data" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={addForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                     <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="Airtime">Airtime</SelectItem>
+                        <SelectItem value="Data">Data</SelectItem>
+                        <SelectItem value="Cable">Cable TV</SelectItem>
+                        <SelectItem value="Electricity">Electricity</SelectItem>
+                        <SelectItem value="Education">Education</SelectItem>
+                        <SelectItem value="Recharge Card">Recharge Card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={addForm.control}
+                name="provider"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provider/Service Code</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., 'mtn' or 'DSTV'" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter className="pt-4">
+                 <Button type="button" variant="outline" onClick={handleAddFormClose} disabled={isSubmitting}>Cancel</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Service
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-    

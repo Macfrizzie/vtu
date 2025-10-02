@@ -2,7 +2,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AirtimePricingTab, DataPricingTab, CablePricingTab, ElectricityPricingTab } from './pricing-components';
+import { DataPricingTab, CablePricingTab, ElectricityPricingTab } from './pricing-components';
 
 export default function AdminPricingPage() {
   return (
@@ -12,17 +12,13 @@ export default function AdminPricingPage() {
         <p className="text-muted-foreground">Configure service discounts, markups, and convenience fees.</p>
       </div>
 
-      <Tabs defaultValue="airtime" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-          <TabsTrigger value="airtime">Airtime Discounts</TabsTrigger>
+      <Tabs defaultValue="data" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="data">Data Plans</TabsTrigger>
           <TabsTrigger value="cable">Cable TV</TabsTrigger>
           <TabsTrigger value="electricity">Electricity</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="airtime" className="mt-4">
-          <AirtimePricingTab />
-        </TabsContent>
         <TabsContent value="data" className="mt-4">
           <DataPricingTab />
         </TabsContent>

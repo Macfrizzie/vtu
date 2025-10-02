@@ -9,8 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addAirtimePrice, getAirtimePrices, deleteAirtimePrice, addDataPlan, getDataPlans, deleteDataPlan } from '@/lib/firebase/firestore';
-import type { AirtimePrice, DataPlan } from '@/lib/types';
+import { addDataPlan, getDataPlans, deleteDataPlan } from '@/lib/firebase/firestore';
+import type { DataPlan } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,101 +24,6 @@ const networks = [
     { id: '3', name: '9MOBILE' },
     { id: '4', name: 'AIRTEL' },
 ];
-
-// --- Airtime Tab ---
-const airtimePriceFormSchema = z.object({
-  networkId: z.string().min(1, 'Please select a network.'),
-  discountPercent: z.coerce.number().min(0, 'Discount must be 0 or greater.').max(100, 'Discount cannot exceed 100.'),
-});
-
-export function AirtimePricingTab() {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [airtimePrices, setAirtimePrices] = useState<AirtimePrice[]>([]);
-
-  const form = useForm<z.infer<typeof airtimePriceFormSchema>>({
-    resolver: zodResolver(airtimePriceFormSchema),
-    defaultValues: { networkId: '', discountPercent: 2 },
-  });
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const prices = await getAirtimePrices();
-      setAirtimePrices(prices);
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: `Failed to fetch airtime prices. ${error instanceof Error ? error.message : ''}` });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const onSubmit = async (values: z.infer<typeof airtimePriceFormSchema>) => {
-    setIsSubmitting(true);
-    try {
-      const selectedNetwork = networks.find(n => n.id === values.networkId);
-      if (!selectedNetwork) throw new Error('Selected network not found.');
-
-      const dataToSubmit = { ...values, networkName: selectedNetwork.name };
-      await addAirtimePrice(dataToSubmit);
-      toast({ title: 'Success', description: 'Airtime discount rule added.' });
-      await fetchData();
-      form.reset({ networkId: '', discountPercent: 2 });
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to add discount rule.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (priceId: string) => {
-    try {
-      await deleteAirtimePrice(priceId);
-      toast({ title: 'Success', description: 'Discount rule deleted.' });
-      await fetchData();
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete rule.' });
-    }
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Airtime Discounts</CardTitle>
-        <CardDescription>Set the percentage discount for each network. This is applied before any global markup from the Services page.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-end p-4 border rounded-lg">
-            <FormField control={form.control} name="networkId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Network</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={loading}><FormControl><SelectTrigger><SelectValue placeholder="Select Network" /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.id.toString()}>{n.name}</SelectItem>)}</SelectContent></Select><FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="discountPercent" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Discount (%)</FormLabel><FormControl><Input type="number" placeholder="e.g., 2" {...field} /></FormControl><FormMessage />
-              </FormItem>
-            )} />
-            <Button type="submit" disabled={isSubmitting || loading} className="w-full">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Discount Rule</Button>
-          </form>
-        </Form>
-        {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
-          <Table><TableHeader><TableRow><TableHead>Network</TableHead><TableHead>Discount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{airtimePrices.map(price => (<TableRow key={price.id}><TableCell className="font-medium">{price.networkName}</TableCell><TableCell className="text-green-600 font-semibold">{price.discountPercent}%</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this discount rule.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(price.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>))}</TableBody></Table>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
 
 // --- Data Pricing Tab ---
 const dataPlanSchema = z.object({
@@ -263,10 +168,9 @@ function PlaceholderPricingTab({ title, description }: { title: string, descript
 }
 
 export function CablePricingTab() {
-  return <PlaceholderPricingTab category="Cable" title="Cable TV Pricing" description="Manually input cable TV packages and set their base prices." />;
+  return <PlaceholderPricingTab title="Cable TV Pricing" description="Manually input cable TV packages and set their base prices." />;
 }
 
 export function ElectricityPricingTab() {
-  return <PlaceholderPricingTab category="Electricity" title="Electricity Bill Pricing" description="Manually input DISCOs and set convenience fees." />;
+  return <PlaceholderPricingTab title="Electricity Bill Pricing" description="Manually input DISCOs and set convenience fees." />;
 }
-    

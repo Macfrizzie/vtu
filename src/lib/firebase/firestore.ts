@@ -3,7 +3,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice, DataPlan } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, DataPlan } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -36,34 +36,7 @@ export async function updateUserData(uid: string, data: { fullName: string }) {
     await updateDoc(userRef, data);
 }
 
-// Helper to check if initial services have been created
-async function checkAndSeedServices() {
-    const servicesRef = collection(db, 'services');
-    const snapshot = await getDocs(query(servicesRef));
-    
-    if (snapshot.empty) {
-        const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'Airtime', status: 'Active', apiProviderIds: [], markupType: 'percentage', markupValue: 2 },
-            { name: 'Data', status: 'Active', apiProviderIds: [], markupType: 'fixed', markupValue: 50 },
-            { name: 'Cable TV', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 100 },
-            { name: 'Electricity', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 100 },
-            { name: 'Education ePins', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 100 },
-            { name: 'Recharge Card Pins', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 10 },
-        ];
-
-        const batch = writeBatch(db);
-        initialServices.forEach(service => {
-            const docRef = doc(db, 'services', service.name.toLowerCase().replace(/\s+/g, '-'));
-            batch.set(docRef, service);
-        });
-        await batch.commit();
-    }
-}
-
 export async function fundWallet(uid: string, amount: number, email?: string | null, fullName?: string | null) {
-    // Seed services if they don't exist
-    await checkAndSeedServices();
-    
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
     let userEmail = email;
@@ -176,8 +149,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             const provider = allProviders.find(p => p.id === link.id && p.status === 'Active');
             return provider ? { ...provider, priority: link.priority } : null;
         })
-        .filter((p): p is ApiProvider => p !== null)
+        .filter((p): p is ApiProvider & { priority: 'Primary' | 'Fallback' } => p !== null)
         .sort((a, b) => a.priority === 'Primary' ? -1 : b.priority === 'Primary' ? 1 : 0);
+
 
     if (serviceProviders.length === 0) {
         throw new Error("No active API provider found for this service.");
@@ -195,11 +169,6 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             let endpoint: string = '';
             let method: 'GET' | 'POST' = 'POST';
 
-            // Base price calculation will now depend on the service category
-            // and the manually entered prices from the 'pricing' subcollections.
-
-            // TODO: Implement the new pricing logic here based on fetched base prices
-            // For now, using a placeholder logic.
             totalCost = inputs.amount || 100; // Placeholder
 
             if (userData.walletBalance < totalCost) {
@@ -282,7 +251,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -292,8 +261,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
             date: data.date.toDate(),
         } as Transaction;
     });
-    
-    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
 }
@@ -326,7 +293,6 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    await checkAndSeedServices();
     const servicesCol = collection(db, 'services');
     const serviceSnapshot = await getDocs(query(servicesCol, orderBy('name')));
     const serviceList = serviceSnapshot.docs.map(doc => {
@@ -337,6 +303,24 @@ export async function getServices(): Promise<Service[]> {
         } as Service;
     });
     return serviceList;
+}
+
+export async function addService(service: Pick<Service, 'name' | 'category' | 'provider'>) {
+    const newService: Omit<Service, 'id'> = {
+        ...service,
+        status: 'Active',
+        markupType: 'none',
+        markupValue: 0,
+        apiProviderIds: [],
+    };
+    const servicesRef = collection(db, 'services');
+    const docRef = doc(servicesRef, service.name.toLowerCase().replace(/\s+/g, '-'));
+    await setDoc(docRef, newService);
+}
+
+export async function deleteService(id: string) {
+    const serviceRef = doc(db, 'services', id);
+    await deleteDoc(serviceRef);
 }
 
 export async function updateService(id: string, data: Partial<Service>) {
@@ -409,24 +393,6 @@ export async function updateApiProvider(id: string, data: Partial<Omit<ApiProvid
 export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
     await deleteDoc(providerRef);
-}
-
-// --- Pricing Functions ---
-
-export async function addAirtimePrice(price: Omit<AirtimePrice, 'id'>) {
-    const pricesRef = collection(db, 'airtimePrices');
-    await addDoc(pricesRef, price);
-}
-
-export async function getAirtimePrices(): Promise<AirtimePrice[]> {
-    const pricesCol = collection(db, 'airtimePrices');
-    const snapshot = await getDocs(query(pricesCol));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AirtimePrice));
-}
-
-export async function deleteAirtimePrice(id: string) {
-    const priceRef = doc(db, 'airtimePrices', id);
-    await deleteDoc(priceRef);
 }
 
 // --- Data Plan Pricing Functions ---
