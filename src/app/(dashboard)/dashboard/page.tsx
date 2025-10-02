@@ -98,15 +98,21 @@ export default function DashboardPage() {
         fetchData();
     }, [user]);
 
-  const getTransactionServiceName = (description: string): Service['name'] | undefined => {
-      const lowerDescription = description.toLowerCase();
-      if (lowerDescription.includes('wallet funding')) {
-          return undefined; // Special case for wallet funding
-      }
-      // Find the service whose category is a keyword in the description
-      const service = services.find(s => s.category && lowerDescription.includes(s.category.toLowerCase()));
-      return service?.name;
-  }
+    const getTransactionServiceName = (description: string): Service['name'] | undefined => {
+        const lowerDescription = description.toLowerCase();
+
+        if (lowerDescription.includes('wallet funding')) return undefined;
+        if (lowerDescription.includes('airtime')) return 'Airtime';
+        if (lowerDescription.includes('data')) return 'Data';
+        if (lowerDescription.includes('electricity') || lowerDescription.includes('electric')) return 'Electricity';
+        if (lowerDescription.includes('cable') || lowerDescription.includes('dstv') || lowerDescription.includes('gotv') || lowerDescription.includes('startimes')) return 'Cable TV';
+        if (lowerDescription.includes('education') || lowerDescription.includes('waec') || lowerDescription.includes('neco') || lowerDescription.includes('jamb')) return 'Education';
+        if (lowerDescription.includes('recharge card')) return 'Recharge Card';
+        
+        // Fallback to searching by service category
+        const service = services.find(s => s.category && lowerDescription.includes(s.category.toLowerCase()));
+        return service?.name;
+    }
 
   return (
     <div className="p-0">
@@ -269,5 +275,8 @@ export default function DashboardPage() {
       </section>
     </div>
   );
+
+    
+
 
     
