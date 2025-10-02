@@ -104,7 +104,7 @@ export default function DashboardPage() {
           return undefined; // Special case for wallet funding
       }
       // Find the service whose category is a keyword in the description
-      const service = services.find(s => lowerDescription.includes(s.category.toLowerCase()));
+      const service = services.find(s => s.category && lowerDescription.includes(s.category.toLowerCase()));
       return service?.name;
   }
 
