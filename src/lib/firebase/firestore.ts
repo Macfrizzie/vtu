@@ -294,38 +294,40 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-  const servicesCol = collection(db, "services");
-  const snapshot = await getDocs(query(servicesCol, orderBy("name")));
+    const servicesCol = collection(db, "services");
+    const snapshot = await getDocs(query(servicesCol, orderBy("name")));
 
-  const coreServices = [
-    { name: "Airtime", provider: "airtime" },
-    { name: "Data", provider: "data" },
-    { name: "Cable TV", provider: "cable" },
-    { name: "Electricity", provider: "electricity" },
-    { name: "Education", provider: "education" },
-    { name: "Recharge Card", provider: "recharge-card" },
-  ];
+    const coreServices = [
+        { name: "Airtime top-up", provider: "airtime" },
+        { name: "Data Bundles", provider: "data" },
+        { name: "Electricity Bill", provider: "electricity" },
+        { name: "Cable TV", provider: "cable" },
+        { name: "E-pins", provider: "education" },
+        { name: "Recharge Card", provider: "recharge-card" },
+        { name: "Betting", provider: "betting" },
+        { name: "Data Card", provider: "data-card" },
+    ];
 
-  if (snapshot.empty) {
-    const batch = writeBatch(db);
-    coreServices.forEach((service) => {
-      const docRef = doc(servicesCol, service.name.toLowerCase().replace(/\s+/g, '-'));
-      batch.set(docRef, {
-        name: service.name,
-        provider: service.provider,
-        status: "Active",
-        markupType: "none",
-        markupValue: 0,
-        apiProviderIds: [],
-      });
-    });
-    await batch.commit();
-    
-    const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
-    return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
-  }
+    if (snapshot.empty) {
+        const batch = writeBatch(db);
+        coreServices.forEach((service) => {
+            const docRef = doc(servicesCol, service.provider);
+            batch.set(docRef, {
+                name: service.name,
+                provider: service.provider,
+                status: "Active",
+                markupType: "none",
+                markupValue: 0,
+                apiProviderIds: [],
+            });
+        });
+        await batch.commit();
+        
+        const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
+        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+    }
 
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 }
 
 export async function updateService(id: string, data: Partial<Service>) {
@@ -333,18 +335,21 @@ export async function updateService(id: string, data: Partial<Service>) {
     await updateDoc(serviceRef, data);
 }
 
-export async function addUser(user: Omit<User, 'id' | 'uid' | 'lastLogin' | 'walletBalance' | 'createdAt'>) {
-  const usersRef = collection(db, 'users');
-  await addDoc(usersRef, {
-    fullName: user.name,
-    email: user.email,
-    role: user.role,
-    status: user.status,
-    walletBalance: 0,
-    createdAt: new Date(),
-    lastLogin: new Date(),
-  });
+export async function addUser(data: Omit<UserData, 'uid' | 'createdAt' | 'lastLogin' | 'walletBalance'>) {
+    const usersRef = collection(db, 'users');
+    
+    // This is a simplified version. In a real app, you'd create a user in Firebase Auth first.
+    // For now, we'll just add to Firestore.
+    const newUser = {
+        ...data,
+        walletBalance: 0,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+    };
+    
+    await addDoc(usersRef, newUser);
 }
+
 
 export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
     const providersCol = collection(db, 'apiProviders');
@@ -441,6 +446,8 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+    
+
     
 
     

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { Phone, Wifi, Zap, Tv, Ticket, GraduationCap, HelpCircle, type LucideProps } from 'lucide-react';
+import { Phone, Wifi, Zap, Tv, Ticket, GraduationCap, Gamepad2, CreditCard, HelpCircle, type LucideProps } from 'lucide-react';
 import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -24,8 +24,11 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('airtime')) {
     return <Phone {...iconProps} />;
   }
-  if (name.includes('data')) {
+  if (name.includes('data bundles')) {
     return <Wifi {...iconProps} />;
+  }
+   if (name.includes('data card')) {
+    return <CreditCard {...iconProps} />;
   }
   if (name.includes('electricity')) {
     return <Zap {...iconProps} />;
@@ -33,11 +36,14 @@ export function ServiceIcon({ serviceName, className, ...props }: ServiceIconPro
   if (name.includes('cable')) {
     return <Tv {...iconProps} />;
   }
-  if (name.includes('education')) {
+  if (name.includes('e-pins')) {
     return <GraduationCap {...iconProps} />;
   }
   if (name.includes('recharge card')) {
     return <Ticket {...iconProps} />;
+  }
+  if (name.includes('betting')) {
+    return <Gamepad2 {...iconProps} />;
   }
 
   return <HelpCircle {...iconProps} />;

@@ -17,12 +17,12 @@ const getServiceUrl = (service: Service) => {
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
     
     const name = service.name.toLowerCase();
-    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
-    if (name.includes('data')) return `/dashboard/services/data${query}`;
-    if (name.includes('electricity')) return `/dashboard/services/electricity${query}`;
-    if (name.includes('cable')) return `/dashboard/services/cable${query}`;
-    if (name.includes('education')) return `/dashboard/services/education${query}`;
-    if (name.includes('recharge card')) return `/dashboard/services/recharge-card${query}`;
+    if (name.includes('airtime')) return `/dashboard/services/airtime`;
+    if (name.includes('data bundles')) return `/dashboard/services/data`;
+    if (name.includes('electricity')) return `/dashboard/services/electricity`;
+    if (name.includes('cable')) return `/dashboard/services/cable`;
+    if (name.includes('e-pins')) return `/dashboard/services/education`;
+    if (name.includes('recharge card')) return `/dashboard/services/recharge-card`;
 
     return '#';
 }
