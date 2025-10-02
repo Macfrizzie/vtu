@@ -6,34 +6,39 @@ import type { Service } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface ServiceIconProps extends LucideProps {
-    category: Service['category'] | undefined;
+    serviceName: Service['name'] | undefined;
 }
 
-export function ServiceIcon({ category, className, ...props }: ServiceIconProps) {
+export function ServiceIcon({ serviceName, className, ...props }: ServiceIconProps) {
   const iconProps = {
     className: cn("h-8 w-8 text-primary", className),
     ...props
   };
 
-  if (!category) {
+  if (!serviceName) {
     return <HelpCircle {...iconProps} />;
   }
 
-  // Convert category to lower case to ensure a case-insensitive match.
-  switch (category.toLowerCase()) {
-    case 'airtime':
-      return <Phone {...iconProps} />;
-    case 'data':
-      return <Wifi {...iconProps} />;
-    case 'electricity':
-      return <Zap {...iconProps} />;
-    case 'cable':
-      return <Tv {...iconProps} />;
-    case 'education':
-      return <GraduationCap {...iconProps} />;
-    case 'recharge card':
-      return <Ticket {...iconProps} />;
-    default:
-      return <HelpCircle {...iconProps} />;
+  const name = serviceName.toLowerCase();
+
+  if (name.includes('airtime')) {
+    return <Phone {...iconProps} />;
   }
+  if (name.includes('data')) {
+    return <Wifi {...iconProps} />;
+  }
+  if (name.includes('electricity')) {
+    return <Zap {...iconProps} />;
+  }
+  if (name.includes('cable')) {
+    return <Tv {...iconProps} />;
+  }
+  if (name.includes('education')) {
+    return <GraduationCap {...iconProps} />;
+  }
+  if (name.includes('recharge card')) {
+    return <Ticket {...iconProps} />;
+  }
+
+  return <HelpCircle {...iconProps} />;
 }

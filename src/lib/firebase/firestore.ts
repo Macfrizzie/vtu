@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -293,34 +294,38 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    const servicesCol = collection(db, 'services');
-    const serviceSnapshot = await getDocs(query(servicesCol, orderBy('name')));
-    const serviceList = serviceSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-        } as Service;
-    });
-    return serviceList;
-}
+  const servicesCol = collection(db, "services");
+  const snapshot = await getDocs(query(servicesCol, orderBy("name")));
 
-export async function addService(service: Pick<Service, 'name' | 'category' | 'provider'>) {
-    const newService: Omit<Service, 'id'> = {
-        ...service,
-        status: 'Active',
-        markupType: 'none',
+  const coreServices = [
+    { name: "Airtime", provider: "airtime" },
+    { name: "Data", provider: "data" },
+    { name: "Cable TV", provider: "cable" },
+    { name: "Electricity", provider: "electricity" },
+    { name: "Education", provider: "education" },
+    { name: "Recharge Card", provider: "recharge-card" },
+  ];
+
+  if (snapshot.empty) {
+    const batch = writeBatch(db);
+    coreServices.forEach((service) => {
+      const docRef = doc(servicesCol, service.name.toLowerCase().replace(/\s+/g, '-'));
+      batch.set(docRef, {
+        name: service.name,
+        provider: service.provider,
+        status: "Active",
+        markupType: "none",
         markupValue: 0,
         apiProviderIds: [],
-    };
-    const servicesRef = collection(db, 'services');
-    const docRef = doc(servicesRef, service.name.toLowerCase().replace(/\s+/g, '-'));
-    await setDoc(docRef, newService);
-}
+      });
+    });
+    await batch.commit();
+    
+    const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
+    return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+  }
 
-export async function deleteService(id: string) {
-    const serviceRef = doc(db, 'services', id);
-    await deleteDoc(serviceRef);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 }
 
 export async function updateService(id: string, data: Partial<Service>) {

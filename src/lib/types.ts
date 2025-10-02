@@ -38,9 +38,8 @@ export type Transaction = {
 };
 
 export type Service = {
-  id: string; // e.g., 'mtn-data'
-  name: string; // e.g., 'MTN Data'
-  category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Recharge Card';
+  id: string; // e.g., 'airtime'
+  name: string; // e.g., 'Airtime', 'Data'
   provider: string; // The service code required by the provider, e.g., 'mtn'
   status: 'Active' | 'Inactive';
   apiProviderIds?: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
@@ -87,6 +86,4 @@ export type Disco = {
     discoId: string;
     discoName: string;
 };
-    
-
     

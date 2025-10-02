@@ -29,27 +29,19 @@ import {
 import { ServiceIcon } from '@/components/service-icon';
 
 
-const fundWalletImage = PlaceHolderImages.find(
-  img => img.id === 'feature-wallet'
-);
-
 const getServiceUrl = (service: Service) => {
     if (service.status === 'Inactive' || !service.name) return '#';
 
     const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
     
-    // Fallback based on category if name doesn't match
-    if (service.category) {
-        const category = service.category.toLowerCase();
-        switch(category) {
-            case 'airtime': return `/dashboard/services/airtime${query}`;
-            case 'data': return `/dashboard/services/data${query}`;
-            case 'electricity': return `/dashboard/services/electricity${query}`;
-            case 'cable': return `/dashboard/services/cable${query}`;
-            case 'education': return `/dashboard/services/education${query}`;
-            case 'recharge card': return `/dashboard/services/recharge-card${query}`;
-        }
-    }
+    // Fallback based on name if it contains keywords
+    const name = service.name.toLowerCase();
+    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
+    if (name.includes('data')) return `/dashboard/services/data${query}`;
+    if (name.includes('electricity')) return `/dashboard/services/electricity${query}`;
+    if (name.includes('cable')) return `/dashboard/services/cable${query}`;
+    if (name.includes('education')) return `/dashboard/services/education${query}`;
+    if (name.includes('recharge card')) return `/dashboard/services/recharge-card${query}`;
 
     return '#';
 }
@@ -79,7 +71,7 @@ export default function DashboardPage() {
                 const links = activeServices.slice(0, 3).map(service => (
                     <Link href={getServiceUrl(service)} key={service.id}>
                         <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                            <ServiceIcon category={service.category} className="h-6 w-6 text-muted-foreground" />
+                            <ServiceIcon serviceName={service.name} className="h-6 w-6 text-muted-foreground" />
                             <span className="text-xs font-medium">{service.name.split(' ')[0]}</span>
                         </div>
                     </Link>
@@ -106,13 +98,13 @@ export default function DashboardPage() {
         fetchData();
     }, [user]);
 
-  const getTransactionCategory = (description: string): Service['category'] | undefined => {
+  const getTransactionServiceName = (description: string): Service['name'] | undefined => {
     if (description.toLowerCase().includes('wallet funding')) {
         return undefined; // Special case for wallet funding
     }
     // Find the service whose name is a substring of the description
     const service = services.find(s => description.toLowerCase().includes(s.name.toLowerCase()));
-    return service?.category;
+    return service?.name;
   }
 
   return (
@@ -183,14 +175,14 @@ export default function DashboardPage() {
                                 Add money to your wallet using your credit or debit card.
                             </p>
                             </div>
-                            {fundWalletImage && (
+                            {PlaceHolderImages.find(img => img.id === 'feature-wallet') && (
                             <Image
-                                src={fundWalletImage.imageUrl}
-                                alt={fundWalletImage.description}
+                                src={PlaceHolderImages.find(img => img.id === 'feature-wallet')!.imageUrl}
+                                alt={PlaceHolderImages.find(img => img.id === 'feature-wallet')!.description}
                                 width={150}
                                 height={100}
                                 className="absolute -right-8 -top-4 z-0"
-                                data-ai-hint={fundWalletImage.imageHint}
+                                data-ai-hint={PlaceHolderImages.find(img => img.id === 'feature-wallet')!.imageHint}
                             />
                             )}
                         </CardContent>
@@ -237,7 +229,7 @@ export default function DashboardPage() {
         ) : (
             <div className="space-y-4">
             {transactions.map((tx) => {
-                const category = getTransactionCategory(tx.description);
+                const serviceName = getTransactionServiceName(tx.description);
                 return (
                     <Card key={tx.id} className="rounded-xl p-4 shadow-none">
                     <CardContent className="flex items-center justify-between p-0">
@@ -248,7 +240,7 @@ export default function DashboardPage() {
                                     <Plus size={20} className="text-blue-600" />
                                 </div>
                             ) : (
-                                <ServiceIcon category={category} className="h-8 w-8" />
+                                <ServiceIcon serviceName={serviceName} className="h-8 w-8" />
                             )}
                         </div>
                         <div>
