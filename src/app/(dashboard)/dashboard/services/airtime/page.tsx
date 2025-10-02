@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -80,14 +81,17 @@ export default function AirtimePage() {
   const amount = form.watch('amount');
   
   const { totalCost, discount } = useMemo(() => {
-    if (!selectedService) return { totalCost: amount, discount: 0 };
+    if (!selectedService || !amount) return { totalCost: 0, discount: 0 };
+    
     let calculatedDiscount = 0;
+    // Markup is treated as a discount for airtime
     if (selectedService.markupType === 'percentage' && selectedService.markupValue) {
         calculatedDiscount = (amount * selectedService.markupValue) / 100;
     } else if (selectedService.markupType === 'fixed' && selectedService.markupValue) {
         calculatedDiscount = selectedService.markupValue;
     }
-    return { totalCost: amount - calculatedDiscount, discount: calculatedDiscount };
+    const finalCost = amount - calculatedDiscount;
+    return { totalCost: finalCost > 0 ? finalCost : 0, discount: calculatedDiscount };
   }, [amount, selectedService]);
 
 

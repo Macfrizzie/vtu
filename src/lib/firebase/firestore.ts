@@ -350,6 +350,8 @@ export async function getServices(): Promise<Service[]> {
             { name: "Cable TV", provider: "", category: 'Cable' },
             { name: "E-pins", provider: "", category: 'Education' },
             { name: "Recharge Card", provider: "", category: 'Recharge Card' },
+            { name: "Data Card", provider: "", category: 'Data Card' },
+            { name: "Betting", provider: "", category: 'Betting' },
         ];
         coreServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
