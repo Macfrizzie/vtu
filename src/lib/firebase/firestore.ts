@@ -196,8 +196,8 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 }
                 description = `${network.name} Airtime for ${inputs.mobile_number}`;
 
-                requestBody = {
-                    network: variationId, // The ID from the variation is the network ID
+                 requestBody = {
+                    network: variationId,
                     amount: baseAmount,
                     mobile_number: inputs.mobile_number,
                     Ported_number: true,
@@ -296,7 +296,7 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
-    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'desc'));
+    const q = query(transactionsCol, where('userId', '==', uid), orderBy('date', 'asc'));
     const transactionSnapshot = await getDocs(q);
     let transactionList = transactionSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -307,7 +307,7 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
         } as Transaction;
     });
     
-    return transactionList;
+    return transactionList.reverse();
 }
 
 export async function getAllUsers(): Promise<User[]> {
@@ -513,3 +513,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
