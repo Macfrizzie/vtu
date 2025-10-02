@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { callProviderAPI } from "./api-handler";
@@ -87,20 +88,30 @@ export async function fetchHusmoDataPlans(baseUrl: string, apiKey: string, netwo
 }
 
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
-    // We use a known valid endpoint with dummy data.
-    // Even if it returns a logical error (e.g., "Invalid meter"), a successful API response (not a 4xx/5xx) means the connection is good.
     const endpoint = '/billpayment/';
     const body = {
         disco_name: 'test',
         amount: '0',
         meter_number: '0000000000',
-        MeterType: '1'
+        MeterType: 'prepaid'
     };
 
-    return makeApiRequest(baseUrl, apiKey, endpoint, {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
+    try {
+        const response = await makeApiRequest(baseUrl, apiKey, endpoint, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+        return response;
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('API Error (400)')) {
+            // A 400 error on this test endpoint means our credentials are correct,
+            // but the dummy data is invalid, which is expected.
+            // So we treat it as a successful connection.
+            return { status: 'success', message: 'Connection successful (test endpoint returned 400 as expected).' };
+        }
+        // Re-throw any other errors (e.g., 401 Unauthorized, 404 Not Found, 500 Server Error)
+        throw error;
+    }
 }
     
 

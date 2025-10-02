@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -174,9 +175,7 @@ export default function AdminApiProvidersPage() {
   async function handleTestConnection(provider: ApiProvider) {
     setIsTesting(provider.id);
     try {
-        await testHusmoDataConnection(provider.baseUrl, provider.apiKey);
-        // Even if testHusmoDataConnection throws a 400 error, it means we connected.
-        // The catch block will handle actual network errors.
+        await testHusmoDataConnection(provider.baseUrl, provider.apiKey || '');
         toast({ title: 'Connection Successful!', description: `Successfully connected to ${provider.name}. The API is reachable.` });
     } catch (error) {
         console.error("Failed to connect to provider:", error);
