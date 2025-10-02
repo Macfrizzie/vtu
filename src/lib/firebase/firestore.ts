@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -333,20 +331,17 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "Airtime", category: 'Airtime', provider: '' },
-            { name: "Data Bundles", category: 'Data', provider: '' },
-            { name: "Electricity Bill", category: 'Electricity', provider: '' },
-            { name: "Cable TV", category: 'Cable', provider: '' },
-            { name: "E-pins", category: 'Education', provider: '' },
-            { name: "Recharge Card", category: 'Recharge Card', provider: '' },
-            { name: "Data Card", category: 'Data Card', provider: '' },
-            { name: "Betting", category: 'Betting', provider: '' },
+            { name: "Airtime", category: 'Airtime'},
+            { name: "Data Bundles", category: 'Data' },
+            { name: "Electricity Bill", category: 'Electricity' },
+            { name: "Cable TV", category: 'Cable' },
+            { name: "E-pins", category: 'Education' },
+            { name: "Recharge Card", category: 'Recharge Card' },
         ];
         coreServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
                 name: service.name,
-                provider: service.provider,
                 category: service.category,
                 status: "Active",
                 markupType: "none",
@@ -505,4 +500,3 @@ export async function deleteDisco(id: string) {
     
 
     
-
