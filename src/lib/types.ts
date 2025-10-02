@@ -1,5 +1,4 @@
 
-
 export type User = {
   id: string;
   uid: string;
@@ -37,26 +36,14 @@ export type Transaction = {
   apiProvider?: string;
 };
 
-export type ServiceVariation = {
-  id: string; // e.g., 'data-plan-101', 'dstv-padi'
-  name: string; // e.g., '1.5GB - 30 Days', 'DStv Padi'
-  price: number;
-  fees?: { // Optional role-based fees
-      Customer?: number;
-      Vendor?: number;
-      Admin?: number;
-  };
-};
-
 export type Service = {
-  id: string;
-  name: string;
-  provider: string; // This can be a service code like '1' (for MTN), 'dstv' etc.
-  category: 'Airtime' | 'Data' | 'Cable' | 'Electricity' | 'Education' | 'Recharge Card' | 'Other';
+  id: string; // e.g., 'airtime', 'data'
+  name: string; // e.g., 'Airtime', 'Data'
   status: 'Active' | 'Inactive';
-  apiProviderId: string; // Link to an ApiProvider
+  apiProviderIds: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
+  markupType: 'percentage' | 'fixed' | 'none'; // Global markup for this service
+  markupValue: number; // The actual percentage or fixed amount
 };
-
 
 export type ApiProvider = {
   id: string;
@@ -68,29 +55,40 @@ export type ApiProvider = {
   apiSecret?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
-  priority: 'Primary' | 'Fallback';
+  priority: 'Primary' | 'Fallback'; // This is now a default, can be overridden per service
   transactionCharge?: number;
-  services?: string[]; // Array of service IDs this provider handles
 };
 
 export type AirtimePrice = {
     id: string;
-    serviceId: string; // Should likely be a generic 'airtime' identifier
-    apiProviderId: string;
-    networkId: string;
-    networkName: string;
-    discountPercent: number;
+    networkId: string; // "1", "2", "3", "4"
+    networkName: string; // "MTN", "GLO", etc.
+    discountPercent: number; // Admin sets this discount
 };
 
 export type DataPlan = {
-    id: string;
-    serviceId: string;
-    apiProviderId: string;
+    id: string; // This is the firestore doc id
+    planId: string; // The manual Data ID from admin, e.g., "101"
     networkId: string;
     networkName: string;
-    planId: string;
-    planName: string;
-    price: number;
+    planType: string; // "SME", "Corporate", "Gifting"
+    size: string; // "500MB", "1GB"
+    basePrice: number; // The base amount set by admin
+    validity: string; // "30 days", "1 day"
 };
 
+export type CablePlan = {
+    id: string; // Firestore doc id
+    providerId: string; // "1" for GOTV, "2" for DSTV
+    providerName: string;
+    planId: string; // The manual plan ID from admin
+    planName: string;
+    basePrice: number;
+};
+
+export type Disco = {
+    id: string;
+    discoId: string;
+    discoName: string;
+};
     

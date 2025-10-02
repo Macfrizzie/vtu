@@ -1,10 +1,9 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice, ServiceVariation } from '../types';
+import type { Transaction, Service, User, ApiProvider, UserData, AirtimePrice, DataPlan } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -44,15 +43,17 @@ async function checkAndSeedServices() {
     
     if (snapshot.empty) {
         const initialServices: Omit<Service, 'id'>[] = [
-            { name: 'MTN Airtime', provider: '1', category: 'Airtime', status: 'Active', apiProviderId: 'husmodata', variations: [] },
-            { name: 'Airtel Data', provider: '2', category: 'Data', status: 'Active', apiProviderId: 'husmodata', variations: [] },
-            { name: 'DSTV Subscription', provider: 'dstv', category: 'Cable', status: 'Inactive', apiProviderId: 'husmodata', variations: [] },
-            { name: 'Ikeja Electric', provider: 'ikeja-electric', category: 'Electricity', status: 'Active', apiProviderId: 'husmodata', variations: [{id: 'prepaid', name: 'Prepaid Payment', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 }}, {id: 'postpaid', name: 'Postpaid Payment', price: 0, fees: { Customer: 100, Vendor: 50, Admin: 0 }}] },
+            { name: 'Airtime', status: 'Active', apiProviderIds: [], markupType: 'percentage', markupValue: 2 },
+            { name: 'Data', status: 'Active', apiProviderIds: [], markupType: 'fixed', markupValue: 50 },
+            { name: 'Cable TV', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 100 },
+            { name: 'Electricity', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 100 },
+            { name: 'Education ePins', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 100 },
+            { name: 'Recharge Card Pins', status: 'Inactive', apiProviderIds: [], markupType: 'fixed', markupValue: 10 },
         ];
 
         const batch = writeBatch(db);
         initialServices.forEach(service => {
-            const docRef = doc(collection(db, 'services'));
+            const docRef = doc(db, 'services', service.name.toLowerCase().replace(/\s+/g, '-'));
             batch.set(docRef, service);
         });
         await batch.commit();
@@ -165,14 +166,17 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     if (!serviceSnap.exists()) throw new Error("Service not found.");
     const service = { id: serviceSnap.id, ...serviceSnap.data() } as Service;
 
-    if (!service.apiProviderId) {
-        throw new Error("This service is not linked to an API provider.");
+    if (!service.apiProviderIds || service.apiProviderIds.length === 0) {
+        throw new Error("This service is not linked to any API provider.");
     }
     
-    // Fetch all providers and filter by the one linked to the service, then sort by priority
     const allProviders = await getApiProviders();
-    const serviceProviders = allProviders
-        .filter(p => p.id === service.apiProviderId && p.status === 'Active')
+    const serviceProviders = service.apiProviderIds
+        .map(link => {
+            const provider = allProviders.find(p => p.id === link.id && p.status === 'Active');
+            return provider ? { ...provider, priority: link.priority } : null;
+        })
+        .filter((p): p is ApiProvider => p !== null)
         .sort((a, b) => a.priority === 'Primary' ? -1 : b.priority === 'Primary' ? 1 : 0);
 
     if (serviceProviders.length === 0) {
@@ -186,136 +190,20 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     let lastError: Error | null = new Error("No API providers were attempted.");
 
     for (const provider of serviceProviders) {
-        // --- Calculate Cost and Prepare API Request ---
         try {
             let requestBody: Record<string, any> = {};
             let endpoint: string = '';
             let method: 'GET' | 'POST' = 'POST';
 
-            switch (service.category) {
-                case 'Airtime': {
-                    const priceRuleQuery = query(collection(db, 'airtimePrices'), 
-                        where('networkId', '==', service.provider),
-                        where('apiProviderId', '==', provider.id)
-                    );
-                    const priceRuleSnap = await getDocs(priceRuleQuery);
-                    if (priceRuleSnap.empty) throw new Error(`No pricing rule found for this network with provider ${provider.name}.`);
-                    const priceRule = priceRuleSnap.docs[0].data() as AirtimePrice;
+            // Base price calculation will now depend on the service category
+            // and the manually entered prices from the 'pricing' subcollections.
 
-                    const amount = inputs.amount;
-                    const discount = (amount * priceRule.discountPercent) / 100;
-                    totalCost = amount - discount;
-                    description = `${service.name} (₦${amount}) for ${inputs.mobile_number}`;
-                    
-                    endpoint = '/topup/';
-                    requestBody = {
-                        network: service.provider,
-                        amount: inputs.amount,
-                        mobile_number: inputs.mobile_number,
-                        Ported_number: true,
-                        airtime_type: "VTU"
-                    };
-                    break;
-                }
-                case 'Data': {
-                    const variation = service.variations.find(v => v.id === variationId);
-                    if (!variation) throw new Error("Selected data plan not found for this service.");
-                    
-                    const fee = variation.fees?.[userData.role] || 0;
-                    totalCost = variation.price + fee;
-                    description = `${variation.name} for ${inputs.mobile_number}`;
+            // TODO: Implement the new pricing logic here based on fetched base prices
+            // For now, using a placeholder logic.
+            totalCost = inputs.amount || 100; // Placeholder
 
-                    endpoint = '/data/';
-                    requestBody = {
-                        network: inputs.network,
-                        mobile_number: inputs.mobile_number,
-                        plan: inputs.plan,
-                        Ported_number: true
-                    };
-                    break;
-                }
-                case 'Electricity': {
-                    const variation = service.variations.find(v => v.id === variationId);
-                    if (!variation) throw new Error("Internal configuration error: Service variation not found for electricity.");
-
-                    const fee = variation.fees?.[userData.role] || 0;
-                    totalCost = inputs.amount + fee;
-                    description = `Electricity payment for ${inputs.meterNumber}`;
-
-                    endpoint = '/billpayment/';
-                    requestBody = {
-                        disco_name: service.provider,
-                        amount: inputs.amount,
-                        meter_number: inputs.meterNumber,
-                        MeterType: inputs.meterType === 'prepaid' ? '1' : '2'
-                    };
-                    break;
-                }
-                 case 'Cable': {
-                    const variation = service.variations.find(v => v.id === variationId);
-                    if (!variation) throw new Error("Selected package not found for this service.");
-
-                    const fee = variation.fees?.[userData.role] || 0;
-                    totalCost = variation.price + fee;
-                    description = `${variation.name} for ${inputs.smart_card_number}`;
-
-                    endpoint = '/billpayment/';
-                    requestBody = {
-                        disco_name: service.provider, // `dstv`, `gotv`, etc.
-                        amount: inputs.amount,
-                        meter_number: inputs.smart_card_number,
-                        variation_code: inputs.variation_code,
-                        customer_name: inputs.customer_name,
-                        customer_number: '0',
-                        customer_reference: '0',
-                        customer_address: '0'
-                    };
-                    break;
-                }
-                case 'Education': {
-                    const variation = service.variations.find(v => v.id === variationId);
-                    if (!variation) throw new Error("Selected E-Pin type not found.");
-
-                    const fee = variation.fees?.[userData.role] || 0;
-                    totalCost = variation.price + fee;
-                    description = `${variation.name} E-Pin Purchase`;
-                    
-                    endpoint = '/epin/';
-                    requestBody = {
-                        exam_name: service.provider,
-                        quantity: 1,
-                    };
-                    break;
-                }
-                case 'Recharge Card': {
-                    const variation = service.variations.find(v => v.id === variationId);
-                    if (!variation) throw new Error("Selected denomination not found.");
-
-                    const fee = variation.fees?.[userData.role] || 0;
-                    totalCost = (variation.price + fee) * inputs.quantity;
-                    description = `${inputs.quantity} x ₦${variation.price} ${service.name} E-Pin(s)`;
-
-                    endpoint = '/rechargepin/';
-                    requestBody = {
-                        network: inputs.network,
-                        network_amount: inputs.network_amount,
-                        quantity: inputs.quantity,
-                        name_on_card: inputs.name_on_card,
-                    };
-                    break;
-                }
-                default:
-                    throw new Error(`Service category "${service.category}" is not supported for purchases yet.`);
-            }
-
-            // --- Validate Balance ---
             if (userData.walletBalance < totalCost) {
                 throw new Error(`Insufficient balance. You need ₦${totalCost.toLocaleString()}, but have ₦${userData.walletBalance.toLocaleString()}.`);
-            }
-
-            // --- Execute API Call ---
-            if (!endpoint) {
-                throw new Error("Service configuration error: missing endpoint.");
             }
            
             apiResponse = await callProviderAPI(provider, endpoint, method, requestBody);
@@ -325,12 +213,12 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             }
             
             successfulProvider = provider;
-            break; // Exit loop on success
+            break; 
 
         } catch (error: any) {
             console.error(`Attempt with provider ${provider.name} failed:`, error.message);
             lastError = error;
-            continue; // Try next provider
+            continue;
         }
     }
 
@@ -338,7 +226,6 @@ export async function purchaseService(uid: string, serviceId: string, variationI
         throw lastError || new Error("All API providers failed or were unavailable for this service.");
     }
     
-    // --- Deduct from wallet and log transaction on success ---
     await updateDoc(userRef, { walletBalance: increment(-totalCost) });
     
     await addDoc(collection(db, 'transactions'), {
@@ -406,7 +293,6 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
         } as Transaction;
     });
     
-    // Sort transactions by date in descending order (newest first)
     transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
     
     return transactionList;
@@ -453,25 +339,13 @@ export async function getServices(): Promise<Service[]> {
     return serviceList;
 }
 
-export async function addService(service: Omit<Service, 'id'>) {
-    const servicesRef = collection(db, 'services');
-    await addDoc(servicesRef, service);
-}
-
 export async function updateService(id: string, data: Partial<Service>) {
     const serviceRef = doc(db, 'services', id);
     await updateDoc(serviceRef, data);
 }
 
-export async function updateServiceStatus(id: string, status: 'Active' | 'Inactive') {
-    const serviceRef = doc(db, 'services', id);
-    await updateDoc(serviceRef, { status });
-}
-
 export async function addUser(user: Omit<User, 'id' | 'uid' | 'lastLogin' | 'walletBalance' | 'createdAt'>) {
   const usersRef = collection(db, 'users');
-  // In a real app, this would be more complex, likely involving Firebase Auth
-  // For now, we just add to the collection.
   await addDoc(usersRef, {
     fullName: user.name,
     email: user.email,
@@ -503,7 +377,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
         const initialProvider: Omit<ApiProvider, 'id'> = { 
             name: 'HusmoData', 
             description: 'Primary provider for VTU services.', 
-            baseUrl: 'https://husmodataapi.com/api', 
+            baseUrl: 'https://husmodata.com/api', 
             status: 'Active', 
             priority: 'Primary', 
             auth_type: 'Token', 
@@ -555,7 +429,17 @@ export async function deleteAirtimePrice(id: string) {
     await deleteDoc(priceRef);
 }
 
-export async function updateServiceVariations(serviceId: string, variations: ServiceVariation[]) {
-    const serviceRef = doc(db, 'services', serviceId);
-    await updateDoc(serviceRef, { variations });
+// --- Data Plan Pricing Functions ---
+export async function addDataPlan(plan: Omit<DataPlan, 'id'>) {
+    await addDoc(collection(db, 'dataPlans'), plan);
 }
+
+export async function getDataPlans(): Promise<DataPlan[]> {
+    const snapshot = await getDocs(query(collection(db, 'dataPlans')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DataPlan));
+}
+
+export async function deleteDataPlan(id: string) {
+    await deleteDoc(doc(db, 'dataPlans', id));
+}
+    
