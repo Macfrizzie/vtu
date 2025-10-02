@@ -41,6 +41,7 @@ export type Service = {
   id: string; // e.g., 'airtime'
   name: string; // e.g., 'Airtime', 'Data'
   provider: string; // The service code required by the provider, e.g., 'mtn'
+  category: string; // 'Airtime', 'Data', 'Cable', 'Electricity' etc.
   status: 'Active' | 'Inactive';
   apiProviderIds?: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
   markupType?: 'percentage' | 'fixed' | 'none'; // Global markup for this service
@@ -86,6 +87,4 @@ export type Disco = {
     discoId: string;
     discoName: string;
 };
-    
-
     

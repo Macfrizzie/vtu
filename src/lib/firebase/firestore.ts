@@ -179,7 +179,7 @@ export async function purchaseService(uid: string, serviceId: string, inputs: Re
             const method: 'GET' | 'POST' = 'POST';
 
             // --- Service-specific logic ---
-            if (service.name.toLowerCase().includes('airtime')) {
+            if (service.category === 'Airtime') {
                 const baseAmount = Number(inputs.amount);
                 if (isNaN(baseAmount) || baseAmount <= 0) {
                     throw new Error("Invalid airtime amount provided.");
@@ -341,21 +341,22 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-            { name: "MTN Airtime", provider: "mtn" },
-            { name: "Glo Airtime", provider: "glo" },
-            { name: "Airtel Airtime", provider: "airtel" },
-            { name: "9mobile Airtime", provider: "9mobile" },
-            { name: "Data Bundles", provider: "" },
-            { name: "Electricity Bill", provider: "" },
-            { name: "Cable TV", provider: "" },
-            { name: "E-pins", provider: "" },
-            { name: "Recharge Card", provider: "" },
+            { name: "MTN", provider: "mtn", category: 'Airtime' },
+            { name: "Glo", provider: "glo", category: 'Airtime' },
+            { name: "Airtel", provider: "airtel", category: 'Airtime' },
+            { name: "9mobile", provider: "9mobile", category: 'Airtime' },
+            { name: "Data Bundles", provider: "", category: 'Data' },
+            { name: "Electricity Bill", provider: "", category: 'Electricity' },
+            { name: "Cable TV", provider: "", category: 'Cable' },
+            { name: "E-pins", provider: "", category: 'Education' },
+            { name: "Recharge Card", provider: "", category: 'Recharge Card' },
         ];
         coreServices.forEach((service) => {
-            const docRef = doc(servicesCol); // Auto-generate ID
+            const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
                 name: service.name,
                 provider: service.provider,
+                category: service.category,
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
@@ -371,7 +372,7 @@ export async function getServices(): Promise<Service[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 }
 
-export async function addService(data: { name: string }) {
+export async function addService(data: { name: string; category: string }) {
     const servicesCol = collection(db, 'services');
     await addDoc(servicesCol, {
         ...data,
@@ -507,15 +508,4 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
-    
-
-    
-
-    
-
-
-
-
-    
-
     

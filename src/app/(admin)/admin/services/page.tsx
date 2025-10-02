@@ -44,6 +44,7 @@ const serviceFormSchema = z.object({
 
 const addServiceFormSchema = z.object({
     name: z.string().min(3, "Service name is required."),
+    category: z.string().min(3, "Category is required."),
 });
 
 export default function AdminServicesPage() {
@@ -70,6 +71,7 @@ export default function AdminServicesPage() {
     resolver: zodResolver(addServiceFormSchema),
     defaultValues: {
       name: '',
+      category: '',
     },
   });
 
@@ -186,6 +188,13 @@ export default function AdminServicesPage() {
                             <FormItem>
                                 <FormLabel>Service Name</FormLabel>
                                 <FormControl><Input placeholder="e.g., Betting" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={addForm.control} name="category" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Service Category</FormLabel>
+                                <FormControl><Input placeholder="e.g., Airtime, Data, Betting" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )} />

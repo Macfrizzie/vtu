@@ -64,7 +64,7 @@ export default function AirtimePage() {
       setServicesLoading(true);
       try {
         const allServices = await getServices();
-        setServices(allServices.filter(s => s.name.toLowerCase().includes('airtime') && s.status === 'Active'));
+        setServices(allServices.filter(s => s.category === 'Airtime' && s.status === 'Active'));
       } catch (error) {
         console.error("Failed to fetch airtime data:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load networks.' });
@@ -243,7 +243,3 @@ export default function AirtimePage() {
     </div>
   );
 }
-
-    
-
-    
