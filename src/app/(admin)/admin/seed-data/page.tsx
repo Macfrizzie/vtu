@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Database } from 'lucide-react';
-import { getFirestore, collection, writeBatch } from 'firebase/firestore';
+import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import { app } from '@/lib/firebase/client-app';
 import type { DataPlan } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
@@ -238,11 +238,8 @@ export default function SeedDataPage() {
         setLogs(['Starting data seed process...']);
 
         const lines = dataPlansText.trim().split('\n').filter(line => line.trim() !== '');
-        const totalLines = lines.length;
         
         // Some plan types are quoted, need to handle that.
-        const regex = /^(\d+)\s+([A-Z0-9]+)\s+((?:"[^"]+"|\S+))\s+₦([\d.]+)\s+([\d.]+\s+[GM]B)\s+.*?(\d+\s+days?|1\s+year)/i;
-
         const parsedPlans: Omit<DataPlan, 'id'>[] = [];
 
         for (const line of lines) {
@@ -301,10 +298,11 @@ export default function SeedDataPage() {
             for (let i = 0; i < parsedPlans.length; i += batchSize) {
                 const batch = writeBatch(db);
                 const chunk = parsedPlans.slice(i, i + batchSize);
+                const dataPlansCollection = collection(db, 'dataPlans');
 
                 chunk.forEach(planData => {
-                    const docRef = collection(db, 'dataPlans');
-                    batch.set(docRef.doc(), planData);
+                    const docRef = doc(dataPlansCollection);
+                    batch.set(docRef, planData);
                 });
 
                 await batch.commit();
