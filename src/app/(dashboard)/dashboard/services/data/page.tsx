@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -104,7 +103,8 @@ export default function DataPage() {
   
   const { allPlansForNetwork, availablePlanTypes } = useMemo(() => {
     const selectedNetwork = dataService?.variations?.find(v => v.id === selectedNetworkId);
-    const plans = selectedNetwork?.plans || [];
+    // Filter for active plans only
+    const plans = (selectedNetwork?.plans || []).filter(p => p.status === 'Active' || p.status === undefined);
     const planTypes = [...new Set(plans.map(p => p.planType).filter(Boolean)) as string[]];
     return { allPlansForNetwork: plans, availablePlanTypes: planTypes };
   }, [selectedNetworkId, dataService]);
@@ -287,7 +287,7 @@ export default function DataPage() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={!selectedPlanType ? "Select plan type first" : "Select a data plan"} />
+                          <SelectValue placeholder={!selectedPlanType ? "Select plan type first" : availablePlans.length > 0 ? "Select a data plan" : "No plans available for this type"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -333,5 +333,3 @@ export default function DataPage() {
     </div>
   );
 }
-
-
