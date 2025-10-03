@@ -204,7 +204,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     airtime_type: "VTU"
                 };
             } else if (service.category === 'Data') {
-                const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
+                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
                 const selectedPlan = networkVariation?.plans?.find(p => p.planId === variationId);
                 
                 if (!selectedPlan) {
@@ -606,6 +606,11 @@ export async function addDataPlan(plan: Omit<DataPlan, 'id'>) {
 export async function getDataPlans(): Promise<DataPlan[]> {
     const snapshot = await getDocs(query(collection(db, 'dataPlans')));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DataPlan));
+}
+
+export async function updateDataPlanStatus(id: string, status: 'Active' | 'Inactive') {
+    const planRef = doc(db, 'dataPlans', id);
+    await updateDoc(planRef, { status });
 }
 
 export async function deleteDataPlan(id: string) {

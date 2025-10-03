@@ -84,6 +84,7 @@ export type DataPlan = {
     price: number; // The base amount set by admin
     validity: string; // "30 days", "1 day"
     fees?: { [key in UserData['role']]: number };
+    status?: 'Active' | 'Inactive';
 };
 
 export type CablePlan = {

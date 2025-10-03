@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco } from '@/lib/firebase/firestore';
+import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco, updateDataPlanStatus } from '@/lib/firebase/firestore';
 import type { DataPlan, CablePlan, Disco } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 // --- Fixed Network Data ---
 const networks = [
@@ -109,7 +112,8 @@ export function DataPricingTab() {
                     Customer: values.fee || 0,
                     Vendor: values.fee || 0,
                     Admin: 0, 
-                }
+                },
+                status: 'Active',
             };
             await addDataPlan(planData);
             toast({ title: "Data Plan Added", description: `The plan has been added successfully.` });
@@ -134,6 +138,20 @@ export function DataPricingTab() {
         }
     };
     
+    const handleStatusToggle = async (plan: DataPlan) => {
+        const newStatus = plan.status === 'Active' ? 'Inactive' : 'Active';
+        try {
+            await updateDataPlanStatus(plan.id, newStatus);
+            setDataPlans(prevPlans => 
+                prevPlans.map(p => p.id === plan.id ? { ...p, status: newStatus } : p)
+            );
+            toast({ title: 'Status Updated', description: `${plan.name} is now ${newStatus}.` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update plan status.' });
+        }
+    };
+
     const validities = ['1 day', '2 days', '3 days', '7 days', '14 days', '30 days', '30 days/1 month', '60 days', '1 year'];
 
     return (
@@ -183,15 +201,25 @@ export function DataPricingTab() {
                                                 <h4 className="font-medium text-md mb-2 text-muted-foreground">{planType} Plans</h4>
                                                 <div className="border rounded-md">
                                                     <Table>
-                                                        <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Name</TableHead><TableHead>Base Price</TableHead><TableHead>Fee</TableHead><TableHead>Validity</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                                                        <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Name</TableHead><TableHead>Base Price</TableHead><TableHead>Fee</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Active</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                                                         <TableBody>
                                                             {groupedPlans[networkName][planType].map(plan => (
-                                                                <TableRow key={plan.id}>
+                                                                <TableRow key={plan.id} className={cn(plan.status === 'Inactive' && 'opacity-50')}>
                                                                     <TableCell>{plan.planId}</TableCell>
                                                                     <TableCell>{plan.name}</TableCell>
                                                                     <TableCell>₦{plan.price.toLocaleString()}</TableCell>
                                                                     <TableCell>₦{(plan.fees?.Customer || 0).toLocaleString()}</TableCell>
-                                                                    <TableCell>{plan.validity}</TableCell>
+                                                                    <TableCell>
+                                                                        <Badge variant={plan.status === 'Active' ? 'default' : 'secondary'} className={cn(plan.status === 'Active' ? 'bg-green-500' : 'bg-gray-500')}>
+                                                                            {plan.status || 'Active'}
+                                                                        </Badge>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-center">
+                                                                        <Switch
+                                                                            checked={plan.status === 'Active' || plan.status === undefined}
+                                                                            onCheckedChange={() => handleStatusToggle(plan)}
+                                                                        />
+                                                                    </TableCell>
                                                                     <TableCell className="text-right">
                                                                         <AlertDialog>
                                                                             <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
