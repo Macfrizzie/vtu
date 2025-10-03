@@ -295,7 +295,7 @@ export default function DataPage() {
                             const finalPrice = plan.price + fee;
                             return (
                                 <SelectItem key={plan.id} value={plan.id}>
-                                    {plan.name} {plan.validity} - ₦{finalPrice.toLocaleString()}
+                                    {plan.name} ({plan.validity}) - ₦{finalPrice.toLocaleString()}
                                 </SelectItem>
                             )
                         })}
