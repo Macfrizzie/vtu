@@ -168,8 +168,8 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     for (const provider of serviceProviders) {
         try {
             let requestBody: Record<string, any> = {};
-            const endpoint: string = service.endpoint || '';
-            const method: 'GET' | 'POST' = 'POST'; // Assuming POST for most purchases
+            let endpoint: string = service.endpoint || '';
+            let method: 'GET' | 'POST' = 'POST'; // Assuming POST for most purchases
 
             if (!endpoint) {
                 throw new Error(`Configuration Error: No endpoint URL is defined for the '${service.name}' service.`);
@@ -228,10 +228,11 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                  }
                  totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
                  description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
+                 endpoint = '/cablesub/';
                  requestBody = {
+                    cablename: service.name,
+                    cableplan: selectedVariation.id,
                     smart_card_number: inputs.smart_card_number,
-                    service_id: service.name.split(' ')[0].toLowerCase(), // e.g. 'dstv'
-                    variation_code: selectedVariation.id,
                  };
             } else if (service.category === 'Electricity') {
                  const selectedVariation = service.variations?.find(v => v.name === variationId);

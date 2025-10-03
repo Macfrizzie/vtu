@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -123,16 +124,15 @@ export default function CableTvPage() {
       if(!selectedService.name) {
           throw new Error("Selected service does not have a valid provider name for verification.");
       }
-      const serviceProviderName = selectedService.name.split(' ')[0].toLowerCase();
-
+      
       const verificationResult = await verifySmartCard(
-          provider.baseUrl,
+          provider.baseUrl.replace('/api', ''), // The validation URL seems to be at the root
           provider.apiKey || '',
-          serviceProviderName,
+          selectedService.name,
           smartCardValue
       );
       
-      const name = verificationResult.customer_name || verificationResult.Customer_Name;
+      const name = verificationResult.customer_name || verificationResult.Customer_Name || verificationResult.name;
       
       if (!name) {
          throw new Error("Customer name not found in verification response.");
@@ -188,8 +188,6 @@ export default function CableTvPage() {
       const purchaseInputs = {
           smart_card_number: values.smartCardNumber,
           customer_name: customerName,
-          variation_code: selectedVariation.id, // Pass variation ID
-          amount: selectedVariation.price // Pass the base price
       };
 
       await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);

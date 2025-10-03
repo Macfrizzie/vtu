@@ -20,20 +20,32 @@ type VerificationResponse = {
     customer_name?: string;
     Customer_Name?: string; // API seems to use inconsistent casing
     Status?: string;
+    name?: string; // Also check for lowercase name
 };
 
 
-async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${baseUrl}${endpoint}`;
+async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: string, method: 'GET' | 'POST' = 'GET', body: Record<string, any> | null = null): Promise<T> {
+    let url = `${baseUrl}${endpoint}`;
     
     const headers = {
         'Authorization': `Token ${apiKey}`,
         'Content-Type': 'application/json',
-        ...options.headers,
+    };
+    
+    const config: RequestInit = {
+        method: method,
+        headers: headers,
     };
 
+    if (method === 'POST' && body) {
+        config.body = JSON.stringify(body);
+    } else if (method === 'GET' && body) {
+        url += `?${new URLSearchParams(body as Record<string, string>).toString()}`;
+    }
+
+
     try {
-        const response = await fetch(url, { ...options, headers });
+        const response = await fetch(url, config);
         
         if (!response.ok) {
             const errorBody = await response.text();
@@ -68,31 +80,25 @@ export async function fetchHusmoDataNetworks(baseUrl: string, apiKey: string): P
     return response.network;
 }
 
-export async function verifySmartCard(baseUrl: string, apiKey: string, serviceId: string, smartCardNumber: string): Promise<VerificationResponse> {
-    const endpoint = '/verify-meter/';
-    const body = {
-        meter_number: smartCardNumber,
-        disco_name: serviceId, // For cable, serviceId is 'dstv', 'gotv' etc.
+export async function verifySmartCard(baseUrl: string, apiKey: string, cablename: string, smartCardNumber: string): Promise<VerificationResponse> {
+    const endpoint = '/validate_iuc';
+    const params = {
+        smart_card_number: smartCardNumber,
+        cablename: cablename.toUpperCase(), // API expects uppercase, e.g., GOTV
     };
 
-    return makeApiRequest<VerificationResponse>(baseUrl, apiKey, endpoint, {
-        method: 'POST',
-        body: JSON.stringify(body),
-    });
+    return makeApiRequest<VerificationResponse>(baseUrl, apiKey, endpoint, 'GET', params);
 }
 
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
     try {
         // We use a known-good but invalid request to test credentials.
         // A 400 error means the credentials are correct.
-        const response = await makeApiRequest(baseUrl, apiKey, '/billpayment/', {
-            method: 'POST',
-            body: JSON.stringify({
-                disco_name: 'test-invalid',
-                amount: '0',
-                meter_number: '0000000000',
-                MeterType: 'invalid-type'
-            }),
+        const response = await makeApiRequest(baseUrl, apiKey, '/billpayment/', 'POST', {
+            disco_name: 'test-invalid',
+            amount: '0',
+            meter_number: '0000000000',
+            MeterType: 'invalid-type'
         });
         return response;
     } catch (error) {
@@ -107,6 +113,7 @@ export async function testHusmoDataConnection(baseUrl: string, apiKey: string): 
     
 
     
+
 
 
 
