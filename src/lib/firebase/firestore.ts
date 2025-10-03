@@ -428,6 +428,7 @@ export async function getServices(): Promise<Service[]> {
                 price: p.price,
                 planType: p.planType,
                 fees: p.fees,
+                validity: p.validity,
             }));
         }
     });
@@ -575,3 +576,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
