@@ -43,6 +43,7 @@ export type ServiceVariation = {
   price: number;
   planType?: string; // Added to support categorization
   fees?: { [key in UserData['role']]: number };
+  validity?: string;
 };
 
 export type Service = {

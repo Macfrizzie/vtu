@@ -48,6 +48,23 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
+// Helper function to parse size string (e.g., "1.5GB", "500MB") into MB
+const parseDataSize = (sizeStr: string): number => {
+    if (!sizeStr) return 0;
+    const lowerStr = sizeStr.toLowerCase();
+    const value = parseFloat(lowerStr);
+    if (isNaN(value)) return 0;
+
+    if (lowerStr.includes('gb')) {
+        return value * 1024;
+    }
+    if (lowerStr.includes('mb')) {
+        return value;
+    }
+    return 0;
+};
+
+
 export default function DataPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
@@ -93,7 +110,9 @@ export default function DataPage() {
 
   const availablePlans = useMemo(() => {
       if (!selectedPlanType) return [];
-      return allPlansForNetwork.filter(p => p.planType === selectedPlanType);
+      return allPlansForNetwork
+        .filter(p => p.planType === selectedPlanType)
+        .sort((a, b) => parseDataSize(a.name) - parseDataSize(b.name));
   }, [selectedPlanType, allPlansForNetwork]);
 
 
@@ -276,7 +295,7 @@ export default function DataPage() {
                             const finalPrice = plan.price + fee;
                             return (
                                 <SelectItem key={plan.id} value={plan.id}>
-                                    {plan.name} ({plan.validity}) - ₦{finalPrice.toLocaleString()}
+                                    {plan.name} {plan.validity} - ₦{finalPrice.toLocaleString()}
                                 </SelectItem>
                             )
                         })}
