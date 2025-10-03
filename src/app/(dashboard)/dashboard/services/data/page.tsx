@@ -42,6 +42,7 @@ import type { Service, ServiceVariation } from '@/lib/types';
 const formSchema = z.object({
   serviceId: z.string().min(1, 'Please select a network.'),
   phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number.'),
+  planType: z.string().min(1, "Please select a plan type."),
   variationId: z.string().min(1, 'Please select a data plan.'),
 });
 
@@ -59,6 +60,7 @@ export default function DataPage() {
     defaultValues: {
       serviceId: '',
       phone: '',
+      planType: '',
       variationId: '',
     },
   });
@@ -80,21 +82,20 @@ export default function DataPage() {
   }, [toast]);
 
   const selectedServiceId = form.watch('serviceId');
+  const selectedPlanType = form.watch('planType');
   
-  const { availablePlans, groupedPlans } = useMemo(() => {
+  const { allPlansForNetwork, availablePlanTypes } = useMemo(() => {
     const selectedService = services.find(s => s.id === selectedServiceId);
     const plans = selectedService?.variations || [];
-    const grouped = plans.reduce((acc, plan) => {
-        const type = plan.planType || 'Other';
-        if (!acc[type]) {
-            acc[type] = [];
-        }
-        acc[type].push(plan);
-        return acc;
-    }, {} as Record<string, ServiceVariation[]>);
-
-    return { availablePlans: plans, groupedPlans: grouped };
+    const planTypes = [...new Set(plans.map(p => p.planType).filter(Boolean)) as string[]];
+    return { allPlansForNetwork: plans, availablePlanTypes: planTypes };
   }, [selectedServiceId, services]);
+
+  const availablePlans = useMemo(() => {
+      if (!selectedPlanType) return [];
+      return allPlansForNetwork.filter(p => p.planType === selectedPlanType);
+  }, [selectedPlanType, allPlansForNetwork]);
+
 
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
@@ -102,8 +103,7 @@ export default function DataPage() {
       return;
     }
 
-    const selectedService = services.find(s => s.id === values.serviceId);
-    const selectedVariation = selectedService?.variations?.find(v => v.id === values.variationId);
+    const selectedVariation = availablePlans.find(v => v.id === values.variationId);
 
     if (!selectedVariation) {
       toast({ variant: 'destructive', title: 'Invalid Plan', description: 'The selected data plan could not be found.' });
@@ -127,7 +127,7 @@ export default function DataPage() {
     try {
       const purchaseInputs = { 
           mobile_number: values.phone, 
-          plan: values.variationId, // plan is the ID of the data plan itself
+          plan: values.variationId,
       };
       await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
@@ -135,7 +135,7 @@ export default function DataPage() {
         title: 'Purchase Successful!',
         description: `${selectedVariation.name} for ${values.phone} was purchased.`,
       });
-      form.reset({ serviceId: '', phone: '', variationId: ''});
+      form.reset({ serviceId: '', phone: '', planType: '', variationId: ''});
     } catch (error) {
       console.error(error);
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -189,6 +189,7 @@ export default function DataPage() {
                     <Select
                       onValueChange={(value) => {
                         field.onChange(value);
+                        form.resetField('planType');
                         form.resetField('variationId');
                       }}
                       value={field.value}
@@ -226,6 +227,35 @@ export default function DataPage() {
               />
               <FormField
                 control={form.control}
+                name="planType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plan Type</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        form.resetField('variationId');
+                      }}
+                      value={field.value}
+                      disabled={!selectedServiceId || availablePlanTypes.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={!selectedServiceId ? "Select network first" : "Select a plan type"} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availablePlanTypes.map(type => (
+                           <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="variationId"
                 render={({ field }) => (
                   <FormItem>
@@ -233,28 +263,23 @@ export default function DataPage() {
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={!selectedServiceId || availablePlans.length === 0}
+                      disabled={!selectedPlanType || availablePlans.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={!selectedServiceId ? "Select network first" : "Select a data plan"} />
+                          <SelectValue placeholder={!selectedPlanType ? "Select plan type first" : "Select a data plan"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.entries(groupedPlans).map(([type, plans]) => (
-                            <SelectGroup key={type}>
-                                <SelectLabel>{type}</SelectLabel>
-                                {plans.map(plan => {
-                                    const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
-                                    const finalPrice = plan.price + fee;
-                                    return (
-                                        <SelectItem key={plan.id} value={plan.id}>
-                                            {plan.name} (₦{finalPrice.toLocaleString()})
-                                        </SelectItem>
-                                    )
-                                })}
-                            </SelectGroup>
-                        ))}
+                        {availablePlans.map(plan => {
+                            const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
+                            const finalPrice = plan.price + fee;
+                            return (
+                                <SelectItem key={plan.id} value={plan.id}>
+                                    {plan.name} ({plan.validity}) - ₦{finalPrice.toLocaleString()}
+                                </SelectItem>
+                            )
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />
