@@ -46,6 +46,7 @@ export type ServiceVariation = {
   fees?: { [key in UserData['role']]: number };
   validity?: string;
   plans?: ServiceVariation[];
+  providerName?: string; // For distinguishing cable plans
 };
 
 export type Service = {

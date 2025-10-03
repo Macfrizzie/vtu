@@ -222,14 +222,13 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
 
             } else if (service.category === 'Cable') {
-                 const allCablePlans = await getCablePlans();
-                 const selectedVariation = allCablePlans.find(v => v.planId === variationId);
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
 
                  if (!selectedVariation) {
                     throw new Error("Could not find the selected cable package.");
                  }
-                 totalCost = selectedVariation.basePrice + (service.markupValue || 0);
-                 description = `${selectedVariation.planName} for ${inputs.smart_card_number}`;
+                 totalCost = selectedVariation.price + (service.markupValue || 0);
+                 description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
                  
                  requestBody = {
                     cablename: inputs.cablename,
@@ -451,8 +450,6 @@ export async function getServices(): Promise<Service[]> {
         services = services.map(s => ({ ...s, apiProviderIds: s.apiProviderIds || [] }));
     }
 
-    const allCablePlans = await getCablePlans();
-
     services.sort((a, b) => a.name.localeCompare(b.name));
     
     // --- Populate Dynamic Variations ---
@@ -509,7 +506,6 @@ export async function getServices(): Promise<Service[]> {
             id: p.planId,
             name: p.planName,
             price: p.basePrice,
-            // We add a custom field to know which provider this plan belongs to
             providerName: p.providerName,
         }));
     }
@@ -694,6 +690,7 @@ export async function deleteDisco(id: string) {
 
 
     
+
 
 
 
