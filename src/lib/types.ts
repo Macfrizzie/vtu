@@ -41,6 +41,7 @@ export type ServiceVariation = {
   id: string; // variation_code, plan_id, or network_id
   name: string;
   price: number;
+  planId?: string; // Add this to carry the API plan_id for data plans
   planType?: string; // Added to support categorization
   fees?: { [key in UserData['role']]: number };
   validity?: string;

@@ -123,7 +123,7 @@ export default function DataPage() {
       return;
     }
 
-    const selectedVariation = availablePlans.find(v => v.id === values.variationId);
+    const selectedVariation = availablePlans.find(p => p.planId === values.variationId);
 
     if (!selectedVariation) {
       toast({ variant: 'destructive', title: 'Invalid Plan', description: 'The selected data plan could not be found.' });
@@ -170,7 +170,7 @@ export default function DataPage() {
   }
 
   const selectedVariationId = form.watch('variationId');
-  const selectedVariation = availablePlans.find(p => p.id === selectedVariationId);
+  const selectedVariation = availablePlans.find(p => p.planId === selectedVariationId);
   const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userData.role || 'Customer'] || 0) : 0;
   const basePrice = selectedVariation?.price || 0;
   const convenienceFee = totalCost - basePrice;
@@ -295,7 +295,7 @@ export default function DataPage() {
                             const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
                             const finalPrice = plan.price + fee;
                             return (
-                                <SelectItem key={plan.id} value={plan.id}>
+                                <SelectItem key={plan.planId} value={plan.planId}>
                                     {plan.name} ({plan.validity}) - ₦{finalPrice.toLocaleString()}
                                 </SelectItem>
                             )
@@ -333,3 +333,4 @@ export default function DataPage() {
     </div>
   );
 }
+

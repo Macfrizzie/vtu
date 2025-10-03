@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -203,12 +204,12 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     airtime_type: "VTU"
                 };
             } else if (service.category === 'Data') {
-                const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
+                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
                 let selectedVariation: ServiceVariation | undefined;
 
                 if (networkVariation && networkVariation.plans) {
                     for (const plan of networkVariation.plans) {
-                        if (plan.id === variationId) {
+                        if (plan.planId === variationId) {
                             selectedVariation = plan;
                             break;
                         }
@@ -439,7 +440,8 @@ export async function getServices(): Promise<Service[]> {
             name: network.name,
             price: 0, 
             plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
-                id: p.planId,
+                id: p.id, // The firestore document ID
+                planId: p.planId, // The actual ID to send to the API
                 name: p.name,
                 price: p.price,
                 planType: p.planType,
