@@ -203,8 +203,23 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     Ported_number: true,
                     airtime_type: "VTU"
                 };
-            }
-            else {
+            } else if (service.category === 'Data') {
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                if (!selectedVariation) {
+                    throw new Error("Could not find the selected data plan.");
+                }
+
+                totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
+                description = `${service.name} ${selectedVariation.name} for ${inputs.mobile_number}`;
+                
+                const networkName = service.name.split(' ')[0]; // E.g., "MTN" from "MTN Data"
+
+                requestBody = {
+                    network: networkName, 
+                    plan: selectedVariation.id,
+                    mobile_number: inputs.mobile_number,
+                };
+            } else {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected service variation.");
@@ -440,7 +455,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             status: 'Active', 
             priority: 'Primary', 
             auth_type: 'Token', 
-            apiKey: 'f123f29b71619f2ce98956b5c859b2c0d605e16f', 
+            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', 
             apiSecret: '', 
             requestHeaders: '{}', 
             transactionCharge: 0 
@@ -516,4 +531,5 @@ export async function deleteDisco(id: string) {
     
 
     
+
 

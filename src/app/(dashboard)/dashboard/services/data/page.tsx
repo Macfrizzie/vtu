@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -112,8 +113,10 @@ export default function DataPage() {
 
     setIsPurchasing(true);
     try {
-      const networkName = selectedService?.name.split(' ')[0];
-      const purchaseInputs = { mobile_number: values.phone, plan: values.variationId, network: networkName };
+      const purchaseInputs = { 
+          mobile_number: values.phone, 
+          plan: values.variationId,
+      };
       await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
