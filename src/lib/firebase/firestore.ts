@@ -406,7 +406,9 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
-    
+    const allDataPlans = await getDataPlans();
+    const allCablePlans = await getCablePlans();
+
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "Data", category: 'Data', endpoint: '/data/' },
@@ -415,10 +417,11 @@ export async function getServices(): Promise<Service[]> {
         { name: "Education E-Pins", category: 'Education', endpoint: '/epin/' },
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/' },
     ];
-    
+
     let services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     const existingServiceNames = new Set(services.map(s => s.name));
 
+    // Ensure core services exist
     if (coreServices.some(cs => !existingServiceNames.has(cs.name))) {
         const batch = writeBatch(db);
         for (const coreService of coreServices) {
@@ -437,13 +440,12 @@ export async function getServices(): Promise<Service[]> {
             }
         }
         await batch.commit();
+        // Refetch after creating missing services
         const newSnapshot = await getDocs(query(servicesCol));
         services = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     }
-    
-    const allDataPlans = await getDataPlans();
-    const allCablePlans = await getCablePlans();
 
+    // Map variations to services
     services = services.map(service => {
         if (service.category === 'Data') {
             const networks = [
@@ -455,7 +457,7 @@ export async function getServices(): Promise<Service[]> {
             service.variations = networks.map(network => ({
                 id: network.id,
                 name: network.name,
-                price: 0,
+                price: 0, // Not applicable at this level
                 plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
                     id: p.id,
                     planId: p.planId,
@@ -467,19 +469,15 @@ export async function getServices(): Promise<Service[]> {
                     status: p.status || 'Active',
                 })),
             }));
-        }
-
-        if (service.category === 'Cable') {
+        } else if (service.category === 'Cable') {
             service.variations = allCablePlans.map(p => ({
                 id: p.planId,
                 name: p.planName,
                 price: p.basePrice,
                 providerName: p.providerName,
             }));
-        }
-
-        if (service.category === 'Airtime' && (!service.variations || service.variations.length === 0)) {
-             const allAirtimeNetworks = [
+        } else if (service.category === 'Airtime' && (!service.variations || service.variations.length === 0)) {
+            const allAirtimeNetworks = [
                 { id: '1', name: 'MTN' },
                 { id: '2', name: 'GLO' },
                 { id: '3', name: 'AIRTEL' },
@@ -494,7 +492,6 @@ export async function getServices(): Promise<Service[]> {
     services.sort((a, b) => a.name.localeCompare(b.name));
     return services;
 }
-
 
 
 export async function addService(data: { name: string; category: string }) {
@@ -686,3 +683,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
