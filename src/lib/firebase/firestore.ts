@@ -363,9 +363,9 @@ export async function getServices(): Promise<Service[]> {
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
-        { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'Glo' },
-        { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'Airtel' },
-        { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9mobile' },
+        { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'GLO' },
+        { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'AIRTEL' },
+        { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9MOBILE' },
         { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
         { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
         { name: "E-pins", category: 'Education', endpoint: '/epin/'},
@@ -373,12 +373,18 @@ export async function getServices(): Promise<Service[]> {
     ];
 
     const hasIncorrectDataService = services.some(s => s.name === 'Data Bundles');
+    const batch = writeBatch(db);
+    let needsCommit = false;
+
     if (hasIncorrectDataService) {
-        const batch = writeBatch(db);
         const incorrectServiceDoc = snapshot.docs.find(d => d.data().name === 'Data Bundles');
         if (incorrectServiceDoc) {
             batch.delete(incorrectServiceDoc.ref);
+            needsCommit = true;
         }
+    }
+    
+    if (needsCommit) {
         await batch.commit();
         // Refetch services after deletion
         const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
@@ -390,10 +396,10 @@ export async function getServices(): Promise<Service[]> {
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
 
     if (missingServices.length > 0) {
-        const batch = writeBatch(db);
+        const addBatch = writeBatch(db);
         missingServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
-            batch.set(docRef, {
+            addBatch.set(docRef, {
                 name: service.name,
                 category: service.category,
                 endpoint: service.endpoint,
@@ -405,7 +411,7 @@ export async function getServices(): Promise<Service[]> {
                 variations: [],
             });
         });
-        await batch.commit();
+        await addBatch.commit();
 
         const finalSnapshot = await getDocs(query(servicesCol, orderBy("name")));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
@@ -420,6 +426,7 @@ export async function getServices(): Promise<Service[]> {
                 id: p.planId,
                 name: p.name,
                 price: p.price,
+                planType: p.planType,
                 fees: p.fees,
             }));
         }
@@ -568,4 +575,3 @@ export async function deleteDisco(id: string) {
     
 
     
-

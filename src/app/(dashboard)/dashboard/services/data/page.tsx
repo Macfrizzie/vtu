@@ -26,7 +26,9 @@ import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -79,9 +81,19 @@ export default function DataPage() {
 
   const selectedServiceId = form.watch('serviceId');
   
-  const availablePlans = useMemo(() => {
+  const { availablePlans, groupedPlans } = useMemo(() => {
     const selectedService = services.find(s => s.id === selectedServiceId);
-    return selectedService?.variations || [];
+    const plans = selectedService?.variations || [];
+    const grouped = plans.reduce((acc, plan) => {
+        const type = plan.planType || 'Other';
+        if (!acc[type]) {
+            acc[type] = [];
+        }
+        acc[type].push(plan);
+        return acc;
+    }, {} as Record<string, ServiceVariation[]>);
+
+    return { availablePlans: plans, groupedPlans: grouped };
   }, [selectedServiceId, services]);
 
   async function onSubmit(values: FormData) {
@@ -229,15 +241,20 @@ export default function DataPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {availablePlans.map(plan => {
-                            const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
-                            const finalPrice = plan.price + fee;
-                            return (
-                                <SelectItem key={plan.id} value={plan.id}>
-                                    {plan.name} (₦{finalPrice.toLocaleString()})
-                                </SelectItem>
-                            )
-                        })}
+                        {Object.entries(groupedPlans).map(([type, plans]) => (
+                            <SelectGroup key={type}>
+                                <SelectLabel>{type}</SelectLabel>
+                                {plans.map(plan => {
+                                    const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
+                                    const finalPrice = plan.price + fee;
+                                    return (
+                                        <SelectItem key={plan.id} value={plan.id}>
+                                            {plan.name} (₦{finalPrice.toLocaleString()})
+                                        </SelectItem>
+                                    )
+                                })}
+                            </SelectGroup>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

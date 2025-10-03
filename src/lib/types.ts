@@ -41,6 +41,7 @@ export type ServiceVariation = {
   id: string; // variation_code, plan_id, or network_id
   name: string;
   price: number;
+  planType?: string; // Added to support categorization
   fees?: { [key in UserData['role']]: number };
 };
 
