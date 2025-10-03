@@ -204,19 +204,19 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     airtime_type: "VTU"
                 };
             } else if (service.category === 'Data') {
-                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
+                const selectedVariation = networkVariation?.plans?.find(p => p.id === variationId);
+
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected data plan.");
                 }
 
                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
-                description = `${service.name} ${selectedVariation.name} for ${inputs.mobile_number}`;
-                
-                const networkName = service.name.split(' ')[0]; // E.g., "MTN" from "MTN Data"
+                description = `${networkVariation?.name} ${selectedVariation.name} for ${inputs.mobile_number}`;
 
                 requestBody = {
-                    network: networkName, 
-                    plan: inputs.plan,
+                    network: networkVariation?.name, // E.g., "MTN"
+                    plan: selectedVariation.id, // The actual plan ID for the provider
                     mobile_number: inputs.mobile_number,
                 };
             } else {
@@ -362,35 +362,12 @@ export async function getServices(): Promise<Service[]> {
 
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
-        { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
-        { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'GLO' },
-        { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'AIRTEL' },
-        { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9MOBILE' },
+        { name: "Data", category: 'Data', endpoint: '/data/' },
         { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
         { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
-        { name: "E-pins", category: 'Education', endpoint: '/epin/'},
-        { name: "Recharge Card", category: 'Recharge Card', endpoint: '/recharge-card/'},
+        { name: "Education E-Pins", category: 'Education', endpoint: '/epin/'},
+        { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
-
-    const hasIncorrectDataService = services.some(s => s.name === 'Data Bundles');
-    const batch = writeBatch(db);
-    let needsCommit = false;
-
-    if (hasIncorrectDataService) {
-        const incorrectServiceDoc = snapshot.docs.find(d => d.data().name === 'Data Bundles');
-        if (incorrectServiceDoc) {
-            batch.delete(incorrectServiceDoc.ref);
-            needsCommit = true;
-        }
-    }
-    
-    if (needsCommit) {
-        await batch.commit();
-        // Refetch services after deletion
-        const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
-        services = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
-    }
-
 
     const existingServiceNames = new Set(services.map(s => s.name));
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
@@ -412,26 +389,36 @@ export async function getServices(): Promise<Service[]> {
             });
         });
         await addBatch.commit();
-
+        // Refetch after adding missing services
         const finalSnapshot = await getDocs(query(servicesCol, orderBy("name")));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
     
-    // Fetch all data plans and attach them to the correct data service
-    const dataPlans = await getDataPlans();
-    services.forEach(service => {
-        if (service.category === 'Data' && service.provider) {
-            const matchingPlans = dataPlans.filter(p => p.networkName === service.provider);
-            service.variations = matchingPlans.map(p => ({
-                id: p.planId,
+    // Fetch all data plans and attach them to the 'Data' service
+    const dataService = services.find(s => s.category === 'Data');
+    if (dataService) {
+        const dataPlans = await getDataPlans();
+        const networks = [
+            { id: '1', name: 'MTN'},
+            { id: '2', name: 'GLO'},
+            { id: '3', name: 'AIRTEL'},
+            { id: '4', name: '9MOBILE'},
+        ];
+
+        dataService.variations = networks.map(network => ({
+            id: network.id,
+            name: network.name,
+            price: 0, // Not applicable for the network itself
+            plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
+                 id: p.planId,
                 name: p.name,
                 price: p.price,
                 planType: p.planType,
                 fees: p.fees,
                 validity: p.validity,
-            }));
-        }
-    });
+            }))
+        }));
+    }
 
     return services;
 }
@@ -576,4 +563,3 @@ export async function deleteDisco(id: string) {
     
 
     
-

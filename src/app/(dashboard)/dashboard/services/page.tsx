@@ -48,33 +48,16 @@ export default function ServicesPage() {
     const groupedServices = useMemo(() => {
         if (loading) return [];
 
-        const activeServices = services.filter(s => s.status === 'Active');
-
         const serviceMap = new Map<string, Service>();
 
-        activeServices.forEach(service => {
-            if (!service.category) return;
+        services.forEach(service => {
+            if (!service.category || service.status === 'Inactive') return;
             
-            // We use the category as the key to group services.
-            // If we haven't seen this category yet, we add a representative service to the map.
             if (!serviceMap.has(service.category)) {
-                // For "Data", we create a custom "Data Bundles" entry.
-                // For others, we just use the first service we encounter for that category.
-                if (service.category === 'Data') {
-                     serviceMap.set('Data', {
-                        id: 'data-category-group',
-                        name: 'Data Bundles',
-                        category: 'Data',
-                        status: 'Active',
-                    });
-                } else {
-                     serviceMap.set(service.category, {
-                        id: service.id,
-                        name: service.category, // Use category name for display
-                        category: service.category,
-                        status: 'Active'
-                     });
-                }
+                serviceMap.set(service.category, {
+                    ...service,
+                    name: service.category, 
+                });
             }
         });
         

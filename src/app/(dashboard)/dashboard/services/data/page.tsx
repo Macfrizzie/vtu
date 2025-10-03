@@ -40,7 +40,7 @@ import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import type { Service, ServiceVariation } from '@/lib/types';
 
 const formSchema = z.object({
-  serviceId: z.string().min(1, 'Please select a network.'),
+  networkId: z.string().min(1, 'Please select a network.'),
   phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number.'),
   planType: z.string().min(1, "Please select a plan type."),
   variationId: z.string().min(1, 'Please select a data plan.'),
@@ -69,13 +69,13 @@ export default function DataPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
+  const [dataService, setDataService] = useState<Service | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      serviceId: '',
+      networkId: '',
       phone: '',
       planType: '',
       variationId: '',
@@ -87,7 +87,8 @@ export default function DataPage() {
       setServicesLoading(true);
       try {
         const allServices = await getServices();
-        setServices(allServices.filter(s => s.category === 'Data' && s.status === 'Active'));
+        const service = allServices.find(s => s.category === 'Data');
+        setDataService(service || null);
       } catch (error) {
         console.error("Failed to fetch data services:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load data plans.' });
@@ -98,15 +99,15 @@ export default function DataPage() {
     fetchServices();
   }, [toast]);
 
-  const selectedServiceId = form.watch('serviceId');
+  const selectedNetworkId = form.watch('networkId');
   const selectedPlanType = form.watch('planType');
   
   const { allPlansForNetwork, availablePlanTypes } = useMemo(() => {
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    const plans = selectedService?.variations || [];
+    const selectedNetwork = dataService?.variations?.find(v => v.id === selectedNetworkId);
+    const plans = selectedNetwork?.plans || [];
     const planTypes = [...new Set(plans.map(p => p.planType).filter(Boolean)) as string[]];
     return { allPlansForNetwork: plans, availablePlanTypes: planTypes };
-  }, [selectedServiceId, services]);
+  }, [selectedNetworkId, dataService]);
 
   const availablePlans = useMemo(() => {
       if (!selectedPlanType) return [];
@@ -117,7 +118,7 @@ export default function DataPage() {
 
 
   async function onSubmit(values: FormData) {
-    if (!user || !userData) {
+    if (!user || !userData || !dataService) {
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
@@ -145,16 +146,16 @@ export default function DataPage() {
     setIsPurchasing(true);
     try {
       const purchaseInputs = { 
-          mobile_number: values.phone, 
-          plan: values.variationId,
+          networkId: values.networkId,
+          mobile_number: values.phone,
       };
-      await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
+      await purchaseService(user.uid, dataService.id, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
         description: `${selectedVariation.name} for ${values.phone} was purchased.`,
       });
-      form.reset({ serviceId: '', phone: '', planType: '', variationId: ''});
+      form.reset({ networkId: '', phone: '', planType: '', variationId: ''});
     } catch (error) {
       console.error(error);
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -201,7 +202,7 @@ export default function DataPage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="serviceId"
+                name="networkId"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Mobile Network</FormLabel>
@@ -212,7 +213,7 @@ export default function DataPage() {
                         form.resetField('variationId');
                       }}
                       value={field.value}
-                      disabled={servicesLoading}
+                      disabled={servicesLoading || !dataService}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -220,9 +221,9 @@ export default function DataPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {services.map(service => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name}
+                        {dataService?.variations?.map(network => (
+                          <SelectItem key={network.id} value={network.id}>
+                            {network.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -256,11 +257,11 @@ export default function DataPage() {
                         form.resetField('variationId');
                       }}
                       value={field.value}
-                      disabled={!selectedServiceId || availablePlanTypes.length === 0}
+                      disabled={!selectedNetworkId || availablePlanTypes.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={!selectedServiceId ? "Select network first" : "Select a plan type"} />
+                          <SelectValue placeholder={!selectedNetworkId ? "Select network first" : "Select a plan type"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

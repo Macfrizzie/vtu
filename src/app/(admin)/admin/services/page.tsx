@@ -56,8 +56,8 @@ const addServiceFormSchema = z.object({
 const allAirtimeNetworks = [
     { id: '1', name: 'MTN'},
     { id: '2', name: 'Glo'},
-    { id: '4', name: 'Airtel'},
-    { id: '3', name: '9mobile'},
+    { id: '3', name: 'Airtel'},
+    { id: '4', name: '9mobile'},
 ];
 
 export default function AdminServicesPage() {
@@ -412,7 +412,7 @@ export default function AdminServicesPage() {
                                       checked={field.value?.some(v => v.id === network.id)}
                                       onCheckedChange={(checked) => {
                                         return checked
-                                          ? field.onChange([...field.value, { id: network.id, name: network.name, price: 0 }])
+                                          ? field.onChange([...(field.value || []), { id: network.id, name: network.name, price: 0 }])
                                           : field.onChange(
                                               field.value?.filter(
                                                 (value) => value.id !== network.id
