@@ -222,16 +222,18 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
 
             } else if (service.category === 'Cable') {
-                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                 const allCablePlans = await getCablePlans();
+                 const selectedVariation = allCablePlans.find(v => v.planId === variationId);
+
                  if (!selectedVariation) {
                     throw new Error("Could not find the selected cable package.");
                  }
-                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
-                 description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
+                 totalCost = selectedVariation.basePrice + (service.markupValue || 0);
+                 description = `${selectedVariation.planName} for ${inputs.smart_card_number}`;
                  
                  requestBody = {
-                    cablename: service.name, // "DSTV", "GOTV" etc.
-                    cableplan: variationId, // The plan id
+                    cablename: inputs.cablename,
+                    cableplan: variationId,
                     smart_card_number: inputs.smart_card_number,
                  };
             } else if (service.category === 'Electricity') {
@@ -411,9 +413,7 @@ export async function getServices(): Promise<Service[]> {
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "Data", category: 'Data', endpoint: '/data/' },
         { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
-        { name: "DSTV", category: 'Cable', endpoint: '/cablesub/' },
-        { name: "GOTV", category: 'Cable', endpoint: '/cablesub/' },
-        { name: "Startimes", category: 'Cable', endpoint: '/cablesub/' },
+        { name: "Cable TV", category: 'Cable', endpoint: '/cablesub/' },
         { name: "Education E-Pins", category: 'Education', endpoint: '/epin/'},
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
@@ -500,18 +500,19 @@ export async function getServices(): Promise<Service[]> {
     }
     
     // Populate Cable services with their plans
-    services.forEach(service => {
-        if (service.category === 'Cable') {
-            const providerName = service.name.toUpperCase();
-            const plansForProvider = allCablePlans.filter(p => p.providerName === providerName);
-            service.variations = plansForProvider.map(p => ({
-                id: p.planId,
-                name: p.planName,
-                price: p.basePrice,
-                fees: { Customer: 100, Vendor: 50, Admin: 0 } // Example fees
-            }));
-        }
-    });
+    const cableService = services.find(s => s.category === 'Cable');
+    if (cableService) {
+        const plans = await getCablePlans();
+        // This time, we just attach all plans to the single Cable TV service
+        // The frontend will be responsible for filtering by provider
+        cableService.variations = plans.map(p => ({
+            id: p.planId,
+            name: p.planName,
+            price: p.basePrice,
+            // We add a custom field to know which provider this plan belongs to
+            providerName: p.providerName,
+        }));
+    }
 
     return services;
 }
@@ -693,6 +694,7 @@ export async function deleteDisco(id: string) {
 
 
     
+
 
 
 

@@ -36,16 +36,22 @@ import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles } from 'lucide-react';
 import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
-import type { Service, ApiProvider } from '@/lib/types';
+import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { useSearchParams } from 'next/navigation';
 
 const formSchema = z.object({
-  serviceId: z.string().min(1, 'Please select a provider.'),
+  cablename: z.string().min(1, 'Please select a provider.'),
   smartCardNumber: z.string().regex(/^\d{10,12}$/, 'Please enter a valid smart card number (10-12 digits).'),
   variationId: z.string().min(1, 'Please select a package.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+const cableProviders = [
+  { id: 'DSTV', name: 'DSTV' },
+  { id: 'GOTV', name: 'GOtv' },
+  { id: 'STARTIMES', name: 'Startimes' },
+];
 
 export default function CableTvPage() {
   const { user, userData, loading, forceRefetch } = useUser();
@@ -53,14 +59,14 @@ export default function CableTvPage() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
+  const [cableService, setCableService] = useState<Service | null>(null);
   const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      serviceId: '',
+      cablename: '',
       smartCardNumber: '',
       variationId: '',
     },
@@ -74,7 +80,7 @@ export default function CableTvPage() {
                 getServices(),
                 getApiProviders()
             ]);
-            setServices(allServices.filter(s => s.category === 'Cable' && s.status === 'Active'));
+            setCableService(allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null);
             setApiProviders(allProviders.filter(p => p.status === 'Active'));
         } catch (error) {
             console.error("Failed to fetch cable services:", error);
@@ -87,13 +93,13 @@ export default function CableTvPage() {
   }, [toast]);
   
 
-  const selectedServiceId = form.watch('serviceId');
+  const selectedCableName = form.watch('cablename');
   const smartCardValue = form.watch('smartCardNumber');
-  const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId), [selectedServiceId, services]);
 
   const availablePackages = useMemo(() => {
-    return selectedService?.variations || [];
-  }, [selectedService]);
+    if (!selectedCableName || !cableService) return [];
+    return (cableService.variations || []).filter(v => v.providerName === selectedCableName);
+  }, [selectedCableName, cableService]);
 
   const selectedVariationId = form.watch('variationId');
   const selectedVariation = availablePackages.find(v => v.id === selectedVariationId);
@@ -103,13 +109,13 @@ export default function CableTvPage() {
     setCustomerName(null);
     form.clearErrors('smartCardNumber');
 
-    if (!selectedService || !selectedService.apiProviderIds || selectedService.apiProviderIds.length === 0) {
+    if (!cableService || !cableService.apiProviderIds || cableService.apiProviderIds.length === 0) {
         toast({ variant: 'destructive', title: 'Configuration Error', description: 'Selected service is not linked to an API provider.' });
         setIsVerifying(false);
         return;
     }
 
-    const providerInfo = selectedService.apiProviderIds.find(p => p.priority === 'Primary') || selectedService.apiProviderIds[0];
+    const providerInfo = cableService.apiProviderIds.find(p => p.priority === 'Primary') || cableService.apiProviderIds[0];
     const provider = apiProviders.find(p => p.id === providerInfo.id);
 
     if (!provider) {
@@ -119,14 +125,14 @@ export default function CableTvPage() {
     }
 
     try {
-      if(!selectedService.name) {
+      if(!selectedCableName) {
           throw new Error("Selected service does not have a valid provider name for verification.");
       }
       
       const verificationResult = await verifySmartCard(
           provider.baseUrl,
           provider.apiKey || '',
-          selectedService.name,
+          selectedCableName,
           smartCardValue
       );
       
@@ -165,12 +171,12 @@ export default function CableTvPage() {
         return;
     }
 
-    if (!selectedVariation || !selectedService) {
+    if (!selectedVariation || !cableService) {
       toast({ variant: 'destructive', title: 'Invalid Package', description: 'The selected package could not be found.' });
       return;
     }
 
-    const totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
+    const totalCost = selectedVariation.price + (cableService.markupValue || 0);
 
     if (userData.walletBalance < totalCost) {
       toast({
@@ -186,9 +192,10 @@ export default function CableTvPage() {
       const purchaseInputs = {
           smart_card_number: values.smartCardNumber,
           customer_name: customerName,
+          cablename: values.cablename,
       };
 
-      await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
+      await purchaseService(user.uid, cableService.id, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
@@ -209,7 +216,7 @@ export default function CableTvPage() {
     }
   }
 
-  const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0) : 0;
+  const totalCost = selectedVariation ? selectedVariation.price + (cableService?.markupValue || 0) : 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -237,7 +244,7 @@ export default function CableTvPage() {
             <CardContent className="space-y-6">
               <FormField
                 control={form.control}
-                name="serviceId"
+                name="cablename"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cable Provider</FormLabel>
@@ -257,7 +264,7 @@ export default function CableTvPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {services.map(s => (
+                        {cableProviders.map(s => (
                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -292,7 +299,7 @@ export default function CableTvPage() {
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={!selectedServiceId}
+                      disabled={!selectedCableName}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -301,8 +308,7 @@ export default function CableTvPage() {
                       </FormControl>
                       <SelectContent>
                         {availablePackages.map(p => {
-                          const fee = p.fees?.[userData?.role || 'Customer'] || 0;
-                          const finalPrice = p.price + fee;
+                          const finalPrice = p.price + (cableService?.markupValue || 0);
                           return (
                             <SelectItem key={p.id} value={p.id}>
                               {p.name} (₦{finalPrice.toLocaleString()})
@@ -330,7 +336,7 @@ export default function CableTvPage() {
                         {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Subscription')}
                     </Button>
                  ) : (
-                    <Button type="button" className="w-full" size="lg" onClick={handleVerify} disabled={isVerifying || !form.formState.isValid}>
+                    <Button type="button" className="w-full" size="lg" onClick={handleVerify} disabled={isVerifying || !form.formState.isValid || !selectedVariationId}>
                         {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4"/>}
                         Verify Details
                     </Button>
