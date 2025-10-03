@@ -158,7 +158,7 @@ export default function DataPage() {
       form.reset({ networkId: '', phone: '', planType: '', variationId: ''});
     } catch (error) {
       console.error(error);
-      const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      const errorMessage = `${selectedPlanType} not available at the moment, check other plans`;
       toast({
         variant: 'destructive',
         title: 'Purchase Failed',
@@ -333,4 +333,5 @@ export default function DataPage() {
     </div>
   );
 }
+
 
