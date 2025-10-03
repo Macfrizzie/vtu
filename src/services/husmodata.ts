@@ -81,13 +81,15 @@ export async function fetchHusmoDataNetworks(baseUrl: string, apiKey: string): P
 }
 
 export async function verifySmartCard(baseUrl: string, apiKey: string, cablename: string, smartCardNumber: string): Promise<VerificationResponse> {
+    // The validation URL from doc is different from purchase URL. We construct it manually.
+    const validationUrl = baseUrl.replace('/api', '/ajax');
     const endpoint = '/validate_iuc';
     const params = {
         smart_card_number: smartCardNumber,
         cablename: cablename.toUpperCase(), // API expects uppercase, e.g., GOTV
     };
 
-    return makeApiRequest<VerificationResponse>(baseUrl, apiKey, endpoint, 'GET', params);
+    return makeApiRequest<VerificationResponse>(validationUrl, apiKey, endpoint, 'GET', params);
 }
 
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
@@ -118,3 +120,6 @@ export async function testHusmoDataConnection(baseUrl: string, apiKey: string): 
 
 
 
+
+
+    

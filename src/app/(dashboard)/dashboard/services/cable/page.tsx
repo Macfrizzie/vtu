@@ -126,7 +126,7 @@ export default function CableTvPage() {
       }
       
       const verificationResult = await verifySmartCard(
-          provider.baseUrl.replace('/api', ''), // The validation URL seems to be at the root
+          provider.baseUrl,
           provider.apiKey || '',
           selectedService.name,
           smartCardValue
@@ -340,3 +340,5 @@ export default function CableTvPage() {
     </div>
   );
 }
+
+    
