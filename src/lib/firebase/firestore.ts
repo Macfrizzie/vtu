@@ -231,7 +231,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                  endpoint = '/cablesub/';
                  requestBody = {
                     cablename: service.name,
-                    cableplan: selectedVariation.id,
+                    cableplan: variationId,
                     smart_card_number: inputs.smart_card_number,
                  };
             } else if (service.category === 'Electricity') {
@@ -411,7 +411,9 @@ export async function getServices(): Promise<Service[]> {
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "Data", category: 'Data', endpoint: '/data/' },
         { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
-        { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
+        { name: "DSTV", category: 'Cable', endpoint: '/billpayment/' },
+        { name: "GOTV", category: 'Cable', endpoint: '/billpayment/' },
+        { name: "Startimes", category: 'Cable', endpoint: '/billpayment/' },
         { name: "Education E-Pins", category: 'Education', endpoint: '/epin/'},
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
@@ -420,15 +422,16 @@ export async function getServices(): Promise<Service[]> {
     const batch = writeBatch(db);
     let needsCommit = false;
 
-    const servicesToDelete = services.filter(s => !correctServiceNames.has(s.name));
-    
+    // This check is too broad, let's be more specific
+    const servicesToDelete = services.filter(s => s.category === 'Cable' && !correctServiceNames.has(s.name));
     if (servicesToDelete.length > 0) {
         servicesToDelete.forEach(service => {
-            console.log(`Scheduling deletion for incorrect service: ${service.name} (${service.id})`);
+            console.log(`Scheduling deletion for incorrect cable service: ${service.name} (${service.id})`);
             batch.delete(doc(db, 'services', service.id));
         });
         needsCommit = true;
     }
+
 
     const existingServiceNames = new Set(services.map(s => s.name));
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
@@ -683,3 +686,4 @@ export async function deleteDisco(id: string) {
 
 
     
+
