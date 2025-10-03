@@ -441,6 +441,22 @@ export async function getServices(): Promise<Service[]> {
             }))
         }));
     }
+    
+    // Attach airtime variations to the 'Airtime' service
+    const airtimeService = services.find(s => s.category === 'Airtime');
+    if (airtimeService) {
+        const allAirtimeNetworks = [
+            { id: '1', name: 'MTN'},
+            { id: '2', name: 'GLO'},
+            { id: '3', name: 'AIRTEL'},
+            { id: '4', name: '9MOBILE'},
+        ];
+        // If variations are defined in the service doc (from admin), use those. Otherwise, use all.
+        if (!airtimeService.variations || airtimeService.variations.length === 0) {
+            airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
+        }
+    }
+
 
     return services;
 }
@@ -585,3 +601,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
