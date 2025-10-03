@@ -418,46 +418,37 @@ export async function getServices(): Promise<Service[]> {
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
 
-    const correctServiceNames = new Set(coreServices.map(cs => cs.name));
     const batch = writeBatch(db);
     let needsCommit = false;
 
-    // This check is too broad, let's be more specific
-    const servicesToDelete = services.filter(s => s.category === 'Cable' && !correctServiceNames.has(s.name));
-    if (servicesToDelete.length > 0) {
-        servicesToDelete.forEach(service => {
-            console.log(`Scheduling deletion for incorrect cable service: ${service.name} (${service.id})`);
-            batch.delete(doc(db, 'services', service.id));
-        });
-        needsCommit = true;
-    }
-
-
     const existingServiceNames = new Set(services.map(s => s.name));
-    const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
 
-    if (missingServices.length > 0) {
-        missingServices.forEach((serviceData) => {
-            console.log(`Scheduling creation for missing service: ${serviceData.name}`);
+    for (const coreService of coreServices) {
+        if (!existingServiceNames.has(coreService.name)) {
+            console.log(`Scheduling creation for missing service: ${coreService.name}`);
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
-                name: serviceData.name,
-                category: serviceData.category,
-                endpoint: serviceData.endpoint,
+                name: coreService.name,
+                category: coreService.category,
+                endpoint: coreService.endpoint,
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
                 apiProviderIds: [],
                 variations: [],
             });
-        });
-        needsCommit = true;
+            needsCommit = true;
+        }
     }
+
 
     if (needsCommit) {
         await batch.commit();
         const finalSnapshot = await getDocs(query(servicesCol));
-        services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+        services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
+    } else {
+        // Ensure apiProviderIds is always an array
+        services = services.map(s => ({ ...s, apiProviderIds: s.apiProviderIds || [] }));
     }
 
     services.sort((a, b) => a.name.localeCompare(b.name));
@@ -686,4 +677,5 @@ export async function deleteDisco(id: string) {
 
 
     
+
 
