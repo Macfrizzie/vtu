@@ -206,7 +206,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
             } else if (service.category === 'Data') {
                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
                 const selectedVariation = networkVariation?.plans?.find(p => p.id === variationId);
-
+                
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected data plan.");
                 }
@@ -215,8 +215,8 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 description = `${networkVariation?.name} ${selectedVariation.name} for ${inputs.mobile_number}`;
 
                 requestBody = {
-                    network: networkVariation?.name, // E.g., "MTN"
-                    plan: selectedVariation.id, // The actual plan ID for the provider
+                    network: inputs.networkId,
+                    plan: variationId,
                     mobile_number: inputs.mobile_number,
                 };
             } else {
@@ -373,7 +373,6 @@ export async function getServices(): Promise<Service[]> {
     const batch = writeBatch(db);
     let needsCommit = false;
 
-    // Identify services to delete (anything not in the core list)
     const servicesToDelete = services.filter(s => !coreServiceNames.has(s.name));
     
     if (servicesToDelete.length > 0) {
@@ -383,7 +382,6 @@ export async function getServices(): Promise<Service[]> {
         needsCommit = true;
     }
 
-    // Identify which core services are missing and need to be added
     const existingServiceNames = new Set(services.map(s => s.name));
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
 
@@ -406,17 +404,12 @@ export async function getServices(): Promise<Service[]> {
 
     if (needsCommit) {
         await batch.commit();
-        // Refetch after changes to get the clean, final list
         const finalSnapshot = await getDocs(query(servicesCol));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
 
-    // Sort the final, clean list of services alphabetically by name
     services.sort((a, b) => a.name.localeCompare(b.name));
     
-    // --- Post-cleanup Data Hydration ---
-
-    // Fetch all data plans and attach them to the 'Data' service
     const dataService = services.find(s => s.category === 'Data');
     if (dataService) {
         const dataPlans = await getDataPlans();
@@ -430,7 +423,7 @@ export async function getServices(): Promise<Service[]> {
         dataService.variations = networks.map(network => ({
             id: network.id,
             name: network.name,
-            price: 0, // Not applicable for the network itself
+            price: 0, 
             plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
                 id: p.planId,
                 name: p.name,
@@ -442,7 +435,6 @@ export async function getServices(): Promise<Service[]> {
         }));
     }
     
-    // Attach airtime variations to the 'Airtime' service
     const airtimeService = services.find(s => s.category === 'Airtime');
     if (airtimeService) {
         const allAirtimeNetworks = [
@@ -451,7 +443,6 @@ export async function getServices(): Promise<Service[]> {
             { id: '3', name: 'AIRTEL'},
             { id: '4', name: '9MOBILE'},
         ];
-        // If variations are defined in the service doc (from admin), use those. Otherwise, use all.
         if (!airtimeService.variations || airtimeService.variations.length === 0) {
             airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
         }
@@ -602,3 +593,6 @@ export async function deleteDisco(id: string) {
 
     
 
+
+
+    
