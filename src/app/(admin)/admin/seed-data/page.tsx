@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Database } from 'lucide-react';
 import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import { app } from '@/lib/firebase/client-app';
-import type { DataPlan } from '@/lib/types';
+import type { DataPlan, CablePlan } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 
 const db = getFirestore(app);
@@ -211,7 +211,7 @@ const dataPlansText = `
 399 MTN "AWOOF GIFTING" ₦4850.0 14.5 GB --- 7 days Xtra Special Tariff
 364 MTN GIFTING ₦728.0 2.0 GB --- 2 days
 365 MTN GIFTING ₦780.0 1.0 GB --- 7 days direct data
-466 MTN "DATA SHARE" ₦460.0 1.0 GB --- 7 days
+466 MTN "DATA SHARE" ₦1200.0 3.0 GB --- 7 days
 366 MTN GIFTING ₦438.0 750.0 MB --- 3 days
 421 MTN "AWOOF GIFTING" ₦4840.0 20.0 GB --- 7 days
 422 MTN "AWOOF GIFTING" ₦4840.0 20.0 GB --- 7days
@@ -228,6 +228,7 @@ const dataPlansText = `
 
 export default function SeedDataPage() {
     const [isSeeding, setIsSeeding] = useState(false);
+    const [isCableSeeding, setIsCableSeeding] = useState(false);
     const [progress, setProgress] = useState(0);
     const [logs, setLogs] = useState<string[]>([]);
     const { toast } = useToast();
@@ -321,13 +322,74 @@ export default function SeedDataPage() {
             setIsSeeding(false);
         }
     };
+    
+     const seedCableData = async () => {
+        setIsCableSeeding(true);
+        setLogs(prev => [...prev, 'Starting Cable TV plan seed process...']);
+
+        const cablePlans: Omit<CablePlan, 'id'>[] = [
+            // GOTV
+            { providerId: "gotv", providerName: "GOTV", planId: "2", planName: "GOtv Max", basePrice: 8500 },
+            { providerId: "gotv", providerName: "GOTV", planId: "16", planName: "GOtv Jinja Bouquet", basePrice: 3900 },
+            { providerId: "gotv", providerName: "GOTV", planId: "17", planName: "GOtv Jolli", basePrice: 5800 },
+            { providerId: "gotv", providerName: "GOTV", planId: "18", planName: "GOtv smallie 1 month", basePrice: 1900 },
+            { providerId: "gotv", providerName: "GOTV", planId: "31", planName: "GOtv Smallie - Monthly", basePrice: 1900 },
+            { providerId: "gotv", providerName: "GOTV", planId: "32", planName: "GOtv Smallie - Quarterly", basePrice: 4175 },
+            { providerId: "gotv", providerName: "GOTV", planId: "36", planName: "GOtv Supa", basePrice: 11400 },
+            { providerId: "gotv", providerName: "GOTV", planId: "37", planName: "GOtv smallie 1 year", basePrice: 12300 },
+            { providerId: "gotv", providerName: "GOTV", planId: "38", planName: "GOtv Super Plus", basePrice: 16800 },
+            // DSTV
+            { providerId: "dstv", providerName: "DSTV", planId: "5", planName: "Asian Bouqet", basePrice: 12400 },
+            { providerId: "dstv", providerName: "DSTV", planId: "6", planName: "DStv Yanga Bouquet E36", basePrice: 6000 },
+            { providerId: "dstv", providerName: "DSTV", planId: "7", planName: "DStv Compact", basePrice: 19000 },
+            { providerId: "dstv", providerName: "DSTV", planId: "8", planName: "DStv Compact Plus", basePrice: 30000 },
+            { providerId: "dstv", providerName: "DSTV", planId: "9", planName: "DStv Premium", basePrice: 44500 },
+            { providerId: "dstv", providerName: "DSTV", planId: "19", planName: "DStv Confam Bouquet E36", basePrice: 11000 },
+            { providerId: "dstv", providerName: "DSTV", planId: "20", planName: "Padi", basePrice: 4400 },
+            { providerId: "dstv", providerName: "DSTV", planId: "33", planName: "DStv Compact XtraView", basePrice: 25000 },
+            { providerId: "dstv", providerName: "DSTV", planId: "34", planName: "DStv Compact Plus XtraView", basePrice: 36000 },
+            { providerId: "dstv", providerName: "DSTV", planId: "35", planName: "DStv Premium Xtraview", basePrice: 50500 },
+            // STARTIMES
+            { providerId: "startimes", providerName: "StarTimes", planId: "11", planName: "Classic - 5500Naira - 1 Month", basePrice: 5500 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "12", planName: "Basic - 3700Naira - 1 Month", basePrice: 3700 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "14", planName: "Nova - 1,900 Naira - 1 Month", basePrice: 1900 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "15", planName: "Super - 8800 Naira - 1 Month", basePrice: 8800 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "21", planName: "Nova - 600 Naira - 1 Week", basePrice: 600 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "22", planName: "Basic - 1250 Naira - 1 Week", basePrice: 1250 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "24", planName: "Classic - 1,900 Naira - 1 Week", basePrice: 1900 },
+            { providerId: "startimes", providerName: "StarTimes", planId: "25", planName: "Super - 3000 Naira - 1 Week", basePrice: 3000 },
+        ];
+
+        try {
+            const batch = writeBatch(db);
+            const cablePlansCollection = collection(db, 'cablePlans');
+
+            cablePlans.forEach(planData => {
+                const docRef = doc(cablePlansCollection);
+                batch.set(docRef, planData);
+            });
+            
+            await batch.commit();
+            setLogs(prev => [...prev, `Wrote ${cablePlans.length} cable plans to the database.`]);
+            toast({ title: "Cable TV Seeding Complete!", description: `${cablePlans.length} cable plans have been added.` });
+
+        } catch (error) {
+            console.error("Cable TV Seeding Error:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            setLogs(prev => [...prev, `ERROR: ${errorMessage}`]);
+            toast({ variant: 'destructive', title: "Cable TV Seeding Failed", description: errorMessage });
+        } finally {
+            setIsCableSeeding(false);
+        }
+    };
+
 
     return (
         <div className="space-y-8">
             <div>
                 <h1 className="text-3xl font-bold">Data Seeding Tool</h1>
                 <p className="text-muted-foreground">
-                    One-time tool to populate the database with data plans.
+                    One-time tools to populate the database with initial service data.
                 </p>
             </div>
 
@@ -335,7 +397,7 @@ export default function SeedDataPage() {
                 <CardHeader>
                     <CardTitle>Seed Data Plans</CardTitle>
                     <CardDescription>
-                        Click the button below to parse the provided data plan list and upload it to the Firestore `dataPlans` collection. This will overwrite any existing plans.
+                        Click the button below to parse the provided data plan list and upload it to the Firestore `dataPlans` collection. This should only be done once.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -352,6 +414,22 @@ export default function SeedDataPage() {
                     )}
                 </CardContent>
             </Card>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>Seed Cable TV Plans</CardTitle>
+                    <CardDescription>
+                        Click the button below to populate the Firestore `cablePlans` collection with the predefined list of DStv, GOtv, and StarTimes packages.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={seedCableData} disabled={isCableSeeding}>
+                        {isCableSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                        {isCableSeeding ? 'Seeding Cable Plans...' : 'Seed Cable Plans'}
+                    </Button>
+                </CardContent>
+            </Card>
+
 
             <Card className="max-h-96 overflow-y-auto">
                  <CardHeader>
