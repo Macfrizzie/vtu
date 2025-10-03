@@ -135,10 +135,6 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     if (!userSnap.exists()) throw new Error("User not found.");
     const userData = userSnap.data() as UserData;
 
-    const serviceRef = doc(db, 'services', serviceId);
-    const serviceSnap = await getDoc(serviceRef);
-    if (!serviceSnap.exists()) throw new Error("Service not found.");
-    
     // We need to refetch the service with variations populated
     const servicesWithData = await getServices();
     const service = servicesWithData.find(s => s.id === serviceId);
@@ -187,7 +183,6 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 }
 
                 let markup = 0;
-                // Markup is treated as a discount for airtime
                 if (service.markupType === 'percentage' && service.markupValue) {
                     markup = (baseAmount * service.markupValue) / 100;
                 } else if (service.markupType === 'fixed' && service.markupValue) {
@@ -202,7 +197,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 description = `${network.name} Airtime for ${inputs.mobile_number}`;
 
                  requestBody = {
-                    network: variationId, // The variationId is the network ID for airtime (e.g. '1' for MTN)
+                    network: variationId, 
                     amount: baseAmount,
                     mobile_number: inputs.mobile_number,
                     Ported_number: true,
@@ -210,35 +205,75 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
             } else if (service.category === 'Data') {
                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
-                if (!networkVariation || !networkVariation.plans) {
-                    throw new Error("Could not find the selected network.");
-                }
-
-                const selectedVariation = networkVariation.plans.find(p => p.planId === variationId);
+                const selectedPlan = networkVariation?.plans?.find(p => p.planId === variationId);
                 
-                if (!selectedVariation) {
+                if (!selectedPlan) {
                     throw new Error("Could not find the selected data plan.");
                 }
 
-                totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
-                description = `${networkVariation?.name} ${selectedVariation.name} for ${inputs.mobile_number}`;
+                totalCost = selectedPlan.price + (selectedPlan.fees?.[userData.role] || 0);
+                description = `${networkVariation?.name} ${selectedPlan.name} for ${inputs.mobile_number}`;
                 
                 requestBody = {
                     network: inputs.networkId,
                     mobile_number: inputs.mobile_number,
-                    plan: variationId,
+                    plan: variationId, // This is the plan_id like '241'
                     Ported_number: true
                 };
 
+            } else if (service.category === 'Cable') {
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                 if (!selectedVariation) {
+                    throw new Error("Could not find the selected cable package.");
+                 }
+                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
+                 description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
+                 requestBody = {
+                    smart_card_number: inputs.smart_card_number,
+                    service_id: service.name.split(' ')[0].toLowerCase(), // e.g. 'dstv'
+                    variation_code: selectedVariation.id,
+                 };
+            } else if (service.category === 'Electricity') {
+                 const selectedVariation = service.variations?.find(v => v.name === variationId);
+                 if (!selectedVariation) {
+                    throw new Error("Could not find the selected Disco.");
+                 }
+                 totalCost = inputs.amount + (selectedVariation.fees?.[userData.role] || 0);
+                 description = `${selectedVariation.name} payment for ${inputs.meterNumber}`;
+                 requestBody = {
+                     disco_name: selectedVariation.id,
+                     MeterType: inputs.meterType,
+                     meter_number: inputs.meterNumber,
+                     amount: inputs.amount,
+                 };
+            } else if (service.category === 'Education') {
+                const selectedVariation = service.variations?.find(v => v.id === variationId);
+                if (!selectedVariation) {
+                    throw new Error("Could not find the selected E-Pin type.");
+                }
+                totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
+                description = `${selectedVariation.name} Purchase`;
+                requestBody = {
+                    variation_code: selectedVariation.id,
+                    ...inputs
+                };
+            } else if (service.category === 'Recharge Card') {
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                 if (!selectedVariation) {
+                    throw new Error("Could not find the selected recharge card denomination.");
+                 }
+                 totalCost = (selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0)) * inputs.quantity;
+                 description = `${inputs.quantity} x ₦${selectedVariation.price} ${service.name} Purchase`;
+                 requestBody = {
+                    variation_code: selectedVariation.id,
+                    ...inputs
+                 };
             } else {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected service variation.");
                 }
-
                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
-
-                // Generic handler for other services
                 requestBody = { ...inputs };
             }
 
@@ -461,9 +496,10 @@ export async function getServices(): Promise<Service[]> {
             { id: '3', name: 'AIRTEL'},
             { id: '4', name: '9MOBILE'},
         ];
-        airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
+        if (!airtimeService.variations || airtimeService.variations.length === 0) {
+            airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
+        }
     }
-
 
     return services;
 }
@@ -614,4 +650,5 @@ export async function deleteDisco(id: string) {
     
 
     
+
 
