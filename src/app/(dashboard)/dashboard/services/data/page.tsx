@@ -103,10 +103,15 @@ export default function DataPage() {
   
   const { allPlansForNetwork, availablePlanTypes } = useMemo(() => {
     const selectedNetwork = dataService?.variations?.find(v => v.id === selectedNetworkId);
-    // Filter for active plans only
-    const plans = (selectedNetwork?.plans || []).filter(p => p.status === 'Active' || p.status === undefined);
-    const planTypes = [...new Set(plans.map(p => p.planType).filter(Boolean)) as string[]];
-    return { allPlansForNetwork: plans, availablePlanTypes: planTypes };
+    const allPlans = selectedNetwork?.plans || [];
+    
+    // First, filter for active plans
+    const activePlans = allPlans.filter(p => p.status === 'Active' || p.status === undefined);
+    
+    // Then, get unique plan types from the active plans
+    const planTypes = [...new Set(activePlans.map(p => p.planType).filter(Boolean)) as string[]];
+
+    return { allPlansForNetwork: activePlans, availablePlanTypes: planTypes };
   }, [selectedNetworkId, dataService]);
 
   const availablePlans = useMemo(() => {
