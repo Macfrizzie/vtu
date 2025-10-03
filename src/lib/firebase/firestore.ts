@@ -369,14 +369,29 @@ export async function getServices(): Promise<Service[]> {
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
 
+    const batch = writeBatch(db);
+    let needsCommit = false;
+
+    // Delete incorrect, duplicated services
+    const servicesToDelete = services.filter(s => s.name.includes("Data") && s.name !== "Data");
+    services.forEach(s => {
+        if (s.name.endsWith("Data") && s.name !== "Data") {
+             batch.delete(doc(db, 'services', s.id));
+             needsCommit = true;
+        }
+        if (s.name === "Airtime Top-up") { // Also remove the old airtime duplicate
+            batch.delete(doc(db, 'services', s.id));
+            needsCommit = true;
+        }
+    });
+
     const existingServiceNames = new Set(services.map(s => s.name));
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
 
     if (missingServices.length > 0) {
-        const addBatch = writeBatch(db);
         missingServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
-            addBatch.set(docRef, {
+            batch.set(docRef, {
                 name: service.name,
                 category: service.category,
                 endpoint: service.endpoint,
@@ -388,8 +403,12 @@ export async function getServices(): Promise<Service[]> {
                 variations: [],
             });
         });
-        await addBatch.commit();
-        // Refetch after adding missing services
+        needsCommit = true;
+    }
+
+    if (needsCommit) {
+        await batch.commit();
+        // Refetch after changes
         const finalSnapshot = await getDocs(query(servicesCol, orderBy("name")));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
@@ -410,7 +429,7 @@ export async function getServices(): Promise<Service[]> {
             name: network.name,
             price: 0, // Not applicable for the network itself
             plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
-                 id: p.planId,
+                id: p.planId,
                 name: p.name,
                 price: p.price,
                 planType: p.planType,

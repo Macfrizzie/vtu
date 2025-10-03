@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -55,9 +56,9 @@ const addServiceFormSchema = z.object({
 
 const allAirtimeNetworks = [
     { id: '1', name: 'MTN'},
-    { id: '2', name: 'Glo'},
-    { id: '3', name: 'Airtel'},
-    { id: '4', name: '9mobile'},
+    { id: '2', name: 'GLO'},
+    { id: '3', name: 'AIRTEL'},
+    { id: '4', name: '9MOBILE'},
 ];
 
 export default function AdminServicesPage() {
