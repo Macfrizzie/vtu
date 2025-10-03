@@ -406,8 +406,7 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
-    let services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
-
+    
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "Data", category: 'Data', endpoint: '/data/' },
@@ -416,52 +415,36 @@ export async function getServices(): Promise<Service[]> {
         { name: "Education E-Pins", category: 'Education', endpoint: '/epin/' },
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/' },
     ];
-
-    const batch = writeBatch(db);
-    let needsCommit = false;
+    
+    let services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     const existingServiceNames = new Set(services.map(s => s.name));
 
-    for (const coreService of coreServices) {
-        if (!existingServiceNames.has(coreService.name)) {
-            const docRef = doc(collection(db, 'services'));
-            batch.set(docRef, {
-                name: coreService.name,
-                category: coreService.category,
-                endpoint: coreService.endpoint,
-                status: "Active",
-                markupType: "none",
-                markupValue: 0,
-                apiProviderIds: [],
-                variations: [],
-            });
-            needsCommit = true;
+    if (coreServices.some(cs => !existingServiceNames.has(cs.name))) {
+        const batch = writeBatch(db);
+        for (const coreService of coreServices) {
+            if (!existingServiceNames.has(coreService.name)) {
+                const docRef = doc(collection(db, 'services'));
+                batch.set(docRef, {
+                    name: coreService.name,
+                    category: coreService.category,
+                    endpoint: coreService.endpoint,
+                    status: "Active",
+                    markupType: "none",
+                    markupValue: 0,
+                    apiProviderIds: [],
+                    variations: [],
+                });
+            }
         }
-    }
-
-    if (needsCommit) {
         await batch.commit();
-        // Re-fetch services after committing the batch to get the latest data
-        const finalSnapshot = await getDocs(query(servicesCol));
-        services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
+        const newSnapshot = await getDocs(query(servicesCol));
+        services = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     }
     
-    // Fetch all cable plans once
-    const allCablePlans = await getCablePlans();
-    // Fetch all data plans once
     const allDataPlans = await getDataPlans();
+    const allCablePlans = await getCablePlans();
 
-    // Map through the services and populate variations where necessary
     services = services.map(service => {
-        if (service.category === 'Cable') {
-            // Assign all fetched cable plans to the "Cable TV" service's variations
-            service.variations = allCablePlans.map(p => ({
-                id: p.planId,
-                name: p.planName,
-                price: p.basePrice,
-                providerName: p.providerName, // This is crucial for filtering on the frontend
-            }));
-        }
-
         if (service.category === 'Data') {
             const networks = [
                 { id: '1', name: 'MTN' },
@@ -483,6 +466,15 @@ export async function getServices(): Promise<Service[]> {
                     validity: p.validity,
                     status: p.status || 'Active',
                 })),
+            }));
+        }
+
+        if (service.category === 'Cable') {
+            service.variations = allCablePlans.map(p => ({
+                id: p.planId,
+                name: p.planName,
+                price: p.basePrice,
+                providerName: p.providerName,
             }));
         }
 
