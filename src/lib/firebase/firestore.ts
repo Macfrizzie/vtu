@@ -204,8 +204,17 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
             } else if (service.category === 'Data') {
                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
-                const selectedVariation = networkVariation?.plans?.find(p => p.id === variationId);
-                
+                let selectedVariation: ServiceVariation | undefined;
+
+                if (networkVariation && networkVariation.plans) {
+                    for (const plan of networkVariation.plans) {
+                        if (plan.id === variationId) {
+                            selectedVariation = plan;
+                            break;
+                        }
+                    }
+                }
+
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected data plan.");
                 }
@@ -216,7 +225,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 requestBody = {
                     network: inputs.networkId,
                     mobile_number: inputs.mobile_number,
-                    plan: variationId, 
+                    plan: variationId,
                     Ported_number: true
                 };
             } else {
