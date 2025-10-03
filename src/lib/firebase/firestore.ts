@@ -205,7 +205,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
             } else if (service.category === 'Data') {
                  const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
-                const selectedPlan = networkVariation?.plans?.find(p => p.planId === variationId);
+                 const selectedPlan = networkVariation?.plans?.find(p => p.planId === variationId);
                 
                 if (!selectedPlan) {
                     throw new Error("Could not find the selected data plan.");
@@ -483,6 +483,7 @@ export async function getServices(): Promise<Service[]> {
                 planType: p.planType,
                 fees: p.fees,
                 validity: p.validity,
+                status: p.status || 'Active', // Ensure status is present
             }))
         }));
     }

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -106,7 +107,7 @@ export default function DataPage() {
     if (!selectedNetwork) return { allPlansForNetwork: [], availablePlanTypes: [] };
     
     // First, filter for active plans only
-    const activePlans = (selectedNetwork.plans || []).filter(p => p.status === 'Active' || p.status === undefined);
+    const activePlans = (selectedNetwork.plans || []).filter(p => p.status === 'Active');
     
     // Then, get unique plan types from the active plans
     const planTypes = [...new Set(activePlans.map(p => p.planType).filter(Boolean)) as string[]];
@@ -131,7 +132,7 @@ export default function DataPage() {
     const selectedVariation = availablePlans.find(p => p.planId === values.variationId);
 
     if (!selectedVariation) {
-      toast({ variant: 'destructive', title: 'Invalid Plan', description: 'The selected data plan could not be found.' });
+      toast({ variant: 'destructive', title: 'Invalid Plan', description: 'The selected data plan could not be found. Please re-select the network and plan type.' });
       return;
     }
     
