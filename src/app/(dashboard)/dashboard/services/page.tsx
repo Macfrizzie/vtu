@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
@@ -48,6 +47,25 @@ export default function ServicesPage() {
         fetchServices();
     }, []);
 
+    const displayedServices = useMemo(() => {
+        if (loading) return [];
+        const otherServices = services.filter(s => s.category !== 'Data');
+        const hasActiveDataService = services.some(s => s.category === 'Data' && s.status === 'Active');
+
+        if (hasActiveDataService) {
+             const dataService: Service = {
+                id: 'data-bundle-service',
+                name: 'Data Bundles',
+                category: 'Data',
+                status: 'Active',
+            };
+            return [dataService, ...otherServices];
+        }
+        
+        return otherServices;
+
+    }, [services, loading]);
+
   return (
     <div className="space-y-8">
       <div>
@@ -61,7 +79,7 @@ export default function ServicesPage() {
             </div>
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {services.map((service) => (
+                {displayedServices.map((service) => (
                     <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors h-full">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
