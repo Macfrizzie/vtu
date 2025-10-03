@@ -406,20 +406,19 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const snapshot = await getDocs(query(servicesCol));
-    let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+    let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
 
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "Data", category: 'Data', endpoint: '/data/' },
-        { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
+        { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/' },
         { name: "Cable TV", category: 'Cable', endpoint: '/cablesub/' },
-        { name: "Education E-Pins", category: 'Education', endpoint: '/epin/'},
-        { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
+        { name: "Education E-Pins", category: 'Education', endpoint: '/epin/' },
+        { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/' },
     ];
 
     const batch = writeBatch(db);
     let needsCommit = false;
-
     const existingServiceNames = new Set(services.map(s => s.name));
 
     for (const coreService of coreServices) {
@@ -440,76 +439,76 @@ export async function getServices(): Promise<Service[]> {
         }
     }
 
-
     if (needsCommit) {
         await batch.commit();
+        // Refetch after committing
         const finalSnapshot = await getDocs(query(servicesCol));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
-    } else {
-        // Ensure apiProviderIds is always an array
-        services = services.map(s => ({ ...s, apiProviderIds: s.apiProviderIds || [] }));
     }
 
-    services.sort((a, b) => a.name.localeCompare(b.name));
-    
     // --- Populate Dynamic Variations ---
 
-    // Populate Data Service variations
-    const dataService = services.find(s => s.category === 'Data');
-    if (dataService) {
-        const dataPlans = await getDataPlans();
-        const networks = [
-            { id: '1', name: 'MTN'},
-            { id: '2', name: 'GLO'},
-            { id: '3', name: 'AIRTEL'},
-            { id: '4', name: '9MOBILE'},
-        ];
+    // Fetch all cable plans once
+    const allCablePlans = await getCablePlans();
 
-        dataService.variations = networks.map(network => ({
-            id: network.id,
-            name: network.name,
-            price: 0, 
-            plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
-                id: p.id, // The firestore document ID
-                planId: p.planId, // The actual ID to send to the API
-                name: p.name,
-                price: p.price,
-                planType: p.planType,
-                fees: p.fees,
-                validity: p.validity,
-                status: p.status || 'Active', // Ensure status is present
-            }))
-        }));
-    }
-    
-    // Populate Airtime Service variations
-    const airtimeService = services.find(s => s.category === 'Airtime');
-    if (airtimeService) {
-        const allAirtimeNetworks = [
-            { id: '1', name: 'MTN'},
-            { id: '2', name: 'GLO'},
-            { id: '3', name: 'AIRTEL'},
-            { id: '4', 'name': '9MOBILE'},
-        ];
-        if (!airtimeService.variations || airtimeService.variations.length === 0) {
-            airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
+    // Now, map over the services and populate them
+    services = services.map(service => {
+        // Populate Data Service variations
+        if (service.category === 'Data') {
+            const dataPlans = []; // This should be fetched if needed, e.g., await getDataPlans();
+            const networks = [
+                { id: '1', name: 'MTN' },
+                { id: '2', name: 'GLO' },
+                { id: '3', name: 'AIRTEL' },
+                { id: '4', name: '9MOBILE' },
+            ];
+            service.variations = networks.map(network => ({
+                id: network.id,
+                name: network.name,
+                price: 0,
+                plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
+                    id: p.id,
+                    planId: p.planId,
+                    name: p.name,
+                    price: p.price,
+                    planType: p.planType,
+                    fees: p.fees,
+                    validity: p.validity,
+                    status: p.status || 'Active',
+                })),
+            }));
         }
-    }
-    
-    // Populate Cable services with their plans
-    const cableService = services.find(s => s.category === 'Cable');
-    if (cableService) {
-        const plans = await getCablePlans();
-        cableService.variations = plans.map(p => ({
-            id: p.planId,
-            name: p.planName,
-            price: p.basePrice,
-            providerName: p.providerName,
-        }));
-    }
 
+        // Populate Airtime Service variations
+        if (service.category === 'Airtime') {
+            const allAirtimeNetworks = [
+                { id: '1', name: 'MTN' },
+                { id: '2', name: 'GLO' },
+                { id: '3', name: 'AIRTEL' },
+                { id: '4', name: '9MOBILE' },
+            ];
+            if (!service.variations || service.variations.length === 0) {
+                service.variations = allAirtimeNetworks.map(n => ({ ...n, price: 0 }));
+            }
+        }
+
+        // Populate Cable services with their plans
+        if (service.category === 'Cable') {
+            service.variations = allCablePlans.map(p => ({
+                id: p.planId,
+                name: p.planName,
+                price: p.basePrice,
+                providerName: p.providerName,
+            }));
+        }
+
+        return service;
+    });
+
+    services.sort((a, b) => a.name.localeCompare(b.name));
     return services;
 }
+
 
 export async function addService(data: { name: string; category: string }) {
     const servicesCol = collection(db, 'services');
@@ -695,3 +694,6 @@ export async function deleteDisco(id: string) {
 
 
 
+
+
+    
