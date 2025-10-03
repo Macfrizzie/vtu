@@ -266,7 +266,7 @@ export default function DataPage() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={!selectedNetworkId ? "Select network first" : "Select a plan type"} />
+                          <SelectValue placeholder={!selectedNetworkId ? "Select network first" : availablePlanTypes.length === 0 ? "No active plan types" : "Select a plan type"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -339,3 +339,4 @@ export default function DataPage() {
   );
 }
 
+    
