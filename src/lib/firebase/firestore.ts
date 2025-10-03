@@ -357,7 +357,7 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
-    const snapshot = await getDocs(query(servicesCol, orderBy("name")));
+    const snapshot = await getDocs(query(servicesCol)); // No ordering, we'll sort later
     let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 
     const coreServices = [
@@ -369,33 +369,31 @@ export async function getServices(): Promise<Service[]> {
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
 
+    const coreServiceNames = new Set(coreServices.map(cs => cs.name));
     const batch = writeBatch(db);
     let needsCommit = false;
 
-    // Delete incorrect, duplicated services
-    const servicesToDelete = services.filter(s => s.name.includes("Data") && s.name !== "Data");
-    services.forEach(s => {
-        if (s.name.endsWith("Data") && s.name !== "Data") {
-             batch.delete(doc(db, 'services', s.id));
-             needsCommit = true;
-        }
-        if (s.name === "Airtime Top-up") { // Also remove the old airtime duplicate
-            batch.delete(doc(db, 'services', s.id));
-            needsCommit = true;
-        }
-    });
+    // Identify services to delete (anything not in the core list)
+    const servicesToDelete = services.filter(s => !coreServiceNames.has(s.name));
+    
+    if (servicesToDelete.length > 0) {
+        servicesToDelete.forEach(service => {
+            batch.delete(doc(db, 'services', service.id));
+        });
+        needsCommit = true;
+    }
 
+    // Identify which core services are missing and need to be added
     const existingServiceNames = new Set(services.map(s => s.name));
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
 
     if (missingServices.length > 0) {
-        missingServices.forEach((service) => {
+        missingServices.forEach((serviceData) => {
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
-                name: service.name,
-                category: service.category,
-                endpoint: service.endpoint,
-                provider: service.provider || '',
+                name: serviceData.name,
+                category: serviceData.category,
+                endpoint: serviceData.endpoint,
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
@@ -408,11 +406,16 @@ export async function getServices(): Promise<Service[]> {
 
     if (needsCommit) {
         await batch.commit();
-        // Refetch after changes
-        const finalSnapshot = await getDocs(query(servicesCol, orderBy("name")));
+        // Refetch after changes to get the clean, final list
+        const finalSnapshot = await getDocs(query(servicesCol));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
+
+    // Sort the final, clean list of services alphabetically by name
+    services.sort((a, b) => a.name.localeCompare(b.name));
     
+    // --- Post-cleanup Data Hydration ---
+
     // Fetch all data plans and attach them to the 'Data' service
     const dataService = services.find(s => s.category === 'Data');
     if (dataService) {
