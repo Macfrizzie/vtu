@@ -103,10 +103,10 @@ export default function DataPage() {
   
   const { allPlansForNetwork, availablePlanTypes } = useMemo(() => {
     const selectedNetwork = dataService?.variations?.find(v => v.id === selectedNetworkId);
-    const allPlans = selectedNetwork?.plans || [];
+    if (!selectedNetwork) return { allPlansForNetwork: [], availablePlanTypes: [] };
     
-    // First, filter for active plans
-    const activePlans = allPlans.filter(p => p.status === 'Active' || p.status === undefined);
+    // First, filter for active plans only
+    const activePlans = (selectedNetwork.plans || []).filter(p => p.status === 'Active' || p.status === undefined);
     
     // Then, get unique plan types from the active plans
     const planTypes = [...new Set(activePlans.map(p => p.planType).filter(Boolean)) as string[]];
@@ -163,7 +163,7 @@ export default function DataPage() {
       form.reset({ networkId: '', phone: '', planType: '', variationId: ''});
     } catch (error) {
       console.error(error);
-      const errorMessage = `${selectedPlanType} not available at the moment, check other plans`;
+      const errorMessage = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
       toast({
         variant: 'destructive',
         title: 'Purchase Failed',
@@ -292,7 +292,7 @@ export default function DataPage() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={!selectedPlanType ? "Select plan type first" : availablePlans.length > 0 ? "Select a data plan" : "No plans available for this type"} />
+                          <SelectValue placeholder={!selectedPlanType ? "Select plan type first" : availablePlans.length > 0 ? "Select a data plan" : "No plans available"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -338,3 +338,4 @@ export default function DataPage() {
     </div>
   );
 }
+
