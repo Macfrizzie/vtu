@@ -138,7 +138,12 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     const serviceRef = doc(db, 'services', serviceId);
     const serviceSnap = await getDoc(serviceRef);
     if (!serviceSnap.exists()) throw new Error("Service not found.");
-    const service = { id: serviceSnap.id, ...serviceSnap.data() } as Service;
+    
+    // We need to refetch the service with variations populated
+    const servicesWithData = await getServices();
+    const service = servicesWithData.find(s => s.id === serviceId);
+
+    if (!service) throw new Error("Could not retrieve populated service.");
 
     if (!service.apiProviderIds || service.apiProviderIds.length === 0) {
         throw new Error("This service is not linked to any API provider.");
@@ -204,31 +209,27 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     airtime_type: "VTU"
                 };
             } else if (service.category === 'Data') {
-                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
-                let selectedVariation: ServiceVariation | undefined;
-
-                if (networkVariation && networkVariation.plans) {
-                    for (const plan of networkVariation.plans) {
-                        if (plan.planId === variationId) {
-                            selectedVariation = plan;
-                            break;
-                        }
-                    }
+                const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
+                if (!networkVariation || !networkVariation.plans) {
+                    throw new Error("Could not find the selected network.");
                 }
 
+                const selectedVariation = networkVariation.plans.find(p => p.planId === variationId);
+                
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected data plan.");
                 }
 
                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
                 description = `${networkVariation?.name} ${selectedVariation.name} for ${inputs.mobile_number}`;
-
+                
                 requestBody = {
                     network: inputs.networkId,
                     mobile_number: inputs.mobile_number,
                     plan: variationId,
                     Ported_number: true
                 };
+
             } else {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
                 if (!selectedVariation) {
@@ -460,10 +461,7 @@ export async function getServices(): Promise<Service[]> {
             { id: '3', name: 'AIRTEL'},
             { id: '4', name: '9MOBILE'},
         ];
-        // Ensure variations are populated if they are missing
-        if (!airtimeService.variations || airtimeService.variations.length === 0) {
-            airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
-        }
+        airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
     }
 
 
@@ -616,3 +614,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
