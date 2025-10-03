@@ -91,7 +91,7 @@ export default function DataPage() {
     }
 
     const selectedService = services.find(s => s.id === values.serviceId);
-    const selectedVariation = selectedService?.variations.find(v => v.id === values.variationId);
+    const selectedVariation = selectedService?.variations?.find(v => v.id === values.variationId);
 
     if (!selectedVariation) {
       toast({ variant: 'destructive', title: 'Invalid Plan', description: 'The selected data plan could not be found.' });
