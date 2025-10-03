@@ -48,6 +48,7 @@ export type Service = {
   id: string; 
   name: string;
   category: string;
+  provider?: string;
   status: 'Active' | 'Inactive';
   apiProviderIds?: { id: string, priority: 'Primary' | 'Fallback' }[]; // Links to ApiProviders
   markupType?: 'percentage' | 'fixed' | 'none'; // Global markup for this service

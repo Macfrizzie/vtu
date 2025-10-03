@@ -362,8 +362,11 @@ export async function getServices(): Promise<Service[]> {
     if (snapshot.empty) {
         const batch = writeBatch(db);
         const coreServices = [
-             { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
-            { name: "Data Bundles", category: 'Data', endpoint: '/data/' },
+            { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
+            { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
+            { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'Glo' },
+            { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'Airtel' },
+            { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9mobile' },
             { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
             { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
             { name: "E-pins", category: 'Education', endpoint: '/epin/'},
@@ -375,6 +378,7 @@ export async function getServices(): Promise<Service[]> {
                 name: service.name,
                 category: service.category,
                 endpoint: service.endpoint,
+                provider: service.provider || '',
                 status: "Active",
                 markupType: "none",
                 markupValue: 0,
@@ -531,3 +535,4 @@ export async function deleteDisco(id: string) {
     
 
     
+

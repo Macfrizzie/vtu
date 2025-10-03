@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -14,11 +15,11 @@ import { ServiceIcon } from '@/components/service-icon';
 const getServiceUrl = (service: Service) => {
     if (service.status === 'Inactive' || !service.name) return '#';
 
-    const query = `?provider=${encodeURIComponent(service.provider)}&name=${encodeURIComponent(service.name)}`;
+    const query = `?provider=${encodeURIComponent(service.provider || '')}&name=${encodeURIComponent(service.name)}`;
     
     const name = service.name.toLowerCase();
     if (name.includes('airtime')) return `/dashboard/services/airtime`;
-    if (name.includes('data bundles')) return `/dashboard/services/data`;
+    if (name.includes('data')) return `/dashboard/services/data`;
     if (name.includes('electricity')) return `/dashboard/services/electricity`;
     if (name.includes('cable')) return `/dashboard/services/cable`;
     if (name.includes('e-pins')) return `/dashboard/services/education`;
