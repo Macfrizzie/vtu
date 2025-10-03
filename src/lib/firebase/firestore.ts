@@ -500,8 +500,6 @@ export async function getServices(): Promise<Service[]> {
     const cableService = services.find(s => s.category === 'Cable');
     if (cableService) {
         const plans = await getCablePlans();
-        // This time, we just attach all plans to the single Cable TV service
-        // The frontend will be responsible for filtering by provider
         cableService.variations = plans.map(p => ({
             id: p.planId,
             name: p.planName,
@@ -690,6 +688,7 @@ export async function deleteDisco(id: string) {
 
 
     
+
 
 
 
