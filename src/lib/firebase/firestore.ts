@@ -216,7 +216,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
 
                 requestBody = {
                     network: networkName, 
-                    plan: selectedVariation.id,
+                    plan: inputs.plan,
                     mobile_number: inputs.mobile_number,
                 };
             } else {
@@ -358,21 +358,40 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const snapshot = await getDocs(query(servicesCol, orderBy("name")));
+    let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 
-    if (snapshot.empty) {
+    const hasIncorrectDataService = services.some(s => s.name === 'Data Bundles');
+    if (hasIncorrectDataService) {
         const batch = writeBatch(db);
-        const coreServices = [
-            { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
-            { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
-            { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'Glo' },
-            { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'Airtel' },
-            { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9mobile' },
-            { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
-            { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
-            { name: "E-pins", category: 'Education', endpoint: '/epin/'},
-            { name: "Recharge Card", category: 'Recharge Card', endpoint: '/recharge-card/'},
-        ];
-        coreServices.forEach((service) => {
+        const incorrectServiceDoc = snapshot.docs.find(d => d.data().name === 'Data Bundles');
+        if (incorrectServiceDoc) {
+            batch.delete(incorrectServiceDoc.ref);
+        }
+        await batch.commit();
+        // Refetch services after deletion
+        const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
+        services = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+    }
+
+
+    const coreServices = [
+        { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
+        { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
+        { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'Glo' },
+        { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'Airtel' },
+        { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9mobile' },
+        { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
+        { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
+        { name: "E-pins", category: 'Education', endpoint: '/epin/'},
+        { name: "Recharge Card", category: 'Recharge Card', endpoint: '/recharge-card/'},
+    ];
+
+    const existingServiceNames = new Set(services.map(s => s.name));
+    const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
+
+    if (missingServices.length > 0) {
+        const batch = writeBatch(db);
+        missingServices.forEach((service) => {
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
                 name: service.name,
@@ -387,12 +406,13 @@ export async function getServices(): Promise<Service[]> {
             });
         });
         await batch.commit();
-        
-        const newSnapshot = await getDocs(query(servicesCol, orderBy("name")));
-        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+
+        // Refetch all services to return a complete and correct list
+        const finalSnapshot = await getDocs(query(servicesCol, orderBy("name")));
+        return finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
 
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+    return services;
 }
 
 export async function addService(data: { name: string; category: string }) {
@@ -535,4 +555,3 @@ export async function deleteDisco(id: string) {
     
 
     
-
