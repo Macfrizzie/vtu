@@ -37,7 +37,6 @@ import { Loader2, UserCheck, Sparkles } from 'lucide-react';
 import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
-import { useSearchParams } from 'next/navigation';
 
 const formSchema = z.object({
   cablename: z.string().min(1, 'Please select a provider.'),
@@ -80,7 +79,8 @@ export default function CableTvPage() {
                 getServices(),
                 getApiProviders()
             ]);
-            setCableService(allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null);
+            const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
+            setCableService(service);
             setApiProviders(allProviders.filter(p => p.status === 'Active'));
         } catch (error) {
             console.error("Failed to fetch cable services:", error);
@@ -348,3 +348,5 @@ export default function CableTvPage() {
     </div>
   );
 }
+
+    

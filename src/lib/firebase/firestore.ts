@@ -447,6 +447,8 @@ export async function getServices(): Promise<Service[]> {
     
     // Fetch all cable plans once
     const allCablePlans = await getCablePlans();
+    // Fetch all data plans once
+    const allDataPlans = await getDataPlans();
 
     // Map through the services and populate variations where necessary
     services = services.map(service => {
@@ -461,7 +463,6 @@ export async function getServices(): Promise<Service[]> {
         }
 
         if (service.category === 'Data') {
-            const dataPlans = []; // This should be fetched if needed, e.g., await getDataPlans();
             const networks = [
                 { id: '1', name: 'MTN' },
                 { id: '2', name: 'GLO' },
@@ -472,7 +473,7 @@ export async function getServices(): Promise<Service[]> {
                 id: network.id,
                 name: network.name,
                 price: 0,
-                plans: dataPlans.filter(p => p.networkName === network.name).map(p => ({
+                plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
                     id: p.id,
                     planId: p.planId,
                     name: p.name,
@@ -689,5 +690,7 @@ export async function deleteDisco(id: string) {
 
 
 
+
+    
 
     
