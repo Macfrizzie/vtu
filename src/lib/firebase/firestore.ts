@@ -228,10 +228,10 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                  }
                  totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
                  description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
-                 endpoint = '/cablesub/';
+                 
                  requestBody = {
-                    cablename: service.name,
-                    cableplan: variationId,
+                    cablename: service.name, // "DSTV", "GOTV" etc.
+                    cableplan: variationId, // The plan id
                     smart_card_number: inputs.smart_card_number,
                  };
             } else if (service.category === 'Electricity') {
@@ -402,6 +402,55 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
     await updateDoc(userRef, data);
 }
 
+async function seedCablePlans() {
+    const cablePlansCol = collection(db, 'cablePlans');
+    const snapshot = await getDocs(cablePlansCol);
+    if (!snapshot.empty) {
+        return; // Plans already seeded
+    }
+
+    const plans: Omit<CablePlan, 'id'>[] = [
+        // GOTV
+        { providerId: "gotv", providerName: "GOTV", planId: "2", planName: "GOtv Max", basePrice: 8500 },
+        { providerId: "gotv", providerName: "GOTV", planId: "16", planName: "GOtv Jinja Bouquet", basePrice: 3900 },
+        { providerId: "gotv", providerName: "GOTV", planId: "17", planName: "GOtv Jolli", basePrice: 5800 },
+        { providerId: "gotv", providerName: "GOTV", planId: "18", planName: "GOtv smallie 1 month", basePrice: 1900 },
+        { providerId: "gotv", providerName: "GOTV", planId: "31", planName: "GOtv Smallie - Monthly", basePrice: 1900 },
+        { providerId: "gotv", providerName: "GOTV", planId: "32", planName: "GOtv Smallie - Quarterly", basePrice: 4175 },
+        { providerId: "gotv", providerName: "GOTV", planId: "36", planName: "GOtv Supa", basePrice: 11400 },
+        { providerId: "gotv", providerName: "GOTV", planId: "37", planName: "GOtv smallie 1 year", basePrice: 12300 },
+        { providerId: "gotv", providerName: "GOTV", planId: "38", planName: "GOtv Super Plus", basePrice: 16800 },
+        // DSTV
+        { providerId: "dstv", providerName: "DSTV", planId: "5", planName: "Asian Bouqet", basePrice: 12400 },
+        { providerId: "dstv", providerName: "DSTV", planId: "6", planName: "DStv Yanga Bouquet E36", basePrice: 6000 },
+        { providerId: "dstv", providerName: "DSTV", planId: "7", planName: "DStv Compact", basePrice: 19000 },
+        { providerId: "dstv", providerName: "DSTV", planId: "8", planName: "DStv Compact Plus", basePrice: 30000 },
+        { providerId: "dstv", providerName: "DSTV", planId: "9", planName: "DStv Premium", basePrice: 44500 },
+        { providerId: "dstv", providerName: "DSTV", planId: "19", planName: "DStv Confam Bouquet E36", basePrice: 11000 },
+        { providerId: "dstv", providerName: "DSTV", planId: "20", planName: "Padi", basePrice: 4400 },
+        { providerId: "dstv", providerName: "DSTV", planId: "33", planName: "DStv Compact XtraView", basePrice: 25000 },
+        { providerId: "dstv", providerName: "DSTV", planId: "34", planName: "DStv Compact Plus XtraView", basePrice: 36000 },
+        { providerId: "dstv", providerName: "DSTV", planId: "35", planName: "DStv Premium Xtraview", basePrice: 50500 },
+        // STARTIMES
+        { providerId: "startimes", providerName: "StarTimes", planId: "11", planName: "Classic - 5500Naira - 1 Month", basePrice: 5500 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "12", planName: "Basic - 3700Naira - 1 Month", basePrice: 3700 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "14", planName: "Nova - 1,900 Naira - 1 Month", basePrice: 1900 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "15", planName: "Super - 8800 Naira - 1 Month", basePrice: 8800 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "21", planName: "Nova - 600 Naira - 1 Week", basePrice: 600 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "22", planName: "Basic - 1250 Naira - 1 Week", basePrice: 1250 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "24", planName: "Classic - 1,900 Naira - 1 Week", basePrice: 1900 },
+        { providerId: "startimes", providerName: "StarTimes", planId: "25", planName: "Super - 3000 Naira - 1 Week", basePrice: 3000 },
+    ];
+    
+    const batch = writeBatch(db);
+    for (const plan of plans) {
+        const docRef = doc(cablePlansCol);
+        batch.set(docRef, plan);
+    }
+    await batch.commit();
+    console.log("Cable plans have been seeded.");
+}
+
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const snapshot = await getDocs(query(servicesCol));
@@ -411,9 +460,9 @@ export async function getServices(): Promise<Service[]> {
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
         { name: "Data", category: 'Data', endpoint: '/data/' },
         { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
-        { name: "DSTV", category: 'Cable', endpoint: '/billpayment/' },
-        { name: "GOTV", category: 'Cable', endpoint: '/billpayment/' },
-        { name: "Startimes", category: 'Cable', endpoint: '/billpayment/' },
+        { name: "DSTV", category: 'Cable', endpoint: '/cablesub/' },
+        { name: "GOTV", category: 'Cable', endpoint: '/cablesub/' },
+        { name: "Startimes", category: 'Cable', endpoint: '/cablesub/' },
         { name: "Education E-Pins", category: 'Education', endpoint: '/epin/'},
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
@@ -450,6 +499,9 @@ export async function getServices(): Promise<Service[]> {
         // Ensure apiProviderIds is always an array
         services = services.map(s => ({ ...s, apiProviderIds: s.apiProviderIds || [] }));
     }
+
+    await seedCablePlans(); // Ensure cable plans are seeded
+    const allCablePlans = await getCablePlans();
 
     services.sort((a, b) => a.name.localeCompare(b.name));
     
@@ -496,6 +548,20 @@ export async function getServices(): Promise<Service[]> {
             airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
         }
     }
+    
+    // Populate Cable services with their plans
+    services.forEach(service => {
+        if (service.category === 'Cable') {
+            const providerName = service.name.toUpperCase();
+            const plansForProvider = allCablePlans.filter(p => p.providerName === providerName);
+            service.variations = plansForProvider.map(p => ({
+                id: p.planId,
+                name: p.planName,
+                price: p.basePrice,
+                fees: { Customer: 100, Vendor: 50, Admin: 0 } // Example fees
+            }));
+        }
+    });
 
     return services;
 }
@@ -677,5 +743,6 @@ export async function deleteDisco(id: string) {
 
 
     
+
 
 
