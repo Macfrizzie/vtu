@@ -440,20 +440,23 @@ export async function getServices(): Promise<Service[]> {
 
     if (needsCommit) {
         await batch.commit();
+        // Re-fetch services after committing the batch to get the latest data
         const finalSnapshot = await getDocs(query(servicesCol));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     }
-
-    // --- Populate Dynamic Variations ---
+    
+    // Fetch all cable plans once
     const allCablePlans = await getCablePlans();
 
+    // Map through the services and populate variations where necessary
     services = services.map(service => {
         if (service.category === 'Cable') {
+            // Assign all fetched cable plans to the "Cable TV" service's variations
             service.variations = allCablePlans.map(p => ({
                 id: p.planId,
                 name: p.planName,
                 price: p.basePrice,
-                providerName: p.providerName,
+                providerName: p.providerName, // This is crucial for filtering on the frontend
             }));
         }
 
@@ -498,6 +501,7 @@ export async function getServices(): Promise<Service[]> {
     services.sort((a, b) => a.name.localeCompare(b.name));
     return services;
 }
+
 
 
 export async function addService(data: { name: string; category: string }) {
