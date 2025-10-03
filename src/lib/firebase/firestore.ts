@@ -495,7 +495,7 @@ export async function getServices(): Promise<Service[]> {
             { id: '1', name: 'MTN'},
             { id: '2', name: 'GLO'},
             { id: '3', name: 'AIRTEL'},
-            { id: '4', name: '9MOBILE'},
+            { id: '4', 'name': '9MOBILE'},
         ];
         if (!airtimeService.variations || airtimeService.variations.length === 0) {
             airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
