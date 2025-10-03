@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,13 +16,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 // --- Fixed Network Data ---
 const networks = [
-    { id: '1', name: 'MTN' },
-    { id: '2', name: 'GLO' },
-    { id: '3', name: '9MOBILE' },
-    { id: '4', name: 'AIRTEL' },
+    { id: 'MTN', name: 'MTN' },
+    { id: 'GLO', name: 'GLO' },
+    { id: '9MOBILE', name: '9MOBILE' },
+    { id: 'AIRTEL', name: 'AIRTEL' },
 ];
 
 const cableProviders = [
@@ -60,6 +61,21 @@ export function DataPricingTab() {
             validity: '30 days/1 month',
         }
     });
+    
+    const groupedPlans = useMemo(() => {
+        return dataPlans.reduce((acc, plan) => {
+            const { networkName, planType } = plan;
+            if (!acc[networkName]) {
+                acc[networkName] = {};
+            }
+            if (!acc[networkName][planType]) {
+                acc[networkName][planType] = [];
+            }
+            acc[networkName][planType].push(plan);
+            return acc;
+        }, {} as Record<string, Record<string, DataPlan[]>>);
+    }, [dataPlans]);
+
 
     const fetchData = async () => {
         setLoading(true);
@@ -92,7 +108,7 @@ export function DataPricingTab() {
                 fees: {
                     Customer: values.fee || 0,
                     Vendor: values.fee || 0,
-                    Admin: 0, // Admins typically have no fees
+                    Admin: 0, 
                 }
             };
             await addDataPlan(planData);
@@ -118,7 +134,7 @@ export function DataPricingTab() {
         }
     };
     
-    const validities = ['1 day', '2 days', '3 days', '7 days', '14 days', '30 days/1 month'];
+    const validities = ['1 day', '2 days', '3 days', '7 days', '14 days', '30 days', '30 days/1 month', '60 days', '1 year'];
 
     return (
         <Card>
@@ -156,17 +172,50 @@ export function DataPricingTab() {
                     </form>
                 </Form>
                  {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
-                 <Table>
-                    <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Network</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Base Price</TableHead><TableHead>Fee</TableHead><TableHead>Validity</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
-                    <TableBody>
-                        {dataPlans.map((plan) => (
-                            <TableRow key={plan.id}><TableCell>{plan.planId}</TableCell><TableCell>{plan.networkName}</TableCell><TableCell>{plan.name}</TableCell><TableCell>{plan.planType}</TableCell><TableCell>₦{plan.price}</TableCell><TableCell>₦{plan.fees?.Customer || 0}</TableCell><TableCell>{plan.validity}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this data plan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
+                    <Accordion type="multiple" className="w-full">
+                        {Object.keys(groupedPlans).sort().map(networkName => (
+                            <AccordionItem value={networkName} key={networkName}>
+                                <AccordionTrigger className="text-lg font-semibold">{networkName}</AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-6 pl-2">
+                                        {Object.keys(groupedPlans[networkName]).sort().map(planType => (
+                                            <div key={planType}>
+                                                <h4 className="font-medium text-md mb-2 text-muted-foreground">{planType} Plans</h4>
+                                                <div className="border rounded-md">
+                                                    <Table>
+                                                        <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Name</TableHead><TableHead>Base Price</TableHead><TableHead>Fee</TableHead><TableHead>Validity</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                                                        <TableBody>
+                                                            {groupedPlans[networkName][planType].map(plan => (
+                                                                <TableRow key={plan.id}>
+                                                                    <TableCell>{plan.planId}</TableCell>
+                                                                    <TableCell>{plan.name}</TableCell>
+                                                                    <TableCell>₦{plan.price.toLocaleString()}</TableCell>
+                                                                    <TableCell>₦{(plan.fees?.Customer || 0).toLocaleString()}</TableCell>
+                                                                    <TableCell>{plan.validity}</TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <AlertDialog>
+                                                                            <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                                                            <AlertDialogContent>
+                                                                                <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this data plan.</AlertDialogDescription></AlertDialogHeader>
+                                                                                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                                            </AlertDialogContent>
+                                                                        </AlertDialog>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
                         ))}
-                         {dataPlans.length === 0 && (
-                            <TableRow><TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No data plans added yet.</TableCell></TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+                    </Accordion>
+                )}
+                 {dataPlans.length === 0 && !loading && (
+                    <div className="text-center h-24 text-muted-foreground flex items-center justify-center">No data plans added yet.</div>
                 )}
             </CardContent>
         </Card>
@@ -370,3 +419,6 @@ export function ElectricityPricingTab() {
         </Card>
     );
 }
+
+
+    
