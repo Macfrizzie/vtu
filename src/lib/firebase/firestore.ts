@@ -613,6 +613,24 @@ export async function updateDataPlanStatus(id: string, status: 'Active' | 'Inact
     await updateDoc(planRef, { status });
 }
 
+export async function updateDataPlansStatusByType(networkName: string, planType: string, status: 'Active' | 'Inactive') {
+    const plansQuery = query(
+        collection(db, 'dataPlans'),
+        where('networkName', '==', networkName),
+        where('planType', '==', planType)
+    );
+    const snapshot = await getDocs(plansQuery);
+    
+    if (snapshot.empty) return;
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { status: status });
+    });
+
+    await batch.commit();
+}
+
 export async function deleteDataPlan(id: string) {
     await deleteDoc(doc(db, 'dataPlans', id));
 }
@@ -657,6 +675,9 @@ export async function deleteDisco(id: string) {
     
 
 
+
+
+    
 
 
     

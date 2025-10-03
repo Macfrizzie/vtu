@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco, updateDataPlanStatus } from '@/lib/firebase/firestore';
+import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco, updateDataPlanStatus, updateDataPlansStatusByType } from '@/lib/firebase/firestore';
 import type { DataPlan, CablePlan, Disco } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
 
 // --- Fixed Network Data ---
 const networks = [
@@ -152,6 +153,19 @@ export function DataPricingTab() {
         }
     };
 
+    const handlePlanTypeStatusToggle = async (networkName: string, planType: string, newStatus: 'Active' | 'Inactive') => {
+        try {
+            await updateDataPlansStatusByType(networkName, planType, newStatus);
+            setDataPlans(prevPlans => 
+                prevPlans.map(p => (p.networkName === networkName && p.planType === planType) ? { ...p, status: newStatus } : p)
+            );
+            toast({ title: 'Status Updated', description: `All ${planType} plans for ${networkName} are now ${newStatus}.` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update plan statuses.' });
+        }
+    }
+
     const validities = ['1 day', '2 days', '3 days', '7 days', '14 days', '30 days', '30 days/1 month', '60 days', '1 year'];
 
     return (
@@ -196,14 +210,29 @@ export function DataPricingTab() {
                                 <AccordionTrigger className="text-lg font-semibold">{networkName}</AccordionTrigger>
                                 <AccordionContent>
                                     <div className="space-y-6 pl-2">
-                                        {Object.keys(groupedPlans[networkName]).sort().map(planType => (
+                                        {Object.keys(groupedPlans[networkName]).sort().map(planType => {
+                                            const plansInGroup = groupedPlans[networkName][planType];
+                                            const isGroupActive = plansInGroup.some(p => p.status === 'Active' || p.status === undefined);
+                                            return (
                                             <div key={planType}>
-                                                <h4 className="font-medium text-md mb-2 text-muted-foreground">{planType} Plans</h4>
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="font-medium text-md text-muted-foreground">{planType} Plans</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label htmlFor={`switch-${networkName}-${planType}`} className="text-xs text-muted-foreground">
+                                                            {isGroupActive ? 'Active' : 'Inactive'}
+                                                        </Label>
+                                                         <Switch
+                                                            id={`switch-${networkName}-${planType}`}
+                                                            checked={isGroupActive}
+                                                            onCheckedChange={(checked) => handlePlanTypeStatusToggle(networkName, planType, checked ? 'Active' : 'Inactive')}
+                                                        />
+                                                    </div>
+                                                </div>
                                                 <div className="border rounded-md">
                                                     <Table>
                                                         <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Name</TableHead><TableHead>Base Price</TableHead><TableHead>Fee</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Active</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                                                         <TableBody>
-                                                            {groupedPlans[networkName][planType].map(plan => (
+                                                            {plansInGroup.map(plan => (
                                                                 <TableRow key={plan.id} className={cn(plan.status === 'Inactive' && 'opacity-50')}>
                                                                     <TableCell>{plan.planId}</TableCell>
                                                                     <TableCell>{plan.name}</TableCell>
@@ -235,7 +264,7 @@ export function DataPricingTab() {
                                                     </Table>
                                                 </div>
                                             </div>
-                                        ))}
+                                        )})}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -448,5 +477,7 @@ export function ElectricityPricingTab() {
     );
 }
 
+
+    
 
     
