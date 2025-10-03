@@ -11,18 +11,16 @@ import { cn } from '@/lib/utils';
 import { ServiceIcon } from '@/components/service-icon';
 
 
-const getServiceUrl = (service: Service) => {
-    if (service.status === 'Inactive' || !service.name) return '#';
-
-    const query = `?provider=${encodeURIComponent(service.provider || '')}&name=${encodeURIComponent(service.name)}`;
+const getServiceUrl = (category: string) => {
+    if (!category) return '#';
     
-    const name = service.name.toLowerCase();
-    if (name.includes('airtime')) return `/dashboard/services/airtime`;
-    if (name.includes('data')) return `/dashboard/services/data`;
-    if (name.includes('electricity')) return `/dashboard/services/electricity`;
-    if (name.includes('cable')) return `/dashboard/services/cable`;
-    if (name.includes('e-pins')) return `/dashboard/services/education`;
-    if (name.includes('recharge card')) return `/dashboard/services/recharge-card`;
+    const cat = category.toLowerCase();
+    if (cat.includes('airtime')) return `/dashboard/services/airtime`;
+    if (cat.includes('data')) return `/dashboard/services/data`;
+    if (cat.includes('electricity')) return `/dashboard/services/electricity`;
+    if (cat.includes('cable')) return `/dashboard/services/cable`;
+    if (cat.includes('education')) return `/dashboard/services/education`;
+    if (cat.includes('recharge card')) return `/dashboard/services/recharge-card`;
 
     return '#';
 }
@@ -47,22 +45,40 @@ export default function ServicesPage() {
         fetchServices();
     }, []);
 
-    const displayedServices = useMemo(() => {
+    const groupedServices = useMemo(() => {
         if (loading) return [];
-        const otherServices = services.filter(s => s.category !== 'Data');
-        const hasActiveDataService = services.some(s => s.category === 'Data' && s.status === 'Active');
 
-        if (hasActiveDataService) {
-             const dataService: Service = {
-                id: 'data-bundle-service',
-                name: 'Data Bundles',
-                category: 'Data',
-                status: 'Active',
-            };
-            return [dataService, ...otherServices];
-        }
+        const activeServices = services.filter(s => s.status === 'Active');
+
+        const serviceMap = new Map<string, Service>();
+
+        activeServices.forEach(service => {
+            if (!service.category) return;
+            
+            // We use the category as the key to group services.
+            // If we haven't seen this category yet, we add a representative service to the map.
+            if (!serviceMap.has(service.category)) {
+                // For "Data", we create a custom "Data Bundles" entry.
+                // For others, we just use the first service we encounter for that category.
+                if (service.category === 'Data') {
+                     serviceMap.set('Data', {
+                        id: 'data-category-group',
+                        name: 'Data Bundles',
+                        category: 'Data',
+                        status: 'Active',
+                    });
+                } else {
+                     serviceMap.set(service.category, {
+                        id: service.id,
+                        name: service.category, // Use category name for display
+                        category: service.category,
+                        status: 'Active'
+                     });
+                }
+            }
+        });
         
-        return otherServices;
+        return Array.from(serviceMap.values());
 
     }, [services, loading]);
 
@@ -79,8 +95,8 @@ export default function ServicesPage() {
             </div>
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {displayedServices.map((service) => (
-                    <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
+                {groupedServices.map((service) => (
+                    <Link href={getServiceUrl(service.category)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors h-full">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
                                 <ServiceIcon serviceName={service.name} />
