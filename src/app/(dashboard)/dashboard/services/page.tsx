@@ -38,7 +38,8 @@ export default function ServicesPage() {
             setLoading(true);
             try {
                 const fetchedServices = await getServices();
-                setServices(fetchedServices);
+                const filteredServices = fetchedServices.filter(s => s.name !== 'DSTV' && s.name !== 'GOTV' && s.name !== 'Startimes');
+                setServices(filteredServices);
             } catch (error) {
                 console.error("Failed to fetch services:", error);
             } finally {
@@ -82,3 +83,5 @@ export default function ServicesPage() {
     </div>
   );
 }
+
+    

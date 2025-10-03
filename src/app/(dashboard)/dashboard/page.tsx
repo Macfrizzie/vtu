@@ -65,10 +65,13 @@ export default function DashboardPage() {
                     getUserTransactions(user.uid),
                     getServices()
                 ]);
-                setTransactions(userTransactions.slice(0, 4)); // Get first 4 recent
-                setServices(allServices);
                 
-                const activeServices = allServices.filter(s => s.status === 'Active');
+                const filteredServices = allServices.filter(s => s.name !== 'DSTV' && s.name !== 'GOTV' && s.name !== 'Startimes');
+
+                setTransactions(userTransactions.slice(0, 4)); // Get first 4 recent
+                setServices(filteredServices);
+                
+                const activeServices = filteredServices.filter(s => s.status === 'Active');
                 const links = activeServices.slice(0, 3).map(service => (
                     <Link href={getServiceUrl(service)} key={service.id}>
                         <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
@@ -291,3 +294,5 @@ export default function DashboardPage() {
       </section>
     </div>
   );
+
+    
