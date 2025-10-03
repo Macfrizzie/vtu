@@ -236,7 +236,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     smart_card_number: inputs.smart_card_number,
                  };
             } else if (service.category === 'Electricity') {
-                 const selectedVariation = service.variations?.find(v => v.name === variationId);
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
                  if (!selectedVariation) {
                     throw new Error("Could not find the selected Disco.");
                  }
@@ -408,6 +408,7 @@ export async function getServices(): Promise<Service[]> {
     const serviceSnapshot = await getDocs(query(servicesCol));
     const allDataPlans = await getDataPlans();
     const allCablePlans = await getCablePlans();
+    const allDiscos = await getDiscos();
 
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
@@ -475,6 +476,13 @@ export async function getServices(): Promise<Service[]> {
                 name: p.planName,
                 price: p.basePrice,
                 providerName: p.providerName,
+            }));
+        } else if (service.category === 'Electricity') {
+             service.variations = allDiscos.map(d => ({
+                id: d.discoId, // e.g. "ikeja-electric"
+                name: d.discoName, // e.g. "Ikeja Electric"
+                price: 0, // Base price is not applicable, fee is used.
+                fees: { Customer: 100, Vendor: 100, Admin: 0 } // Example fees
             }));
         } else if (service.category === 'Airtime' && (!service.variations || service.variations.length === 0)) {
             const allAirtimeNetworks = [
@@ -683,4 +691,5 @@ export async function deleteDisco(id: string) {
     
 
     
+
 

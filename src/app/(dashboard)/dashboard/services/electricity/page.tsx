@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -52,7 +53,7 @@ export default function ElectricityPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [services, setServices] = useState<Service[]>([]);
+  const [electricityService, setElectricityService] = useState<Service | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -70,7 +71,8 @@ export default function ElectricityPage() {
       setServicesLoading(true);
       try {
         const allServices = await getServices();
-        setServices(allServices.filter(s => s.category === 'Electricity' && s.status === 'Active'));
+        const service = allServices.find(s => s.category === 'Electricity' && s.status === 'Active');
+        setElectricityService(service || null);
       } catch (error) {
         console.error("Failed to fetch electricity services:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load distributors.' });
@@ -81,22 +83,27 @@ export default function ElectricityPage() {
     fetchServices();
   }, [toast]);
   
-  const selectedServiceId = form.watch('serviceId');
-  const selectedService = services.find(s => s.id === selectedServiceId);
-  const selectedVariation = selectedService?.variations?.[0];
-
+  const selectedDiscoId = form.watch('serviceId');
+  
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
-    
-    if (!selectedVariation) {
-        toast({ variant: 'destructive', title: 'Invalid Service', description: 'Please select a valid distributor.' });
+
+    if (!electricityService) {
+        toast({ variant: 'destructive', title: 'Service Unavailable', description: 'Electricity service is currently unavailable.'});
         return;
     }
     
-    const serviceFee = selectedVariation.fees?.[userData.role] || 0;
+    const selectedDisco = electricityService.variations?.find(d => d.id === values.serviceId);
+    
+    if (!selectedDisco) {
+        toast({ variant: 'destructive', title: 'Invalid Distributor', description: 'Please select a valid distributor.' });
+        return;
+    }
+    
+    const serviceFee = selectedDisco.fees?.[userData.role] || 0;
     const totalCost = values.amount + serviceFee;
 
     if (userData.walletBalance < totalCost) {
@@ -116,11 +123,8 @@ export default function ElectricityPage() {
         amount: values.amount,
       };
 
-      if (!selectedService?.name) {
-          throw new Error("Service name not found");
-      }
-
-      await purchaseService(user.uid, values.serviceId, selectedService.name, purchaseInputs, user.email!);
+      // For electricity, the serviceId is the main service doc, and variationId is the disco ID
+      await purchaseService(user.uid, electricityService.id, values.serviceId, purchaseInputs, user.email!);
       
       forceRefetch();
       toast({
@@ -141,9 +145,10 @@ export default function ElectricityPage() {
   }
 
   const serviceFee = useMemo(() => {
-    if (!selectedVariation || !userData) return 0;
-    return selectedVariation.fees?.[userData.role] || 0;
-  }, [selectedVariation, userData]);
+    if (!selectedDiscoId || !electricityService || !userData) return 0;
+    const disco = electricityService.variations?.find(d => d.id === selectedDiscoId);
+    return disco?.fees?.[userData.role] || 0;
+  }, [selectedDiscoId, electricityService, userData]);
 
   const amount = form.watch('amount');
   const totalCost = amount + serviceFee;
@@ -181,15 +186,15 @@ export default function ElectricityPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Distributor (Disco)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading || !electricityService}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder={servicesLoading ? "Loading..." : "Select your electricity distributor"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {services.map(service => (
-                             <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                        {electricityService?.variations?.map(disco => (
+                             <SelectItem key={disco.id} value={disco.id}>{disco.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -256,13 +261,19 @@ export default function ElectricityPage() {
                 )}
               />
               
-              <div className="text-sm text-muted-foreground">
-                <p>Service Fee: ₦{serviceFee.toLocaleString()}</p>
-                <p className="font-semibold">Total to Pay: ₦{totalCost.toLocaleString()}</p>
+              <div className="space-y-1 rounded-md border bg-secondary/50 p-4 text-sm text-muted-foreground">
+                 <div className="flex justify-between">
+                    <span>Service Fee:</span>
+                    <span className="font-semibold text-foreground">₦{serviceFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-foreground">
+                    <span>Total to Pay:</span>
+                    <span>₦{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || loading || !selectedServiceId}>
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || loading || !selectedDiscoId}>
                 {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Pay Bill')}
               </Button>
