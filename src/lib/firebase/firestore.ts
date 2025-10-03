@@ -405,8 +405,8 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
-    const snapshot = await getDocs(query(servicesCol));
-    let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
+    const serviceSnapshot = await getDocs(query(servicesCol));
+    let services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
 
     const coreServices = [
         { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
@@ -423,7 +423,6 @@ export async function getServices(): Promise<Service[]> {
 
     for (const coreService of coreServices) {
         if (!existingServiceNames.has(coreService.name)) {
-            console.log(`Scheduling creation for missing service: ${coreService.name}`);
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
                 name: coreService.name,
@@ -441,19 +440,23 @@ export async function getServices(): Promise<Service[]> {
 
     if (needsCommit) {
         await batch.commit();
-        // Refetch after committing
         const finalSnapshot = await getDocs(query(servicesCol));
         services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     }
 
     // --- Populate Dynamic Variations ---
-
-    // Fetch all cable plans once
     const allCablePlans = await getCablePlans();
 
-    // Now, map over the services and populate them
     services = services.map(service => {
-        // Populate Data Service variations
+        if (service.category === 'Cable' && service.variations?.length === 0 && allCablePlans.length > 0) {
+            service.variations = allCablePlans.map(p => ({
+                id: p.planId,
+                name: p.planName,
+                price: p.basePrice,
+                providerName: p.providerName,
+            }));
+        }
+
         if (service.category === 'Data') {
             const dataPlans = []; // This should be fetched if needed, e.g., await getDataPlans();
             const networks = [
@@ -479,27 +482,14 @@ export async function getServices(): Promise<Service[]> {
             }));
         }
 
-        // Populate Airtime Service variations
-        if (service.category === 'Airtime') {
-            const allAirtimeNetworks = [
+        if (service.category === 'Airtime' && (!service.variations || service.variations.length === 0)) {
+             const allAirtimeNetworks = [
                 { id: '1', name: 'MTN' },
                 { id: '2', name: 'GLO' },
                 { id: '3', name: 'AIRTEL' },
                 { id: '4', name: '9MOBILE' },
             ];
-            if (!service.variations || service.variations.length === 0) {
-                service.variations = allAirtimeNetworks.map(n => ({ ...n, price: 0 }));
-            }
-        }
-
-        // Populate Cable services with their plans
-        if (service.category === 'Cable') {
-            service.variations = allCablePlans.map(p => ({
-                id: p.planId,
-                name: p.planName,
-                price: p.basePrice,
-                providerName: p.providerName,
-            }));
+            service.variations = allAirtimeNetworks.map(n => ({ ...n, price: 0 }));
         }
 
         return service;
