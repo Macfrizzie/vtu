@@ -115,7 +115,7 @@ export default function DataPage() {
     try {
       const purchaseInputs = { 
           mobile_number: values.phone, 
-          plan: values.variationId,
+          plan: values.variationId, // plan is the ID of the data plan itself
       };
       await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
       forceRefetch();
@@ -140,6 +140,9 @@ export default function DataPage() {
   const selectedVariationId = form.watch('variationId');
   const selectedVariation = availablePlans.find(p => p.id === selectedVariationId);
   const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userData.role || 'Customer'] || 0) : 0;
+  const basePrice = selectedVariation?.price || 0;
+  const convenienceFee = totalCost - basePrice;
+
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -241,6 +244,20 @@ export default function DataPage() {
                   </FormItem>
                 )}
               />
+               <div className="space-y-1 rounded-md border bg-secondary/50 p-4 text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                    <span>Price:</span>
+                    <span className="font-semibold text-foreground">₦{basePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                 <div className="flex justify-between">
+                    <span>Fee:</span>
+                    <span className="font-semibold text-foreground">₦{convenienceFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-foreground">
+                    <span>Total to Pay:</span>
+                    <span>₦{totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
             </CardContent>
             <CardFooter>
               <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || loading || !selectedVariationId}>

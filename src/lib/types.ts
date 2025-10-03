@@ -74,12 +74,12 @@ export type ApiProvider = {
 export type DataPlan = {
     id: string; // This is the firestore doc id
     planId: string; // The manual Data ID from admin, e.g., "101"
-    networkId: string;
-    networkName: string;
+    networkName: string; // "MTN", "GLO", etc.
     planType: string; // "SME", "Corporate", "Gifting"
-    size: string; // "500MB", "1GB"
-    basePrice: number; // The base amount set by admin
+    name: string; // "500MB", "1GB"
+    price: number; // The base amount set by admin
     validity: string; // "30 days", "1 day"
+    fees?: { [key in UserData['role']]: number };
 };
 
 export type CablePlan = {

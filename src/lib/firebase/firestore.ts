@@ -360,6 +360,18 @@ export async function getServices(): Promise<Service[]> {
     const snapshot = await getDocs(query(servicesCol, orderBy("name")));
     let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 
+    const coreServices = [
+        { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
+        { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
+        { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'Glo' },
+        { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'Airtel' },
+        { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9mobile' },
+        { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
+        { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
+        { name: "E-pins", category: 'Education', endpoint: '/epin/'},
+        { name: "Recharge Card", category: 'Recharge Card', endpoint: '/recharge-card/'},
+    ];
+
     const hasIncorrectDataService = services.some(s => s.name === 'Data Bundles');
     if (hasIncorrectDataService) {
         const batch = writeBatch(db);
@@ -373,18 +385,6 @@ export async function getServices(): Promise<Service[]> {
         services = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
 
-
-    const coreServices = [
-        { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
-        { name: "MTN Data", category: 'Data', endpoint: '/data/', provider: 'MTN' },
-        { name: "Glo Data", category: 'Data', endpoint: '/data/', provider: 'Glo' },
-        { name: "Airtel Data", category: 'Data', endpoint: '/data/', provider: 'Airtel' },
-        { name: "9mobile Data", category: 'Data', endpoint: '/data/', provider: '9mobile' },
-        { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/'},
-        { name: "Cable TV", category: 'Cable', endpoint: '/billpayment/'},
-        { name: "E-pins", category: 'Education', endpoint: '/epin/'},
-        { name: "Recharge Card", category: 'Recharge Card', endpoint: '/recharge-card/'},
-    ];
 
     const existingServiceNames = new Set(services.map(s => s.name));
     const missingServices = coreServices.filter(cs => !existingServiceNames.has(cs.name));
@@ -407,10 +407,23 @@ export async function getServices(): Promise<Service[]> {
         });
         await batch.commit();
 
-        // Refetch all services to return a complete and correct list
         const finalSnapshot = await getDocs(query(servicesCol, orderBy("name")));
-        return finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+        services = finalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     }
+    
+    // Fetch all data plans and attach them to the correct data service
+    const dataPlans = await getDataPlans();
+    services.forEach(service => {
+        if (service.category === 'Data' && service.provider) {
+            const matchingPlans = dataPlans.filter(p => p.networkName === service.provider);
+            service.variations = matchingPlans.map(p => ({
+                id: p.planId,
+                name: p.name,
+                price: p.price,
+                fees: p.fees,
+            }));
+        }
+    });
 
     return services;
 }
@@ -555,3 +568,4 @@ export async function deleteDisco(id: string) {
     
 
     
+

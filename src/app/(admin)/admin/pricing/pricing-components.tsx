@@ -34,10 +34,11 @@ const cableProviders = [
 // --- Data Pricing Tab ---
 const dataPlanSchema = z.object({
     planId: z.string().min(1, "Data Plan ID is required"),
-    networkId: z.string().min(1, "Network is required"),
+    networkName: z.string().min(1, "Network is required"),
     planType: z.string().min(1, "Plan type is required"),
-    size: z.string().min(1, "Size is required"),
-    basePrice: z.coerce.number().min(0, "Amount must be a positive number"),
+    name: z.string().min(1, "Plan Name (e.g. 500MB) is required"),
+    price: z.coerce.number().min(0, "Amount must be a positive number"),
+    fee: z.coerce.number().min(0, "Fee must be a positive number").optional(),
     validity: z.string().min(1, "Validity is required"),
 });
 
@@ -51,10 +52,11 @@ export function DataPricingTab() {
         resolver: zodResolver(dataPlanSchema),
         defaultValues: {
             planId: '',
-            networkId: '1', // Default to MTN
+            networkName: 'MTN',
             planType: 'SME',
-            size: '',
-            basePrice: 0,
+            name: '',
+            price: 0,
+            fee: 0,
             validity: '30 days/1 month',
         }
     });
@@ -80,10 +82,20 @@ export function DataPricingTab() {
     const onSubmit = async (values: z.infer<typeof dataPlanSchema>) => {
         setIsSubmitting(true);
         try {
-            const selectedNetwork = networks.find(n => n.id === values.networkId);
-            if (!selectedNetwork) throw new Error("Network not found");
-
-            await addDataPlan({ ...values, networkName: selectedNetwork.name });
+            const planData: Omit<DataPlan, 'id'> = {
+                planId: values.planId,
+                networkName: values.networkName,
+                planType: values.planType,
+                name: values.name,
+                price: values.price,
+                validity: values.validity,
+                fees: {
+                    Customer: values.fee || 0,
+                    Vendor: values.fee || 0,
+                    Admin: 0, // Admins typically have no fees
+                }
+            };
+            await addDataPlan(planData);
             toast({ title: "Data Plan Added", description: `The plan has been added successfully.` });
             await fetchData();
             form.reset();
@@ -112,25 +124,28 @@ export function DataPricingTab() {
         <Card>
             <CardHeader>
                 <CardTitle>Data Plan Base Prices</CardTitle>
-                <CardDescription>Manually input data plans and their base prices. Markups are applied globally from the Services page.</CardDescription>
+                <CardDescription>Manually input data plans and their prices. This is where you define the products available to users.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end p-4 border rounded-lg">
                         <FormField control={form.control} name="planId" render={({ field }) => (
-                            <FormItem><FormLabel>Data Plan ID</FormLabel><FormControl><Input placeholder="e.g., 101" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Data Plan ID (Provider)</FormLabel><FormControl><Input placeholder="e.g., 101" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                         <FormField control={form.control} name="networkId" render={({ field }) => (
-                            <FormItem><FormLabel>Network</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                         <FormField control={form.control} name="networkName" render={({ field }) => (
+                            <FormItem><FormLabel>Network</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.name}>{n.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="planType" render={({ field }) => (
                             <FormItem><FormLabel>Plan Type</FormLabel><FormControl><Input placeholder="SME, Gifting, etc." {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={form.control} name="size" render={({ field }) => (
-                            <FormItem><FormLabel>Size</FormLabel><FormControl><Input placeholder="500MB, 1GB, etc." {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Plan Name</FormLabel><FormControl><Input placeholder="500MB, 1GB, etc." {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
-                         <FormField control={form.control} name="basePrice" render={({ field }) => (
+                         <FormField control={form.control} name="price" render={({ field }) => (
                             <FormItem><FormLabel>Base Price (₦)</FormLabel><FormControl><Input type="number" placeholder="e.g., 300" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="fee" render={({ field }) => (
+                            <FormItem><FormLabel>Convenience Fee (₦)</FormLabel><FormControl><Input type="number" placeholder="e.g., 10" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={form.control} name="validity" render={({ field }) => (
                             <FormItem><FormLabel>Validity</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{validities.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
@@ -142,13 +157,13 @@ export function DataPricingTab() {
                 </Form>
                  {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
                  <Table>
-                    <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Network</TableHead><TableHead>Size</TableHead><TableHead>Type</TableHead><TableHead>Base Price</TableHead><TableHead>Validity</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Plan ID</TableHead><TableHead>Network</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead><TableHead>Base Price</TableHead><TableHead>Fee</TableHead><TableHead>Validity</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                     <TableBody>
                         {dataPlans.map((plan) => (
-                            <TableRow key={plan.id}><TableCell>{plan.planId}</TableCell><TableCell>{plan.networkName}</TableCell><TableCell>{plan.size}</TableCell><TableCell>{plan.planType}</TableCell><TableCell>₦{plan.basePrice}</TableCell><TableCell>{plan.validity}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this data plan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
+                            <TableRow key={plan.id}><TableCell>{plan.planId}</TableCell><TableCell>{plan.networkName}</TableCell><TableCell>{plan.name}</TableCell><TableCell>{plan.planType}</TableCell><TableCell>₦{plan.price}</TableCell><TableCell>₦{plan.fees?.Customer || 0}</TableCell><TableCell>{plan.validity}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this data plan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
                         ))}
                          {dataPlans.length === 0 && (
-                            <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">No data plans added yet.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={8} className="text-center h-24 text-muted-foreground">No data plans added yet.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -355,5 +370,3 @@ export function ElectricityPricingTab() {
         </Card>
     );
 }
-
-    
