@@ -11,16 +11,19 @@ import { cn } from '@/lib/utils';
 import { ServiceIcon } from '@/components/service-icon';
 
 
-const getServiceUrl = (category: string) => {
-    if (!category) return '#';
+const getServiceUrl = (service: Service) => {
+    if (service.status === 'Inactive' || !service.name) return '#';
+
+    const query = `?provider=${encodeURIComponent(service.name)}&name=${encodeURIComponent(service.name)}`;
     
-    const cat = category.toLowerCase();
-    if (cat.includes('airtime')) return `/dashboard/services/airtime`;
-    if (cat.includes('data')) return `/dashboard/services/data`;
-    if (cat.includes('electricity')) return `/dashboard/services/electricity`;
-    if (cat.includes('cable')) return `/dashboard/services/cable`;
-    if (cat.includes('education')) return `/dashboard/services/education`;
-    if (cat.includes('recharge card')) return `/dashboard/services/recharge-card`;
+    // Fallback based on name if it contains keywords
+    const name = service.name.toLowerCase();
+    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
+    if (name.includes('data')) return `/dashboard/services/data${query}`;
+    if (name.includes('electricity')) return `/dashboard/services/electricity${query}`;
+    if (name.includes('cable')) return `/dashboard/services/cable${query}`;
+    if (name.includes('education')) return `/dashboard/services/education${query}`;
+    if (name.includes('recharge card')) return `/dashboard/services/recharge-card${query}`;
 
     return '#';
 }
@@ -64,7 +67,7 @@ export default function ServicesPage() {
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {displayedServices.map((service) => (
-                    <Link href={getServiceUrl(service.category)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
+                    <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors h-full">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
                                 <ServiceIcon serviceName={service.name} />
