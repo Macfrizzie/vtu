@@ -448,7 +448,7 @@ export async function getServices(): Promise<Service[]> {
     const allCablePlans = await getCablePlans();
 
     services = services.map(service => {
-        if (service.category === 'Cable' && service.variations?.length === 0 && allCablePlans.length > 0) {
+        if (service.category === 'Cable') {
             service.variations = allCablePlans.map(p => ({
                 id: p.planId,
                 name: p.planName,
