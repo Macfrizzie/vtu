@@ -357,7 +357,7 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
-    const snapshot = await getDocs(query(servicesCol)); // No ordering, we'll sort later
+    const snapshot = await getDocs(query(servicesCol));
     let services = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
 
     const coreServices = [

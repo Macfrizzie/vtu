@@ -45,24 +45,9 @@ export default function ServicesPage() {
         fetchServices();
     }, []);
 
-    const groupedServices = useMemo(() => {
+    const displayedServices = useMemo(() => {
         if (loading) return [];
-
-        const serviceMap = new Map<string, Service>();
-
-        services.forEach(service => {
-            if (!service.category || service.status === 'Inactive') return;
-            
-            if (!serviceMap.has(service.category)) {
-                serviceMap.set(service.category, {
-                    ...service,
-                    name: service.category, 
-                });
-            }
-        });
-        
-        return Array.from(serviceMap.values());
-
+        return services.filter(service => service.status === 'Active');
     }, [services, loading]);
 
   return (
@@ -78,7 +63,7 @@ export default function ServicesPage() {
             </div>
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {groupedServices.map((service) => (
+                {displayedServices.map((service) => (
                     <Link href={getServiceUrl(service.category)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
                         <Card className="hover:bg-secondary transition-colors h-full">
                             <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
