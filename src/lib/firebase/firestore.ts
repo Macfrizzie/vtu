@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -216,8 +215,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
 
                 requestBody = {
                     network: inputs.networkId,
-                    plan: variationId,
                     mobile_number: inputs.mobile_number,
+                    plan: variationId, 
+                    Ported_number: true
                 };
             } else {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
@@ -369,14 +369,15 @@ export async function getServices(): Promise<Service[]> {
         { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/'},
     ];
 
-    const coreServiceNames = new Set(coreServices.map(cs => cs.name));
+    const correctServiceNames = new Set(coreServices.map(cs => cs.name));
     const batch = writeBatch(db);
     let needsCommit = false;
 
-    const servicesToDelete = services.filter(s => !coreServiceNames.has(s.name));
+    const servicesToDelete = services.filter(s => !correctServiceNames.has(s.name));
     
     if (servicesToDelete.length > 0) {
         servicesToDelete.forEach(service => {
+            console.log(`Scheduling deletion for incorrect service: ${service.name} (${service.id})`);
             batch.delete(doc(db, 'services', service.id));
         });
         needsCommit = true;
@@ -387,6 +388,7 @@ export async function getServices(): Promise<Service[]> {
 
     if (missingServices.length > 0) {
         missingServices.forEach((serviceData) => {
+            console.log(`Scheduling creation for missing service: ${serviceData.name}`);
             const docRef = doc(collection(db, 'services'));
             batch.set(docRef, {
                 name: serviceData.name,
@@ -410,6 +412,9 @@ export async function getServices(): Promise<Service[]> {
 
     services.sort((a, b) => a.name.localeCompare(b.name));
     
+    // --- Populate Dynamic Variations ---
+
+    // Populate Data Service variations
     const dataService = services.find(s => s.category === 'Data');
     if (dataService) {
         const dataPlans = await getDataPlans();
@@ -435,6 +440,7 @@ export async function getServices(): Promise<Service[]> {
         }));
     }
     
+    // Populate Airtime Service variations
     const airtimeService = services.find(s => s.category === 'Airtime');
     if (airtimeService) {
         const allAirtimeNetworks = [
@@ -443,6 +449,7 @@ export async function getServices(): Promise<Service[]> {
             { id: '3', name: 'AIRTEL'},
             { id: '4', name: '9MOBILE'},
         ];
+        // Ensure variations are populated if they are missing
         if (!airtimeService.variations || airtimeService.variations.length === 0) {
             airtimeService.variations = allAirtimeNetworks.map(n => ({...n, price: 0}));
         }
@@ -594,5 +601,7 @@ export async function deleteDisco(id: string) {
     
 
 
+
+    
 
     
