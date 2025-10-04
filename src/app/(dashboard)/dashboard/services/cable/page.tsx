@@ -46,12 +46,6 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-const cableProviders = [
-  { id: 'DSTV', name: 'DSTV' },
-  { id: 'GOTV', name: 'GOtv' },
-  { id: 'STARTIMES', name: 'Startimes' },
-];
-
 export default function CableTvPage() {
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
@@ -92,6 +86,11 @@ export default function CableTvPage() {
     fetchServices();
   }, [toast]);
   
+  const cableProviders = useMemo(() => {
+    if (!cableService || !cableService.variations) return [];
+    const providerNames = [...new Set(cableService.variations.map(v => v.providerName).filter(Boolean))];
+    return providerNames.map(name => ({ id: name!, name: name! }));
+  }, [cableService]);
 
   const selectedCableName = form.watch('cablename');
   const smartCardValue = form.watch('smartCardNumber');
@@ -256,7 +255,7 @@ export default function CableTvPage() {
                         setCustomerName(null);
                       }}
                       value={field.value}
-                      disabled={servicesLoading || !cableService}
+                      disabled={servicesLoading || !cableService || cableProviders.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
