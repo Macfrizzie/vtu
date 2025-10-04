@@ -35,8 +35,8 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
-import { purchaseService, getServices } from '@/lib/firebase/firestore';
-import type { Service } from '@/lib/types';
+import { purchaseService, getServices, getDiscos } from '@/lib/firebase/firestore';
+import type { Service, Disco } from '@/lib/types';
 
 const formSchema = z.object({
   serviceId: z.string().min(1, 'Please select a distributor.'),
@@ -48,6 +48,21 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
+
+const discos = [
+    { discoId: '1', discoName: 'Ikeja Electric' },
+    { discoId: '2', discoName: 'Eko Electric' },
+    { discoId: '3', discoName: 'Abuja Electric' },
+    { discoId: '4', discoName: 'Kano Electric' },
+    { discoId: '5', discoName: 'Enugu Electric' },
+    { discoId: '6', discoName: 'Port Harcourt Electric' },
+    { discoId: '7', discoName: 'Ibadan Electric' },
+    { discoId: '8', discoName: 'Kaduna Electric' },
+    { discoId: '9', discoName: 'Jos Electric' },
+    { discoId: '11', discoName: 'Yola Electric' },
+    { discoId: '13', discoName: 'Benin Electric' },
+    { discoId: '14', discoName: 'Aba Electric' },
+];
 
 export default function ElectricityPage() {
   const { user, userData, loading, forceRefetch } = useUser();
@@ -96,14 +111,15 @@ export default function ElectricityPage() {
         return;
     }
     
-    const selectedDisco = electricityService.variations?.find(d => d.id === values.serviceId);
+    const selectedDisco = discos.find(d => d.discoId === values.serviceId);
     
     if (!selectedDisco) {
         toast({ variant: 'destructive', title: 'Invalid Distributor', description: 'Please select a valid distributor.' });
         return;
     }
     
-    const serviceFee = selectedDisco.fees?.[userData.role || 'Customer'] || 0;
+    // Using a fixed fee for now as variations are not loading reliably
+    const serviceFee = 100;
     const totalCost = values.amount + serviceFee;
 
     if (userData.walletBalance < totalCost) {
@@ -117,7 +133,6 @@ export default function ElectricityPage() {
 
     setIsPurchasing(true);
     try {
-      // For electricity, the main serviceId is for "Electricity", and variationId is the disco ID
       await purchaseService(user.uid, electricityService.id, values.serviceId, {
         meterNumber: values.meterNumber,
         meterType: values.meterType,
@@ -142,12 +157,7 @@ export default function ElectricityPage() {
     }
   }
 
-  const serviceFee = useMemo(() => {
-    if (!selectedDiscoId || !electricityService || !userData) return 0;
-    const disco = electricityService.variations?.find(d => d.id === selectedDiscoId);
-    return disco?.fees?.[userData.role || 'Customer'] || 0;
-  }, [selectedDiscoId, electricityService, userData]);
-
+  const serviceFee = 100; // Fixed fee
   const amount = form.watch('amount');
   const totalCost = amount + serviceFee;
 
@@ -184,15 +194,15 @@ export default function ElectricityPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Distributor (Disco)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading || !electricityService?.variations || electricityService.variations.length === 0}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={servicesLoading ? "Loading..." : "Select your electricity distributor"} />
+                          <SelectValue placeholder={"Select your electricity distributor"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {electricityService?.variations?.map(disco => (
-                             <SelectItem key={disco.id} value={disco.id}>{disco.name}</SelectItem>
+                        {discos.map(disco => (
+                             <SelectItem key={disco.discoId} value={disco.discoId}>{disco.discoName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
