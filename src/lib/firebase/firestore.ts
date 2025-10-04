@@ -413,15 +413,8 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     console.log('[getServices] Starting to fetch all service data...');
     try {
-        const servicesQuery = query(collection(db, "services"));
-        
-        const [
-            serviceSnapshot, 
-            allDataPlans, 
-            allCablePlans, 
-            allDiscos
-        ] = await Promise.all([
-            getDocs(servicesQuery),
+        const [serviceSnapshot, allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+            getDocs(query(collection(db, "services"))),
             getDataPlans(),
             getCablePlans(),
             getDiscos()
@@ -430,13 +423,13 @@ export async function getServices(): Promise<Service[]> {
         console.log(`[getServices] Fetched ${serviceSnapshot.size} base services.`);
         console.log(`[getServices] Fetched ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
 
-        const baseServices = serviceSnapshot.docs.map(doc => ({ 
-            id: doc.id, 
-            ...doc.data(), 
-            apiProviderIds: doc.data().apiProviderIds || [] 
-        } as Service));
+        const populatedServices = serviceSnapshot.docs.map(doc => {
+            const service = { 
+                id: doc.id, 
+                ...doc.data(), 
+                apiProviderIds: doc.data().apiProviderIds || [] 
+            } as Service;
 
-        const populatedServices = baseServices.map(service => {
             let variations: Service['variations'] = service.variations || [];
 
             switch (service.category) {
@@ -459,7 +452,7 @@ export async function getServices(): Promise<Service[]> {
                     break;
                 case 'Cable':
                      variations = allCablePlans.map(p => ({
-                        id: p.planId, // Use the specific planId from the provider
+                        id: p.planId, 
                         name: p.planName,
                         price: p.basePrice,
                         providerName: p.providerName,
@@ -467,10 +460,10 @@ export async function getServices(): Promise<Service[]> {
                     break;
                 case 'Electricity':
                     variations = allDiscos.map(d => ({
-                        id: d.discoId, // Use the specific discoId
+                        id: d.discoId, 
                         name: d.discoName,
-                        price: 0, // Base price is 0, fee is applied separately
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 } // Default fee
+                        price: 0, 
+                        fees: { Customer: 100, Vendor: 100, Admin: 0 }
                     }));
                     break;
                 case 'Airtime':
@@ -485,18 +478,19 @@ export async function getServices(): Promise<Service[]> {
                     }
                     break;
             }
-
+            
             return { ...service, variations };
         });
 
         populatedServices.sort((a, b) => a.name.localeCompare(b.name));
-        console.log('[getServices] Successfully populated all services.');
+        console.log('[getServices] Successfully populated all services.', populatedServices);
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
         return [];
     }
 }
+
 
 
 export async function addService(data: { name: string; category: string }) {
@@ -701,3 +695,4 @@ export async function deleteDisco(id: string) {
     
 
     
+
