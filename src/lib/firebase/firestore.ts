@@ -12,6 +12,7 @@ import { callProviderAPI } from '@/services/api-handler';
 const db = getFirestore(app);
 
 export async function getUserData(uid: string): Promise<UserData | null> {
+    console.log(`[Firestore] Fetching user data for UID: ${uid}`);
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
 
@@ -20,14 +21,17 @@ export async function getUserData(uid: string): Promise<UserData | null> {
         // Convert Firestore Timestamp to JavaScript Date object
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
         const lastLogin = data.lastLogin?.toDate ? data.lastLogin.toDate() : createdAt;
-
-        return {
+        
+        const userData = {
             ...data,
             uid: userSnap.id,
             createdAt: createdAt,
             lastLogin: lastLogin
         } as UserData;
+        console.log("[Firestore] User data found:", userData);
+        return userData;
     } else {
+        console.log("[Firestore] No user data found for UID:", uid);
         return null;
     }
 }

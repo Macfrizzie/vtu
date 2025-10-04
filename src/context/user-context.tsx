@@ -20,44 +20,47 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refetchTrigger, setRefetchTrigger] = useState(0);
 
-  const forceRefetch = useCallback(() => {
-    setRefetchTrigger(c => c + 1);
+  const fetchAndSetData = useCallback(async (userAuth: User | null) => {
+    if (userAuth) {
+      console.log(`[UserProvider] Auth state changed: Logged in as ${userAuth.uid}. Fetching data...`);
+      setLoading(true);
+      const fetchedUserData = await getUserData(userAuth.uid);
+      setUserData(fetchedUserData);
+      setUser(userAuth);
+      setLoading(false);
+      console.log(`[UserProvider] Data fetch complete.`);
+    } else {
+      console.log(`[UserProvider] Auth state changed: Logged out.`);
+      setUser(null);
+      setUserData(null);
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const fetchUser = async (userAuth: User) => {
-        setUser(userAuth);
-        const fetchedUserData = await getUserData(userAuth.uid);
-        setUserData(fetchedUserData);
-        setLoading(false);
-    }
-
-    const unsubscribe = onAuthStateChangedHelper(async (userAuth) => {
-      if (userAuth) {
-        setLoading(true);
-        await fetchUser(userAuth);
-      } else {
-        setUser(null);
-        setUserData(null);
-        setLoading(false);
-      }
+    // onAuthStateChanged returns an unsubscribe function
+    const unsubscribe = onAuthStateChangedHelper((userAuth) => {
+      fetchAndSetData(userAuth);
     });
 
-    // Handle initial load if user is already logged in
-    if (user && refetchTrigger > 0) {
-        setLoading(true);
-        fetchUser(user);
-    }
-
-
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [refetchTrigger, user]);
+  }, [fetchAndSetData]);
+
+  const forceRefetch = useCallback(() => {
+    if (user) {
+      console.log(`[UserProvider] forceRefetch triggered for user: ${user.uid}`);
+      fetchAndSetData(user);
+    } else {
+      console.log(`[UserProvider] forceRefetch called but no user is logged in.`);
+    }
+  }, [user, fetchAndSetData]);
+
 
   const value = { user, userData, loading, forceRefetch };
 
-  if (loading && user === null) { // Only show global loader on initial auth check
+  if (loading && !user && !userData) { // Only show global loader on initial, hard-page load
       return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
