@@ -184,7 +184,7 @@ export default function ElectricityPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Distributor (Disco)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading || !electricityService}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={servicesLoading || !electricityService?.variations || electricityService.variations.length === 0}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder={servicesLoading ? "Loading..." : "Select your electricity distributor"} />

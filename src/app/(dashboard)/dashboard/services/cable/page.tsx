@@ -256,7 +256,7 @@ export default function CableTvPage() {
                         setCustomerName(null);
                       }}
                       value={field.value}
-                      disabled={servicesLoading}
+                      disabled={servicesLoading || !cableService}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -299,11 +299,11 @@ export default function CableTvPage() {
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={!selectedCableName}
+                      disabled={!selectedCableName || availablePackages.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a package" />
+                          <SelectValue placeholder={!selectedCableName ? "Select provider first" : "Select a package"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -336,7 +336,7 @@ export default function CableTvPage() {
                         {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Subscription')}
                     </Button>
                  ) : (
-                    <Button type="button" className="w-full" size="lg" onClick={handleVerify} disabled={isVerifying || !form.formState.isValid || !selectedVariationId}>
+                    <Button type="button" className="w-full" size="lg" onClick={handleVerify} disabled={isVerifying || !form.formState.isValid || !selectedCableName}>
                         {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4"/>}
                         Verify Details
                     </Button>
@@ -348,5 +348,3 @@ export default function CableTvPage() {
     </div>
   );
 }
-
-    

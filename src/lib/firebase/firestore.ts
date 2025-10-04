@@ -415,7 +415,6 @@ export async function getServices(): Promise<Service[]> {
     try {
         const servicesQuery = query(collection(db, "services"));
         
-        // Concurrently fetch all necessary data
         const [
             serviceSnapshot, 
             allDataPlans, 
@@ -427,7 +426,9 @@ export async function getServices(): Promise<Service[]> {
             getCablePlans(),
             getDiscos()
         ]);
-        console.log(`[getServices] Fetched ${serviceSnapshot.size} base services, ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
+
+        console.log(`[getServices] Fetched ${serviceSnapshot.size} base services.`);
+        console.log(`[getServices] Fetched ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
 
         const baseServices = serviceSnapshot.docs.map(doc => ({ 
             id: doc.id, 
@@ -435,7 +436,6 @@ export async function getServices(): Promise<Service[]> {
             apiProviderIds: doc.data().apiProviderIds || [] 
         } as Service));
 
-        // Map variations to the base services after all data is fetched
         const populatedServices = baseServices.map(service => {
             let variations: Service['variations'] = service.variations || [];
 
@@ -458,8 +458,8 @@ export async function getServices(): Promise<Service[]> {
                     }));
                     break;
                 case 'Cable':
-                    variations = allCablePlans.map(p => ({
-                        id: p.planId,
+                     variations = allCablePlans.map(p => ({
+                        id: p.planId, // Use the specific planId from the provider
                         name: p.planName,
                         price: p.basePrice,
                         providerName: p.providerName,
@@ -467,7 +467,7 @@ export async function getServices(): Promise<Service[]> {
                     break;
                 case 'Electricity':
                     variations = allDiscos.map(d => ({
-                        id: d.discoId,
+                        id: d.discoId, // Use the specific discoId
                         name: d.discoName,
                         price: 0, // Base price is 0, fee is applied separately
                         fees: { Customer: 100, Vendor: 100, Admin: 0 } // Default fee
@@ -494,7 +494,6 @@ export async function getServices(): Promise<Service[]> {
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
-        // Return an empty array or re-throw to be handled by the caller
         return [];
     }
 }
