@@ -410,17 +410,17 @@ export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
     
+    const services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
+
     // Fetch all related data concurrently
     const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
         getDiscos()
     ]);
-
-    let services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
     
     // Map variations to services
-    services = services.map(service => {
+    const populatedServices = services.map(service => {
         if (service.category === 'Data') {
             const networks = [
                 { id: '1', name: 'MTN' },
@@ -431,15 +431,9 @@ export async function getServices(): Promise<Service[]> {
             service.variations = networks.map(network => ({
                 id: network.id,
                 name: network.name,
-                price: 0, // Not applicable at this level
+                price: 0, 
                 plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
-                    id: p.id,
-                    planId: p.planId,
-                    name: p.name,
-                    price: p.price,
-                    planType: p.planType,
-                    fees: p.fees,
-                    validity: p.validity,
+                    ...p, // Spread all properties of DataPlan
                     status: p.status || 'Active',
                 })),
             }));
@@ -452,10 +446,10 @@ export async function getServices(): Promise<Service[]> {
             }));
         } else if (service.category === 'Electricity') {
              service.variations = allDiscos.map(d => ({
-                id: d.discoId, // e.g. "ikeja-electric"
-                name: d.discoName, // e.g. "Ikeja Electric"
-                price: 0, // Base price is not applicable, fee is used.
-                fees: { Customer: 100, Vendor: 100, Admin: 0 } // Example fees
+                id: d.discoId, 
+                name: d.discoName,
+                price: 0,
+                fees: { Customer: 100, Vendor: 100, Admin: 0 }
             }));
         } else if (service.category === 'Airtime' && (!service.variations || service.variations.length === 0)) {
             const allAirtimeNetworks = [
@@ -470,8 +464,8 @@ export async function getServices(): Promise<Service[]> {
         return service;
     });
 
-    services.sort((a, b) => a.name.localeCompare(b.name));
-    return services;
+    populatedServices.sort((a, b) => a.name.localeCompare(b.name));
+    return populatedServices;
 }
 
 
@@ -669,3 +663,4 @@ export async function deleteDisco(id: string) {
 
 
     
+

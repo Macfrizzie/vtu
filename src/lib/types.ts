@@ -47,6 +47,7 @@ export type ServiceVariation = {
   validity?: string;
   plans?: ServiceVariation[];
   providerName?: string; // For distinguishing cable plans
+  status?: 'Active' | 'Inactive'; // For data plans
 };
 
 export type Service = {
