@@ -103,7 +103,7 @@ export default function ElectricityPage() {
         return;
     }
     
-    const serviceFee = selectedDisco.fees?.[userData.role] || 0;
+    const serviceFee = selectedDisco.fees?.[userData.role || 'Customer'] || 0;
     const totalCost = values.amount + serviceFee;
 
     if (userData.walletBalance < totalCost) {
@@ -117,14 +117,12 @@ export default function ElectricityPage() {
 
     setIsPurchasing(true);
     try {
-      const purchaseInputs = {
+      // For electricity, the main serviceId is for "Electricity", and variationId is the disco ID
+      await purchaseService(user.uid, electricityService.id, values.serviceId, {
         meterNumber: values.meterNumber,
         meterType: values.meterType,
         amount: values.amount,
-      };
-
-      // For electricity, the serviceId is the main service doc, and variationId is the disco ID
-      await purchaseService(user.uid, electricityService.id, values.serviceId, purchaseInputs, user.email!);
+      }, user.email!);
       
       forceRefetch();
       toast({
@@ -147,7 +145,7 @@ export default function ElectricityPage() {
   const serviceFee = useMemo(() => {
     if (!selectedDiscoId || !electricityService || !userData) return 0;
     const disco = electricityService.variations?.find(d => d.id === selectedDiscoId);
-    return disco?.fees?.[userData.role] || 0;
+    return disco?.fees?.[userData.role || 'Customer'] || 0;
   }, [selectedDiscoId, electricityService, userData]);
 
   const amount = form.watch('amount');

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -408,46 +409,16 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
-    const allDataPlans = await getDataPlans();
-    const allCablePlans = await getCablePlans();
-    const allDiscos = await getDiscos();
-
-    const coreServices = [
-        { name: "Airtime", category: 'Airtime', endpoint: '/topup/' },
-        { name: "Data", category: 'Data', endpoint: '/data/' },
-        { name: "Electricity Bill", category: 'Electricity', endpoint: '/billpayment/' },
-        { name: "Cable TV", category: 'Cable', endpoint: '/cablesub/' },
-        { name: "Education E-Pins", category: 'Education', endpoint: '/epin/' },
-        { name: "Recharge Card Printing", category: 'Recharge Card', endpoint: '/recharge-card/' },
-    ];
+    
+    // Fetch all related data concurrently
+    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+        getDataPlans(),
+        getCablePlans(),
+        getDiscos()
+    ]);
 
     let services = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
-    const existingServiceNames = new Set(services.map(s => s.name));
-
-    // Ensure core services exist
-    if (coreServices.some(cs => !existingServiceNames.has(cs.name))) {
-        const batch = writeBatch(db);
-        for (const coreService of coreServices) {
-            if (!existingServiceNames.has(coreService.name)) {
-                const docRef = doc(collection(db, 'services'));
-                batch.set(docRef, {
-                    name: coreService.name,
-                    category: coreService.category,
-                    endpoint: coreService.endpoint,
-                    status: "Active",
-                    markupType: "none",
-                    markupValue: 0,
-                    apiProviderIds: [],
-                    variations: [],
-                });
-            }
-        }
-        await batch.commit();
-        // Refetch after creating missing services
-        const newSnapshot = await getDocs(query(servicesCol));
-        services = newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
-    }
-
+    
     // Map variations to services
     services = services.map(service => {
         if (service.category === 'Data') {
