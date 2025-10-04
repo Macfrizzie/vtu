@@ -87,9 +87,11 @@ export default function CableTvPage() {
   }, [toast]);
   
   const cableProviders = useMemo(() => {
-    if (!cableService || !cableService.variations) return [];
-    const providerNames = [...new Set(cableService.variations.map(v => v.providerName).filter(Boolean))];
-    return providerNames.map(name => ({ id: name!, name: name! }));
+    if (!cableService || !cableService.variations) {
+      return [];
+    }
+    const providerNames = new Set(cableService.variations.map(v => v.providerName).filter(Boolean));
+    return Array.from(providerNames).map(name => ({ id: name!, name: name! }));
   }, [cableService]);
 
   const selectedCableName = form.watch('cablename');
