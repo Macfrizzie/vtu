@@ -411,73 +411,92 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    const servicesCol = collection(db, "services");
-    const serviceSnapshot = await getDocs(query(servicesCol));
-    const baseServices = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service));
+    console.log('[getServices] Starting to fetch all service data...');
+    try {
+        const servicesQuery = query(collection(db, "services"));
+        
+        // Concurrently fetch all necessary data
+        const [
+            serviceSnapshot, 
+            allDataPlans, 
+            allCablePlans, 
+            allDiscos
+        ] = await Promise.all([
+            getDocs(servicesQuery),
+            getDataPlans(),
+            getCablePlans(),
+            getDiscos()
+        ]);
+        console.log(`[getServices] Fetched ${serviceSnapshot.size} base services, ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
 
-    // Fetch all related variation data concurrently
-    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
-        getDataPlans(),
-        getCablePlans(),
-        getDiscos()
-    ]);
+        const baseServices = serviceSnapshot.docs.map(doc => ({ 
+            id: doc.id, 
+            ...doc.data(), 
+            apiProviderIds: doc.data().apiProviderIds || [] 
+        } as Service));
 
-    // Map variations to the base services
-    const populatedServices = baseServices.map(service => {
-        let variations: Service['variations'] = service.variations || [];
+        // Map variations to the base services after all data is fetched
+        const populatedServices = baseServices.map(service => {
+            let variations: Service['variations'] = service.variations || [];
 
-        switch (service.category) {
-            case 'Data':
-                const networks = [
-                    { id: '1', name: 'MTN' },
-                    { id: '2', name: 'GLO' },
-                    { id: '3', name: 'AIRTEL' },
-                    { id: '4', name: '9MOBILE' },
-                ];
-                variations = networks.map(network => ({
-                    id: network.id,
-                    name: network.name,
-                    price: 0,
-                    plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
-                        ...p,
-                        status: p.status || 'Active',
-                    })),
-                }));
-                break;
-            case 'Cable':
-                variations = allCablePlans.map(p => ({
-                    id: p.planId,
-                    name: p.planName,
-                    price: p.basePrice,
-                    providerName: p.providerName,
-                }));
-                break;
-            case 'Electricity':
-                variations = allDiscos.map(d => ({
-                    id: d.discoId,
-                    name: d.discoName,
-                    price: 0, // Base price is 0, fee is applied separately
-                    fees: { Customer: 100, Vendor: 100, Admin: 0 } // Default fee
-                }));
-                break;
-            case 'Airtime':
-                if (!variations || variations.length === 0) {
-                    const allAirtimeNetworks = [
+            switch (service.category) {
+                case 'Data':
+                    const networks = [
                         { id: '1', name: 'MTN' },
                         { id: '2', name: 'GLO' },
                         { id: '3', name: 'AIRTEL' },
                         { id: '4', name: '9MOBILE' },
                     ];
-                    variations = allAirtimeNetworks.map(n => ({ ...n, price: 0 }));
-                }
-                break;
-        }
+                    variations = networks.map(network => ({
+                        id: network.id,
+                        name: network.name,
+                        price: 0,
+                        plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
+                            ...p,
+                            status: p.status || 'Active',
+                        })),
+                    }));
+                    break;
+                case 'Cable':
+                    variations = allCablePlans.map(p => ({
+                        id: p.planId,
+                        name: p.planName,
+                        price: p.basePrice,
+                        providerName: p.providerName,
+                    }));
+                    break;
+                case 'Electricity':
+                    variations = allDiscos.map(d => ({
+                        id: d.discoId,
+                        name: d.discoName,
+                        price: 0, // Base price is 0, fee is applied separately
+                        fees: { Customer: 100, Vendor: 100, Admin: 0 } // Default fee
+                    }));
+                    break;
+                case 'Airtime':
+                    if (!variations || variations.length === 0) {
+                        const allAirtimeNetworks = [
+                            { id: '1', name: 'MTN' },
+                            { id: '2', name: 'GLO' },
+                            { id: '3', name: 'AIRTEL' },
+                            { id: '4', name: '9MOBILE' },
+                        ];
+                        variations = allAirtimeNetworks.map(n => ({ ...n, price: 0 }));
+                    }
+                    break;
+            }
 
-        return { ...service, variations };
-    });
+            return { ...service, variations };
+        });
 
-    populatedServices.sort((a, b) => a.name.localeCompare(b.name));
-    return populatedServices;
+        populatedServices.sort((a, b) => a.name.localeCompare(b.name));
+        console.log('[getServices] Successfully populated all services.');
+        return populatedServices;
+    } catch (error) {
+        console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
+        // Return an empty array or re-throw to be handled by the caller
+        return [];
+    }
 }
 
 
@@ -677,6 +696,8 @@ export async function deleteDisco(id: string) {
     
 
 
+
+    
 
     
 
