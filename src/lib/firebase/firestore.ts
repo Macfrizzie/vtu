@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -236,15 +235,18 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                     smart_card_number: inputs.smart_card_number,
                  };
             } else if (service.category === 'Electricity') {
-                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                 const selectedVariation = service.variations?.find(d => d.id === variationId);
                  if (!selectedVariation) {
                     throw new Error("Could not find the selected Disco.");
                  }
                  totalCost = inputs.amount + (selectedVariation.fees?.[userData.role] || 0);
                  description = `${selectedVariation.name} payment for ${inputs.meterNumber}`;
+                 
+                 const meterTypeId = inputs.meterType === 'prepaid' ? '1' : '2';
+
                  requestBody = {
                      disco_name: selectedVariation.id,
-                     MeterType: inputs.meterType,
+                     MeterType: meterTypeId,
                      meter_number: inputs.meterNumber,
                      amount: inputs.amount,
                  };
@@ -693,3 +695,6 @@ export async function deleteDisco(id: string) {
     
 
 
+
+
+    
