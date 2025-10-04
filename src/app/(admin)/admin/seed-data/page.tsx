@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Database } from 'lucide-react';
 import { getFirestore, collection, writeBatch, doc } from 'firebase/firestore';
 import { app } from '@/lib/firebase/client-app';
-import type { DataPlan, CablePlan } from '@/lib/types';
+import type { DataPlan, Disco } from '@/lib/types';
 import { Progress } from '@/components/ui/progress';
 
 const db = getFirestore(app);
@@ -212,3 +212,171 @@ const dataPlansText = `
 364 MTN GIFTING ₦728.0 2.0 GB --- 2 days
 365 MTN GIFTING ₦780.0 1.0 GB --- 7 days direct data
 466 MTN "DATA SHARE" 
+`;
+
+const discosData: Omit<Disco, 'id'>[] = [
+    { discoId: '1', discoName: 'Ikeja Electric' },
+    { discoId: '2', discoName: 'Eko Electric' },
+    { discoId: '3', discoName: 'Abuja Electric' },
+    { discoId: '4', discoName: 'Kano Electric' },
+    { discoId: '5', discoName: 'Enugu Electric' },
+    { discoId: '6', discoName: 'Port Harcourt Electric' },
+    { discoId: '7', discoName: 'Ibadan Electric' },
+    { discoId: '8', discoName: 'Kaduna Electric' },
+    { discoId: '9', discoName: 'Jos Electric' },
+    { discoId: '11', discoName: 'Yola Electric' },
+    { discoId: '13', discoName: 'Benin Electric' },
+    { discoId: '14', discoName: 'Aba Electric' },
+];
+
+
+export default function SeedDataPage() {
+    const { toast } = useToast();
+    const [isLoading, setIsLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
+
+    const handleSeedDataPlans = async () => {
+        setIsLoading(true);
+        setProgress(0);
+        
+        const lines = dataPlansText.trim().split('\n');
+        const plansToSeed: Omit<DataPlan, 'id'>[] = [];
+
+        for (const line of lines) {
+            const parts = line.split(/\s+/);
+            if (parts.length < 6) continue;
+
+            const planId = parts[0];
+            const networkName = parts[1];
+            
+            let planTypeParts = [];
+            let i = 2;
+            while (i < parts.length && !parts[i].startsWith('₦')) {
+                planTypeParts.push(parts[i]);
+                i++;
+            }
+            const planType = planTypeParts.join(' ').replace(/"/g, '');
+
+            if (i >= parts.length) continue;
+
+            const price = parseFloat(parts[i].replace('₦', ''));
+            
+            const name = parts[i+1];
+            const validity = parts.slice(i+3).join(' ');
+
+            if (planId && networkName && planType && !isNaN(price) && name && validity) {
+                 plansToSeed.push({
+                    planId,
+                    networkName,
+                    planType,
+                    name,
+                    price,
+                    validity: validity.replace(/---/g, '').trim(),
+                    fees: { Customer: 10, Vendor: 5, Admin: 0 },
+                    status: 'Active',
+                });
+            }
+        }
+        
+        try {
+            const batch = writeBatch(db);
+            const dataPlansCol = collection(db, 'dataPlans');
+            
+            for (let i = 0; i < plansToSeed.length; i++) {
+                const plan = plansToSeed[i];
+                const docRef = doc(dataPlansCol);
+                batch.set(docRef, plan);
+                setProgress(((i + 1) / plansToSeed.length) * 100);
+            }
+            
+            await batch.commit();
+
+            toast({
+                title: "Seeding Complete!",
+                description: `${plansToSeed.length} data plans have been successfully seeded.`,
+            });
+        } catch (error) {
+            console.error("Failed to seed data plans:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to seed data plans.' });
+        } finally {
+            setIsLoading(false);
+            setProgress(0);
+        }
+    };
+    
+    const handleSeedDiscos = async () => {
+        setIsLoading(true);
+        setProgress(0);
+
+        try {
+            const batch = writeBatch(db);
+            const discosCol = collection(db, 'discos');
+            
+            for (let i = 0; i < discosData.length; i++) {
+                const disco = discosData[i];
+                const docRef = doc(discosCol);
+                batch.set(docRef, disco);
+                setProgress(((i + 1) / discosData.length) * 100);
+            }
+            
+            await batch.commit();
+
+            toast({
+                title: "Seeding Complete!",
+                description: `${discosData.length} electricity discos have been successfully seeded.`,
+            });
+        } catch (error) {
+            console.error("Failed to seed discos:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to seed discos.' });
+        } finally {
+            setIsLoading(false);
+            setProgress(0);
+        }
+    };
+
+
+    return (
+        <div className="space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold">Seed Database</h1>
+                <p className="text-muted-foreground">
+                One-time actions to populate your database with initial data.
+                </p>
+            </div>
+
+            <div className="grid gap-8 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Seed Data Plans</CardTitle>
+                        <CardDescription>
+                            This will populate the 'dataPlans' collection in Firestore with a large list of predefined data bundles for all networks. This is a one-time action.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={handleSeedDataPlans} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                            Seed Data Plans
+                        </Button>
+                        {isLoading && <Progress value={progress} className="w-full mt-4" />}
+                    </CardContent>
+                </Card>
+
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Seed Electricity Discos</CardTitle>
+                        <CardDescription>
+                            This will populate the 'discos' collection in Firestore with the standard list of Nigerian electricity distribution companies.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={handleSeedDiscos} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                            Seed Discos
+                        </Button>
+                        {isLoading && progress > 0 && <Progress value={progress} className="w-full mt-4" />}
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    )
+}
