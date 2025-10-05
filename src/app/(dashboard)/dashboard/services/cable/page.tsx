@@ -87,6 +87,7 @@ export default function CableTvPage() {
   }, [toast]);
   
   const cableProviders = useMemo(() => {
+    // The variations on the "Cable" service are the providers (DSTV, GOTV, etc.)
     return cableService?.variations || [];
   }, [cableService]);
 
@@ -95,6 +96,7 @@ export default function CableTvPage() {
 
   const availablePackages = useMemo(() => {
     if (!selectedCableName || !cableService) return [];
+    // Find the selected provider in the variations, and get its nested plans
     const provider = cableService.variations?.find(v => v.id === selectedCableName);
     return provider?.plans || [];
   }, [selectedCableName, cableService]);
@@ -191,6 +193,7 @@ export default function CableTvPage() {
           smart_card_number: values.smartCardNumber,
           customer_name: customerName,
           cablename: values.cablename,
+          cableplan: values.variationId
       };
 
       await purchaseService(user.uid, cableService.id, values.variationId, purchaseInputs, user.email!);
@@ -262,8 +265,8 @@ export default function CableTvPage() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {cableProviders.map(s => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        {cableProviders.map(provider => (
+                            <SelectItem key={provider.id} value={provider.id}>{provider.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -346,5 +349,3 @@ export default function CableTvPage() {
     </div>
   );
 }
-
-    
