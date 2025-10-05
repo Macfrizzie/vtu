@@ -226,8 +226,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
 
             } else if (service.category === 'Cable') {
-                const selectedPlan = service.variations?.find(v => v.id === variationId);
-                
+                 const selectedProviderVariation = service.variations?.find(v => v.name === inputs.cablename);
+                const selectedPlan = selectedProviderVariation?.plans?.find(p => p.id === variationId);
+
                 if (!selectedPlan) {
                     throw new Error("Could not find the selected cable package.");
                 }
@@ -447,7 +448,7 @@ export async function getServices(): Promise<Service[]> {
                         price: 0,
                         plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
                             ...p,
-                            id: p.planId, // Use planId for the variation id
+                            id: p.planId,
                             name: p.name,
                             price: p.price,
                             status: p.status || 'Active',
@@ -457,27 +458,34 @@ export async function getServices(): Promise<Service[]> {
                     break;
                 
                 case 'Cable':
-                    variations = allCablePlans.map(p => ({
-                        id: p.planId, // e.g., 'dstv-padi'
-                        name: p.planName,
-                        price: p.basePrice,
-                        providerName: p.providerName,
+                    const cableProviders = ['DSTV', 'GOTV', 'Startimes'];
+                    variations = cableProviders.map(providerName => ({
+                        id: providerName,
+                        name: providerName,
+                        price: 0,
+                        plans: allCablePlans
+                            .filter(p => p.providerName === providerName)
+                            .map(p => ({
+                                id: p.planId,
+                                name: p.planName,
+                                price: p.basePrice,
+                                providerName: p.providerName,
+                            })),
                     }));
-                    console.log(`[getServices] Populated Cable service with ${variations.length} plan variations.`);
+                    console.log(`[getServices] Populated Cable service with ${variations.length} provider variations.`);
                     break;
 
                 case 'Electricity':
                     variations = allDiscos.map(d => ({
                         id: d.discoId, 
                         name: d.discoName,
-                        price: 0, // Base price is 0, fee is applied on top
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 } // Example fees
+                        price: 0,
+                        fees: { Customer: 100, Vendor: 100, Admin: 0 }
                     }));
                     console.log(`[getServices] Populated Electricity service with ${variations.length} disco variations.`);
                     break;
 
                 case 'Airtime':
-                    // If variations are not manually set in Firestore, create them.
                     if (!variations || variations.length === 0) {
                         variations = [
                             { id: '1', name: 'MTN', price: 0 },
@@ -497,11 +505,11 @@ export async function getServices(): Promise<Service[]> {
         });
 
         populatedServices.sort((a, b) => a.name.localeCompare(b.name));
-        console.log('[getServices] Successfully populated all services.');
+        console.log('[getServices] Successfully populated all services.', populatedServices);
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
-        return []; // Return an empty array on failure to prevent crashes
+        return [];
     }
 }
 
