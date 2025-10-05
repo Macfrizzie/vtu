@@ -226,17 +226,19 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
 
             } else if (service.category === 'Cable') {
-                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                const providerVariation = service.variations?.find(v => v.id === inputs.cablename);
+                const selectedPlan = providerVariation?.plans?.find(p => p.id === variationId);
 
-                 if (!selectedVariation) {
+                if (!selectedPlan) {
                     throw new Error("Could not find the selected cable package.");
-                 }
-                 totalCost = selectedVariation.price + (service.markupValue || 0);
-                 description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
+                }
+
+                totalCost = selectedPlan.price + (service.markupValue || 0);
+                description = `${selectedPlan.name} for ${inputs.smart_card_number}`;
                  
                  requestBody = {
                     cablename: inputs.cablename,
-                    cableplan: variationId,
+                    cableplan: variationId, // This is the planId like 'dstv-padi'
                     smart_card_number: inputs.smart_card_number,
                  };
             } else if (service.category === 'Electricity') {
@@ -446,16 +448,26 @@ export async function getServices(): Promise<Service[]> {
                         price: 0,
                         plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
                             ...p,
+                            id: p.planId, // Use planId for the variation id
+                            name: p.name,
+                            price: p.price,
                             status: p.status || 'Active',
                         })),
                     }));
                     break;
                 case 'Cable':
-                     variations = allCablePlans.map(p => ({
-                        id: p.planId, 
-                        name: p.planName,
-                        price: p.basePrice,
-                        providerName: p.providerName,
+                    const cableProviders = ['DSTV', 'GOTV', 'Startimes'];
+                    variations = cableProviders.map(providerName => ({
+                        id: providerName,
+                        name: providerName,
+                        price: 0,
+                        plans: allCablePlans
+                            .filter(p => p.providerName === providerName)
+                            .map(p => ({
+                                id: p.planId, // e.g., 'dstv-padi'
+                                name: p.planName,
+                                price: p.basePrice,
+                            })),
                     }));
                     break;
                 case 'Electricity':
@@ -697,3 +709,6 @@ export async function deleteDisco(id: string) {
     
 
 
+
+
+    

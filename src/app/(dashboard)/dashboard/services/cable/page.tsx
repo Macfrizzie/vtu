@@ -34,9 +34,9 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles } from 'lucide-react';
-import { purchaseService, getServices, getApiProviders, getCablePlans } from '@/lib/firebase/firestore';
+import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
-import type { Service, ApiProvider, CablePlan, ServiceVariation } from '@/lib/types';
+import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 
 const formSchema = z.object({
   cablename: z.string().min(1, 'Please select a provider.'),
@@ -53,7 +53,6 @@ export default function CableTvPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [cableService, setCableService] = useState<Service | null>(null);
-  const [allCablePlans, setAllCablePlans] = useState<CablePlan[]>([]);
   const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
@@ -70,14 +69,12 @@ export default function CableTvPage() {
     async function fetchServices() {
         setServicesLoading(true);
         try {
-            const [allServices, allProviders, cablePlansData] = await Promise.all([
+            const [allServices, allProviders] = await Promise.all([
                 getServices(),
                 getApiProviders(),
-                getCablePlans(),
             ]);
             const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
             setCableService(service);
-            setAllCablePlans(cablePlansData);
             setApiProviders(allProviders.filter(p => p.status === 'Active'));
         } catch (error) {
             console.error("Failed to fetch cable services:", error);
@@ -90,23 +87,20 @@ export default function CableTvPage() {
   }, [toast]);
   
   const cableProviders = useMemo(() => {
-    if (!allCablePlans || allCablePlans.length === 0) {
-      return [];
-    }
-    const providerNames = new Set(allCablePlans.map(p => p.providerName));
-    return Array.from(providerNames).map(name => ({ id: name, name: name }));
-  }, [allCablePlans]);
+    return cableService?.variations || [];
+  }, [cableService]);
 
   const selectedCableName = form.watch('cablename');
   const smartCardValue = form.watch('smartCardNumber');
 
   const availablePackages = useMemo(() => {
-    if (!selectedCableName || allCablePlans.length === 0) return [];
-    return allCablePlans.filter(v => v.providerName === selectedCableName);
-  }, [selectedCableName, allCablePlans]);
+    if (!selectedCableName || !cableService) return [];
+    const provider = cableService.variations?.find(v => v.id === selectedCableName);
+    return provider?.plans || [];
+  }, [selectedCableName, cableService]);
 
   const selectedVariationId = form.watch('variationId');
-  const selectedVariation = availablePackages.find(v => v.planId === selectedVariationId);
+  const selectedVariation = availablePackages.find(v => v.id === selectedVariationId);
 
   async function handleVerify() {
     setIsVerifying(true);
@@ -180,7 +174,7 @@ export default function CableTvPage() {
       return;
     }
 
-    const totalCost = selectedVariation.basePrice + (cableService.markupValue || 0);
+    const totalCost = selectedVariation.price + (cableService.markupValue || 0);
 
     if (userData.walletBalance < totalCost) {
       toast({
@@ -203,7 +197,7 @@ export default function CableTvPage() {
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
-        description: `${selectedVariation.planName} for ${values.smartCardNumber} was purchased.`,
+        description: `${selectedVariation.name} for ${values.smartCardNumber} was purchased.`,
       });
       form.reset();
       setCustomerName(null);
@@ -220,7 +214,7 @@ export default function CableTvPage() {
     }
   }
 
-  const totalCost = selectedVariation ? selectedVariation.basePrice + (cableService?.markupValue || 0) : 0;
+  const totalCost = selectedVariation ? selectedVariation.price + (cableService?.markupValue || 0) : 0;
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -312,10 +306,10 @@ export default function CableTvPage() {
                       </FormControl>
                       <SelectContent>
                         {availablePackages.map(p => {
-                          const finalPrice = p.basePrice + (cableService?.markupValue || 0);
+                          const finalPrice = p.price + (cableService?.markupValue || 0);
                           return (
-                            <SelectItem key={p.planId} value={p.planId}>
-                              {p.planName} (₦{finalPrice.toLocaleString()})
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name} (₦{finalPrice.toLocaleString()})
                             </SelectItem>
                           );
                         })}
@@ -352,3 +346,5 @@ export default function CableTvPage() {
     </div>
   );
 }
+
+    
