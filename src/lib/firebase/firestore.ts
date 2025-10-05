@@ -4,7 +4,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider } from '../types';
+import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -226,15 +226,15 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
 
             } else if (service.category === 'Cable') {
-                 const selectedProviderVariation = service.variations?.find(v => v.name === inputs.cablename);
-                const selectedPlan = selectedProviderVariation?.plans?.find(p => p.id === variationId);
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
 
-                if (!selectedPlan) {
+                if (!selectedVariation) {
                     throw new Error("Could not find the selected cable package.");
                 }
+                const selectedProvider = service.variations?.find(v => v.name === inputs.cablename)
 
-                totalCost = selectedPlan.price + (service.markupValue || 0);
-                description = `${selectedPlan.name} for ${inputs.smart_card_number}`;
+                totalCost = selectedVariation.price + (service.markupValue || 0);
+                description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
                  
                  requestBody = {
                     cablename: inputs.cablename,
@@ -413,107 +413,73 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    console.log('[getServices] Starting to fetch all service data...');
+    console.log('[getServices] Starting to fetch and aggregate all service data...');
     try {
-        const [serviceSnapshot, allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+        const [serviceDocs, allDataPlans, allCablePlans, allDiscos] = await Promise.all([
             getDocs(query(collection(db, "services"))),
             getDataPlans(),
             getCablePlans(),
             getDiscos()
         ]);
 
-        console.log(`[getServices] Fetched ${serviceSnapshot.size} base services.`);
+        console.log(`[getServices] Fetched ${serviceDocs.size} base services from Firestore.`);
         console.log(`[getServices] Fetched ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
 
-        const populatedServices = serviceSnapshot.docs.map(doc => {
-            const service = { 
-                id: doc.id, 
-                ...doc.data(), 
-                apiProviderIds: doc.data().apiProviderIds || [] 
-            } as Service;
+        if (serviceDocs.empty) {
+            console.warn("[getServices] The 'services' collection is empty. No services can be processed.");
+            return [];
+        }
 
-            let variations: Service['variations'] = service.variations || [];
-
-            switch (service.category) {
-                case 'Data':
-                    const networks = [
-                        { id: '1', name: 'MTN' },
-                        { id: '2', name: 'GLO' },
-                        { id: '3', name: 'AIRTEL' },
-                        { id: '4', name: '9MOBILE' },
-                    ];
-                    variations = networks.map(network => ({
-                        id: network.id,
-                        name: network.name,
-                        price: 0,
-                        plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({
-                            ...p,
-                            id: p.planId,
-                            name: p.name,
-                            price: p.price,
-                            status: p.status || 'Active',
-                        })),
-                    }));
-                    console.log(`[getServices] Populated Data service with ${variations.length} network variations.`);
-                    break;
-                
-                case 'Cable':
-                    const cableProviders = ['DSTV', 'GOTV', 'Startimes'];
-                    variations = cableProviders.map(providerName => ({
-                        id: providerName,
-                        name: providerName,
-                        price: 0,
-                        plans: allCablePlans
-                            .filter(p => p.providerName === providerName)
-                            .map(p => ({
-                                id: p.planId,
-                                name: p.planName,
-                                price: p.basePrice,
-                                providerName: p.providerName,
-                            })),
-                    }));
-                    console.log(`[getServices] Populated Cable service with ${variations.length} provider variations.`);
-                    break;
-
-                case 'Electricity':
-                    variations = allDiscos.map(d => ({
-                        id: d.discoId, 
-                        name: d.discoName,
-                        price: 0,
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 }
-                    }));
-                    console.log(`[getServices] Populated Electricity service with ${variations.length} disco variations.`);
-                    break;
-
-                case 'Airtime':
-                    if (!variations || variations.length === 0) {
-                        variations = [
-                            { id: '1', name: 'MTN', price: 0 },
-                            { id: '2', name: 'GLO', price: 0 },
-                            { id: '3', name: 'AIRTEL', price: 0 },
-                            { id: '4', name: '9MOBILE', price: 0 },
-                        ];
-                    }
-                    console.log(`[getServices] Populated Airtime service with ${variations.length} variations.`);
-                    break;
-                
-                default:
-                    console.log(`[getServices] Service "${service.name}" has no special variation logic.`);
-            }
-            
-            return { ...service, variations };
+        const baseServices = serviceDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+        
+        const serviceMap = new Map<string, Service>();
+        baseServices.forEach(service => {
+            serviceMap.set(service.category, { ...service, variations: service.variations || [] });
         });
+        
+        console.log(`[getServices] Created a map of base services with keys:`, Array.from(serviceMap.keys()));
 
-        populatedServices.sort((a, b) => a.name.localeCompare(b.name));
-        console.log('[getServices] Successfully populated all services.', populatedServices);
+        // Populate Data service
+        if (serviceMap.has('Data')) {
+            const dataService = serviceMap.get('Data')!;
+            const networks = [
+                { id: '1', name: 'MTN' }, { id: '2', name: 'GLO' },
+                { id: '3', name: 'AIRTEL' }, { id: '4', name: '9MOBILE' },
+            ];
+            dataService.variations = networks.map(network => ({
+                id: network.id, name: network.name, price: 0,
+                plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({ ...p, id: p.planId, name: p.name, price: p.price, status: p.status || 'Active' })),
+            }));
+            console.log(`[getServices] Populated 'Data' service with ${dataService.variations.length} network variations.`);
+        }
+
+        // Populate Cable service
+        if (serviceMap.has('Cable')) {
+            const cableService = serviceMap.get('Cable')!;
+            cableService.variations = allCablePlans.map(p => ({ id: p.planId, name: p.planName, price: p.basePrice, providerName: p.providerName }));
+            console.log(`[getServices] Populated 'Cable' service with ${cableService.variations.length} plan variations.`);
+        }
+
+        // Populate Electricity service
+        if (serviceMap.has('Electricity')) {
+            const electricityService = serviceMap.get('Electricity')!;
+            electricityService.variations = allDiscos.map(d => ({
+                id: d.discoId, name: d.discoName, price: 0, 
+                fees: { Customer: 100, Vendor: 100, Admin: 0 }
+            }));
+            console.log(`[getServices] Populated 'Electricity' service with ${electricityService.variations.length} disco variations.`);
+            console.log('[getServices] Final electricity service object:', JSON.stringify(electricityService, null, 2));
+        }
+
+        const populatedServices = Array.from(serviceMap.values());
+        console.log('[getServices] Successfully processed all services. Final count:', populatedServices.length);
+        
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
-        return [];
+        return []; // Return an empty array on catastrophic failure
     }
 }
-
-
 
 export async function addService(data: { name: string; category: string }) {
     const servicesCol = collection(db, 'services');

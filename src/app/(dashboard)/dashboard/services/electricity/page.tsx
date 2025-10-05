@@ -73,16 +73,20 @@ export default function ElectricityPage() {
       setServicesLoading(true);
       try {
         const allServices = await getServices();
+        console.log("[ElectricityPage] All services fetched from backend:", allServices);
         const service = allServices.find(s => s.category === 'Electricity' && s.status === 'Active');
+        
         if (service) {
           console.log("[ElectricityPage] Found active Electricity service:", service);
           setElectricityService(service);
         } else {
-          console.warn("[ElectricityPage] No active Electricity service found.");
+          console.warn("[ElectricityPage] No active 'Electricity' service found. Please check Firestore 'services' collection and getServices() logic.");
+          setElectricityService(null);
         }
       } catch (error) {
         console.error("[ElectricityPage] Failed to fetch electricity services:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load distributors.' });
+        setElectricityService(null);
       } finally {
         setServicesLoading(false);
         console.log("[ElectricityPage] Service fetching finished.");

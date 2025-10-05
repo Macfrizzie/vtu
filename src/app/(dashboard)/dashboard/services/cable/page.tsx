@@ -33,12 +33,11 @@ import {
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
-import { Loader2, UserCheck, Sparkles } from 'lucide-react';
+import { Loader2, UserCheck, Sparkles, AlertCircle } from 'lucide-react';
 import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 
 const formSchema = z.object({
   cablename: z.string().min(1, 'Please select a provider.'),
@@ -76,12 +75,14 @@ export default function CableTvPage() {
                 getServices(),
                 getApiProviders(),
             ]);
+            console.log("[CablePage] All services fetched from backend:", allServices);
             const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
             if (service) {
                 console.log("[CablePage] Found active Cable service:", service);
                 setCableService(service);
             } else {
                 console.warn("[CablePage] No active Cable service found.");
+                setCableService(null);
             }
             setApiProviders(allProviders.filter(p => p.status === 'Active'));
         } catch (error) {
@@ -100,7 +101,6 @@ export default function CableTvPage() {
         console.log("[CablePage] cableProviders: No service or variations, returning empty array.");
         return [];
     }
-    // Get unique provider names from the flat list of plans
     const uniqueProviderNames = [...new Set(cableService.variations.map(v => v.providerName).filter(Boolean))];
     const providerList = uniqueProviderNames.map(name => ({ id: name, name }));
     console.log("[CablePage] cableProviders derived:", providerList);
