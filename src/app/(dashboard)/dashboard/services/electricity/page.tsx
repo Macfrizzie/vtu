@@ -34,9 +34,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
-import { Loader2 } from 'lucide-react';
-import { purchaseService, getServices, getDiscos } from '@/lib/firebase/firestore';
+import { Loader2, AlertCircle } from 'lucide-react';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import type { Service, Disco } from '@/lib/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const formSchema = z.object({
   serviceId: z.string().min(1, 'Please select a distributor.'),
@@ -48,21 +49,6 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-
-const discos = [
-    { discoId: '1', discoName: 'Ikeja Electric' },
-    { discoId: '2', discoName: 'Eko Electric' },
-    { discoId: '3', discoName: 'Abuja Electric' },
-    { discoId: '4', discoName: 'Kano Electric' },
-    { discoId: '5', discoName: 'Enugu Electric' },
-    { discoId: '6', discoName: 'Port Harcourt Electric' },
-    { discoId: '7', discoName: 'Ibadan Electric' },
-    { discoId: '8', discoName: 'Kaduna Electric' },
-    { discoId: '9', discoName: 'Jos Electric' },
-    { discoId: '11', discoName: 'Yola Electric' },
-    { discoId: '13', discoName: 'Benin Electric' },
-    { discoId: '14', discoName: 'Aba Electric' },
-];
 
 export default function ElectricityPage() {
   const { user, userData, loading, forceRefetch } = useUser();
@@ -83,22 +69,39 @@ export default function ElectricityPage() {
   
   useEffect(() => {
     async function fetchServices() {
+      console.log("[ElectricityPage] Fetching services...");
       setServicesLoading(true);
       try {
         const allServices = await getServices();
         const service = allServices.find(s => s.category === 'Electricity' && s.status === 'Active');
-        setElectricityService(service || null);
+        if (service) {
+          console.log("[ElectricityPage] Found active Electricity service:", service);
+          setElectricityService(service);
+        } else {
+          console.warn("[ElectricityPage] No active Electricity service found.");
+        }
       } catch (error) {
-        console.error("Failed to fetch electricity services:", error);
+        console.error("[ElectricityPage] Failed to fetch electricity services:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'Could not load distributors.' });
       } finally {
         setServicesLoading(false);
+        console.log("[ElectricityPage] Service fetching finished.");
       }
     }
     fetchServices();
   }, [toast]);
+
+  const discos = useMemo(() => {
+    if (!electricityService || !electricityService.variations) {
+        console.log("[ElectricityPage] Discos: No service or variations, returning empty array.");
+        return [];
+    }
+    console.log("[ElectricityPage] Discos derived from service variations:", electricityService.variations);
+    return electricityService.variations;
+  }, [electricityService]);
   
   const selectedDiscoId = form.watch('serviceId');
+  const selectedDisco = discos.find(d => d.id === selectedDiscoId);
   
   async function onSubmit(values: FormData) {
     if (!user || !userData) {
@@ -111,15 +114,12 @@ export default function ElectricityPage() {
         return;
     }
     
-    const selectedDisco = discos.find(d => d.discoId === values.serviceId);
-    
     if (!selectedDisco) {
         toast({ variant: 'destructive', title: 'Invalid Distributor', description: 'Please select a valid distributor.' });
         return;
     }
     
-    // Using a fixed fee for now as variations are not loading reliably
-    const serviceFee = 100;
+    const serviceFee = selectedDisco.fees?.[userData.role] || 100; // Fallback to 100
     const totalCost = values.amount + serviceFee;
 
     if (userData.walletBalance < totalCost) {
@@ -157,10 +157,32 @@ export default function ElectricityPage() {
     }
   }
 
-  const serviceFee = 100; // Fixed fee
+  const serviceFee = selectedDisco ? (selectedDisco.fees?.[userData?.role || 'Customer'] ?? 100) : 100;
   const amount = form.watch('amount');
   const totalCost = amount + serviceFee;
 
+  if (servicesLoading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )
+  }
+
+  if (!electricityService) {
+      return (
+        <div className="mx-auto max-w-2xl space-y-8">
+            <h1 className="text-3xl font-bold">Pay Electricity Bill</h1>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Service Unavailable</AlertTitle>
+              <AlertDescription>
+                The Electricity service is currently inactive or not configured. Please contact support.
+              </AlertDescription>
+            </Alert>
+        </div>
+      )
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -194,15 +216,15 @@ export default function ElectricityPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Distributor (Disco)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={discos.length === 0}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={"Select your electricity distributor"} />
+                          <SelectValue placeholder={discos.length === 0 ? "No distributors available" : "Select your electricity distributor"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {discos.map(disco => (
-                             <SelectItem key={disco.discoId} value={disco.discoId}>{disco.discoName}</SelectItem>
+                             <SelectItem key={disco.id} value={disco.id}>{disco.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -292,3 +314,5 @@ export default function ElectricityPage() {
     </div>
   );
 }
+
+    

@@ -37,6 +37,8 @@ import { Loader2, UserCheck, Sparkles } from 'lucide-react';
 import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
 const formSchema = z.object({
   cablename: z.string().min(1, 'Please select a provider.'),
@@ -67,6 +69,7 @@ export default function CableTvPage() {
 
   useEffect(() => {
     async function fetchServices() {
+        console.log("[CablePage] Fetching services...");
         setServicesLoading(true);
         try {
             const [allServices, allProviders] = await Promise.all([
@@ -74,31 +77,47 @@ export default function CableTvPage() {
                 getApiProviders(),
             ]);
             const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
-            setCableService(service);
+            if (service) {
+                console.log("[CablePage] Found active Cable service:", service);
+                setCableService(service);
+            } else {
+                console.warn("[CablePage] No active Cable service found.");
+            }
             setApiProviders(allProviders.filter(p => p.status === 'Active'));
         } catch (error) {
-            console.error("Failed to fetch cable services:", error);
+            console.error("[CablePage] Failed to fetch cable services:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
         } finally {
             setServicesLoading(false);
+            console.log("[CablePage] Service fetching finished.");
         }
     }
     fetchServices();
   }, [toast]);
   
   const cableProviders = useMemo(() => {
-    // The variations on the "Cable" service are the providers (DSTV, GOTV, etc.)
-    return cableService?.variations || [];
-  }, [cableService]);
+    if (!cableService || !cableService.variations) {
+        console.log("[CablePage] cableProviders: No service or variations, returning empty array.");
+        return [];
+    }
+    // Get unique provider names from the flat list of plans
+    const uniqueProviderNames = [...new Set(cableService.variations.map(v => v.providerName).filter(Boolean))];
+    const providerList = uniqueProviderNames.map(name => ({ id: name, name }));
+    console.log("[CablePage] cableProviders derived:", providerList);
+    return providerList as { id: string; name: string; }[];
+}, [cableService]);
 
   const selectedCableName = form.watch('cablename');
   const smartCardValue = form.watch('smartCardNumber');
 
   const availablePackages = useMemo(() => {
-    if (!selectedCableName || !cableService) return [];
-    // Find the selected provider in the variations, and get its nested plans
-    const provider = cableService.variations?.find(v => v.id === selectedCableName);
-    return provider?.plans || [];
+    if (!selectedCableName || !cableService || !cableService.variations) {
+      console.log("[CablePage] availablePackages: No selected provider or variations.");
+      return [];
+    }
+    const packages = cableService.variations.filter(v => v.providerName === selectedCableName);
+    console.log(`[CablePage] availablePackages for ${selectedCableName}:`, packages);
+    return packages;
   }, [selectedCableName, cableService]);
 
   const selectedVariationId = form.watch('variationId');
@@ -219,6 +238,30 @@ export default function CableTvPage() {
 
   const totalCost = selectedVariation ? selectedVariation.price + (cableService?.markupValue || 0) : 0;
 
+  if (servicesLoading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )
+  }
+
+  if (!cableService) {
+      return (
+        <div className="mx-auto max-w-2xl space-y-8">
+            <h1 className="text-3xl font-bold">Cable TV Subscription</h1>
+             <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Service Unavailable</AlertTitle>
+              <AlertDescription>
+                The Cable TV service is currently inactive or not configured. Please contact support.
+              </AlertDescription>
+            </Alert>
+        </div>
+      )
+  }
+
+
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
@@ -257,11 +300,11 @@ export default function CableTvPage() {
                         setCustomerName(null);
                       }}
                       value={field.value}
-                      disabled={servicesLoading || cableProviders.length === 0}
+                      disabled={cableProviders.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={servicesLoading ? "Loading..." : "Select a provider"} />
+                          <SelectValue placeholder={cableProviders.length === 0 ? "No providers available" : "Select a provider"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -349,3 +392,5 @@ export default function CableTvPage() {
     </div>
   );
 }
+
+    
