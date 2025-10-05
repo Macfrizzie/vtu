@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -562,50 +563,51 @@ export async function getServices(): Promise<Service[]> {
 
         const servicesMap = new Map<string, Service>();
         serviceSnapshot.docs.forEach(doc => {
-            servicesMap.set(doc.data().category, { id: doc.id, ...doc.data() } as Service);
+            servicesMap.set(doc.id, { id: doc.id, ...doc.data() } as Service);
         });
 
         console.log(`[getServices] Created a map of base services with keys:`, Array.from(servicesMap.keys()));
 
-        if (servicesMap.has('Data')) {
-            const dataService = servicesMap.get('Data')!;
-            const networks = [...new Set(allDataPlans.map(p => p.networkName))];
-            dataService.variations = networks.map(networkName => ({
-                id: networkName, // Use network name as ID for the variation
-                name: networkName,
-                price: 0,
-                plans: allDataPlans.filter(p => p.networkName === networkName),
-            }));
-            console.log(`[getServices] Populated 'Data' service with ${dataService.variations.length} network variations.`);
-        }
-
-        if (servicesMap.has('Cable')) {
-            const cableService = servicesMap.get('Cable')!;
-            cableService.variations = allCablePlans.map(p => ({
-                id: p.planId,
-                name: p.planName,
-                price: p.basePrice,
-                providerName: p.providerName
-            }));
-            console.log(`[getServices] Populated 'Cable' service with ${cableService.variations.length} plan variations.`);
-        }
-
-        if (servicesMap.has('Electricity')) {
-            const electricityService = servicesMap.get('Electricity')!;
-            electricityService.variations = allDiscos.map(d => ({
-                id: d.discoId,
-                name: d.discoName,
-                price: 0, // Price is variable for electricity
-                fees: { Customer: 100, Vendor: 100, Admin: 0 } 
-            }));
-            console.log(`[getServices] Populated 'Electricity' service with ${electricityService.variations.length} disco variations.`);
-        }
+        servicesMap.forEach(service => {
+            switch(service.category) {
+                case 'Data':
+                    const networks = [...new Set(allDataPlans.map(p => p.networkName))];
+                    service.variations = networks.map(networkName => ({
+                        id: networkName, // Use network name as ID for the variation
+                        name: networkName,
+                        price: 0,
+                        plans: allDataPlans.filter(p => p.networkName === networkName),
+                    }));
+                    console.log(`[getServices] Populated 'Data' service with ${service.variations.length} network variations.`);
+                    break;
+                case 'Cable':
+                    service.variations = allCablePlans.map(p => ({
+                        id: p.planId,
+                        name: p.planName,
+                        price: p.basePrice,
+                        providerName: p.providerName
+                    }));
+                    console.log(`[getServices] Populated 'Cable' service with ${service.variations.length} plan variations.`);
+                    break;
+                case 'Electricity':
+                    service.variations = allDiscos.map(d => ({
+                        id: d.discoId,
+                        name: d.discoName,
+                        price: 0, // Price is variable for electricity
+                        fees: { Customer: 100, Vendor: 100, Admin: 0 } 
+                    }));
+                    console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
+                    break;
+                default:
+                    // For services like Airtime, variations might be managed directly on the service doc.
+                    // Or they are simple and don't need pre-aggregation.
+                    break;
+            }
+        });
 
         const populatedServices = Array.from(servicesMap.values());
         console.log('[getServices] Successfully processed all services. Final count:', populatedServices.length);
-        console.log('[getServices] Final Electricity Service Object:', JSON.stringify(populatedServices.find(s => s.category === 'Electricity')));
-
-
+        
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
