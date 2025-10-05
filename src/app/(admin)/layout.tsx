@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { DashboardShell, type NavItem } from '@/components/dashboard-shell';
-import { LayoutDashboard, Users, Zap, History, Cog, Plug, DollarSign, Database } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, History, Cog, Plug, DollarSign, Database, GanttChartSquare } from 'lucide-react';
 import { UserProvider } from '@/context/user-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -19,9 +19,10 @@ const navItems: NavItem[] = [
     { href: '/admin/api-providers', title: 'API Providers', icon: <Plug className="h-4 w-4" /> },
     { href: '/admin/api-connector', title: 'AI Connector', icon: <Cog className="h-4 w-4" /> },
     { href: '/admin/seed-data', title: 'Seed Data', icon: <Database className="h-4 w-4" /> },
+    { href: '/admin/initialize-data', title: 'Initialize Data', icon: <GanttChartSquare className="h-4 w-4" /> },
 ];
 
-const protectedAdminRoutes = ['/admin/dashboard', '/admin/users', '/admin/services', '/admin/transactions', '/admin/api-providers', '/admin/api-connector', '/admin/pricing', '/admin/seed-data'];
+const protectedAdminRoutes = ['/admin/dashboard', '/admin/users', '/admin/services', '/admin/transactions', '/admin/api-providers', '/admin/api-connector', '/admin/pricing', '/admin/seed-data', '/admin/initialize-data'];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();

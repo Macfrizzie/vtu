@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -75,7 +74,7 @@ export default function CableTvPage() {
                 getServices(),
                 getApiProviders(),
             ]);
-            console.log("[CablePage] All services fetched from backend:", allServices);
+            console.log("[CablePage] All services fetched:", allServices);
             const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
             if (service) {
                 console.log("[CablePage] Found active Cable service:", service);
@@ -105,7 +104,7 @@ export default function CableTvPage() {
     const providerList = uniqueProviderNames.map(name => ({ id: name, name }));
     console.log("[CablePage] cableProviders derived:", providerList);
     return providerList as { id: string; name: string; }[];
-}, [cableService]);
+  }, [cableService]);
 
   const selectedCableName = form.watch('cablename');
   const smartCardValue = form.watch('smartCardNumber');
@@ -144,14 +143,15 @@ export default function CableTvPage() {
     }
 
     try {
-      if(!selectedCableName) {
+      const selectedProviderName = form.getValues('cablename');
+      if(!selectedProviderName) {
           throw new Error("Selected service does not have a valid provider name for verification.");
       }
       
       const verificationResult = await verifySmartCard(
           provider.baseUrl,
           provider.apiKey || '',
-          selectedCableName,
+          selectedProviderName,
           smartCardValue
       );
       
@@ -208,14 +208,10 @@ export default function CableTvPage() {
 
     setIsPurchasing(true);
     try {
-      const purchaseInputs = {
+      await purchaseService(user.uid, cableService.id, values.variationId, {
           smart_card_number: values.smartCardNumber,
           customer_name: customerName,
-          cablename: values.cablename,
-          cableplan: values.variationId
-      };
-
-      await purchaseService(user.uid, cableService.id, values.variationId, purchaseInputs, user.email!);
+      }, user.email!);
       forceRefetch();
       toast({
         title: 'Purchase Successful!',
@@ -392,5 +388,3 @@ export default function CableTvPage() {
     </div>
   );
 }
-
-    

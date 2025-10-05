@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -10,6 +9,142 @@ import { callProviderAPI } from '@/services/api-handler';
 
 
 const db = getFirestore(app);
+
+export async function initializeServices(): Promise<string[]> {
+    const report: string[] = [];
+    const batch = writeBatch(db);
+    let hasWrites = false;
+
+    try {
+        // 1. Get an active API provider to link to services
+        const apiProvidersCollection = collection(db, 'apiProviders');
+        const activeProvidersQuery = query(apiProvidersCollection, where('status', '==', 'Active'));
+        const providerSnapshot = await getDocs(activeProvidersQuery);
+        let primaryProviderId: string | null = null;
+
+        if (!providerSnapshot.empty) {
+            primaryProviderId = providerSnapshot.docs[0].id;
+            report.push(`[OK] Found active API Provider: ${providerSnapshot.docs[0].data().name} (ID: ${primaryProviderId})`);
+        } else {
+            report.push(`[ERROR] No active API Provider found. Cannot link services. Please add an active provider first.`);
+            return report;
+        }
+
+        // 2. Check and create Cable TV service
+        const servicesCollection = collection(db, 'services');
+        const cableServiceQuery = query(servicesCollection, where('category', '==', 'Cable'));
+        const cableServiceSnapshot = await getDocs(cableServiceQuery);
+
+        if (cableServiceSnapshot.empty) {
+            const cableServiceDocRef = doc(servicesCollection);
+            batch.set(cableServiceDocRef, {
+                name: "Cable TV",
+                category: "Cable",
+                status: "Active",
+                markupType: "fixed",
+                markupValue: 0,
+                endpoint: "/cablesub", 
+                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }]
+            });
+            hasWrites = true;
+            report.push("[CREATED] 'Cable TV' service document created in 'services' collection.");
+        } else {
+            report.push("[EXISTS] 'Cable TV' service document already exists.");
+        }
+        
+        // 3. Check and seed cablePlans
+        const cablePlansCollection = collection(db, 'cablePlans');
+        const cablePlanSnapshot = await getDocs(cablePlansCollection);
+        if (cablePlanSnapshot.empty) {
+            const plans = [
+                // DSTV
+                { planId: 'dstv-padi', planName: 'Padi', providerName: 'DSTV', basePrice: 3950 },
+                { planId: 'dstv-yanga', planName: 'Yanga', providerName: 'DSTV', basePrice: 5100 },
+                { planId: 'dstv-confam', planName: 'Confam', providerName: 'DSTV', basePrice: 9300 },
+                { planId: 'dstv-compact', planName: 'Compact', providerName: 'DSTV', basePrice: 15700 },
+                { planId: 'dstv-compact-plus', planName: 'Compact Plus', providerName: 'DSTV', basePrice: 25000 },
+                { planId: 'dstv-premium', planName: 'Premium', providerName: 'DSTV', basePrice: 37000 },
+                // GOTV
+                { planId: 'gotv-jinja', planName: 'Smallie', providerName: 'GOTV', basePrice: 1300 },
+                { planId: 'gotv-jolli', planName: 'Jolli', providerName: 'GOTV', basePrice: 3950 },
+                { planId: 'gotv-max', planName: 'Max', providerName: 'GOTV', basePrice: 5700 },
+                { planId: 'gotv-supa', planName: 'Supa', providerName: 'GOTV', basePrice: 7600 },
+                // STARTIMES
+                { planId: 'nova', planName: 'Nova', providerName: 'STARTIMES', basePrice: 1500 },
+                { planId: 'basic', planName: 'Basic', providerName: 'STARTIMES', basePrice: 2300 },
+                { planId: 'smart', planName: 'Smart', providerName: 'STARTIMES', basePrice: 3500 },
+                { planId: 'classic', planName: 'Classic', providerName: 'STARTIMES', basePrice: 3800 },
+            ];
+            plans.forEach(plan => {
+                const planDocRef = doc(cablePlansCollection);
+                batch.set(planDocRef, plan);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'cablePlans' collection with ${plans.length} plans.`);
+        } else {
+            report.push(`[EXISTS] 'cablePlans' collection already has ${cablePlanSnapshot.size} documents.`);
+        }
+
+        // 4. Check and create Electricity service
+        const electricityServiceQuery = query(servicesCollection, where('category', '==', 'Electricity'));
+        const electricityServiceSnapshot = await getDocs(electricityServiceQuery);
+
+        if (electricityServiceSnapshot.empty) {
+            const electricityServiceDocRef = doc(servicesCollection);
+            batch.set(electricityServiceDocRef, {
+                name: "Electricity Bill",
+                category: "Electricity",
+                status: "Active",
+                markupType: "fixed",
+                markupValue: 100, // Default ₦100 fee
+                endpoint: "/billpayment",
+                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }]
+            });
+            hasWrites = true;
+            report.push("[CREATED] 'Electricity Bill' service document created in 'services' collection.");
+        } else {
+            report.push("[EXISTS] 'Electricity Bill' service document already exists.");
+        }
+
+        // 5. Check and seed discos
+        const discosCollection = collection(db, 'discos');
+        const discoSnapshot = await getDocs(discosCollection);
+        if (discoSnapshot.empty) {
+            const discos = [
+                { discoId: 'ikeja-electric', discoName: 'Ikeja Electric (IKEDC)' },
+                { discoId: 'eko-electric', discoName: 'Eko Electric (EKEDC)' },
+                { discoId: 'abuja-electric', discoName: 'Abuja Electric (AEDC)' },
+                { discoId: 'kano-electric', discoName: 'Kano Electric (KEDCO)' },
+                { discoId: 'portharcourt-electric', discoName: 'Port Harcourt Electric (PHED)' },
+                { discoId: 'ibadan-electric', discoName: 'Ibadan Electric (IBEDC)' },
+                { discoId: 'kaduna-electric', discoName: 'Kaduna Electric (KAEDCO)' },
+                { discoId: 'jos-electric', discoName: 'Jos Electric (JED)' },
+                { discoId: 'enugu-electric', discoName: 'Enugu Electric (EEDC)' },
+            ];
+            discos.forEach(disco => {
+                const discoDocRef = doc(discosCollection);
+                batch.set(discoDocRef, disco);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'discos' collection with ${discos.length} distributors.`);
+        } else {
+            report.push(`[EXISTS] 'discos' collection already has ${discoSnapshot.size} documents.`);
+        }
+
+        if (hasWrites) {
+            await batch.commit();
+            report.push("\n[SUCCESS] Database initialization complete. All writes have been committed.");
+        } else {
+            report.push("\n[INFO] No changes needed. All required data already exists in the database.");
+        }
+
+    } catch (error) {
+        console.error("Error during service initialization:", error);
+        report.push(`[FATAL ERROR] An error occurred during initialization: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    return report;
+}
 
 export async function getUserData(uid: string): Promise<UserData | null> {
     console.log(`[Firestore] Fetching user data for UID: ${uid}`);
@@ -226,21 +361,19 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
 
             } else if (service.category === 'Cable') {
-                 const selectedVariation = service.variations?.find(v => v.id === variationId);
+                const selectedVariation = service.variations?.find(v => v.id === variationId);
 
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected cable package.");
                 }
-                const selectedProvider = service.variations?.find(v => v.name === inputs.cablename)
-
                 totalCost = selectedVariation.price + (service.markupValue || 0);
                 description = `${selectedVariation.name} for ${inputs.smart_card_number}`;
-                 
-                 requestBody = {
-                    cablename: inputs.cablename,
-                    cableplan: variationId, // This is the planId like 'dstv-padi'
+                
+                requestBody = {
+                    cablename: selectedVariation.providerName, // Use the providerName from the selected variation
+                    cableplan: selectedVariation.id, // This is the planId like 'dstv-padi'
                     smart_card_number: inputs.smart_card_number,
-                 };
+                };
             } else if (service.category === 'Electricity') {
                  const selectedVariation = service.variations?.find(d => d.id === variationId);
                  if (!selectedVariation) {
@@ -249,11 +382,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                  totalCost = inputs.amount + (selectedVariation.fees?.[userData.role] || 0);
                  description = `${selectedVariation.name} payment for ${inputs.meterNumber}`;
                  
-                 const meterTypeId = inputs.meterType === 'prepaid' ? '1' : '2';
-
                  requestBody = {
                      disco_name: selectedVariation.id,
-                     MeterType: meterTypeId,
+                     MeterType: inputs.meterType === 'prepaid' ? '01' : '02',
                      meter_number: inputs.meterNumber,
                      amount: inputs.amount,
                  };
@@ -415,69 +546,70 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 export async function getServices(): Promise<Service[]> {
     console.log('[getServices] Starting to fetch and aggregate all service data...');
     try {
-        const [serviceDocs, allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+        const [serviceSnapshot, allDataPlans, allCablePlans, allDiscos] = await Promise.all([
             getDocs(query(collection(db, "services"))),
             getDataPlans(),
             getCablePlans(),
             getDiscos()
         ]);
 
-        console.log(`[getServices] Fetched ${serviceDocs.size} base services from Firestore.`);
-        console.log(`[getServices] Fetched ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
+        console.log(`[getServices] Fetched ${serviceSnapshot.size} base services, ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
 
-        if (serviceDocs.empty) {
+        if (serviceSnapshot.empty) {
             console.warn("[getServices] The 'services' collection is empty. No services can be processed.");
             return [];
         }
 
-        const baseServices = serviceDocs.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
-        
-        const serviceMap = new Map<string, Service>();
-        baseServices.forEach(service => {
-            serviceMap.set(service.category, { ...service, variations: service.variations || [] });
+        const servicesMap = new Map<string, Service>();
+        serviceSnapshot.docs.forEach(doc => {
+            servicesMap.set(doc.data().category, { id: doc.id, ...doc.data() } as Service);
         });
-        
-        console.log(`[getServices] Created a map of base services with keys:`, Array.from(serviceMap.keys()));
 
-        // Populate Data service
-        if (serviceMap.has('Data')) {
-            const dataService = serviceMap.get('Data')!;
-            const networks = [
-                { id: '1', name: 'MTN' }, { id: '2', name: 'GLO' },
-                { id: '3', name: 'AIRTEL' }, { id: '4', name: '9MOBILE' },
-            ];
-            dataService.variations = networks.map(network => ({
-                id: network.id, name: network.name, price: 0,
-                plans: allDataPlans.filter(p => p.networkName === network.name).map(p => ({ ...p, id: p.planId, name: p.name, price: p.price, status: p.status || 'Active' })),
+        console.log(`[getServices] Created a map of base services with keys:`, Array.from(servicesMap.keys()));
+
+        if (servicesMap.has('Data')) {
+            const dataService = servicesMap.get('Data')!;
+            const networks = [...new Set(allDataPlans.map(p => p.networkName))];
+            dataService.variations = networks.map(networkName => ({
+                id: networkName, // Use network name as ID for the variation
+                name: networkName,
+                price: 0,
+                plans: allDataPlans.filter(p => p.networkName === networkName),
             }));
             console.log(`[getServices] Populated 'Data' service with ${dataService.variations.length} network variations.`);
         }
 
-        // Populate Cable service
-        if (serviceMap.has('Cable')) {
-            const cableService = serviceMap.get('Cable')!;
-            cableService.variations = allCablePlans.map(p => ({ id: p.planId, name: p.planName, price: p.basePrice, providerName: p.providerName }));
+        if (servicesMap.has('Cable')) {
+            const cableService = servicesMap.get('Cable')!;
+            cableService.variations = allCablePlans.map(p => ({
+                id: p.planId,
+                name: p.planName,
+                price: p.basePrice,
+                providerName: p.providerName
+            }));
             console.log(`[getServices] Populated 'Cable' service with ${cableService.variations.length} plan variations.`);
         }
 
-        // Populate Electricity service
-        if (serviceMap.has('Electricity')) {
-            const electricityService = serviceMap.get('Electricity')!;
+        if (servicesMap.has('Electricity')) {
+            const electricityService = servicesMap.get('Electricity')!;
             electricityService.variations = allDiscos.map(d => ({
-                id: d.discoId, name: d.discoName, price: 0, 
-                fees: { Customer: 100, Vendor: 100, Admin: 0 }
+                id: d.discoId,
+                name: d.discoName,
+                price: 0, // Price is variable for electricity
+                fees: { Customer: 100, Vendor: 100, Admin: 0 } 
             }));
             console.log(`[getServices] Populated 'Electricity' service with ${electricityService.variations.length} disco variations.`);
-            console.log('[getServices] Final electricity service object:', JSON.stringify(electricityService, null, 2));
         }
 
-        const populatedServices = Array.from(serviceMap.values());
+        const populatedServices = Array.from(servicesMap.values());
         console.log('[getServices] Successfully processed all services. Final count:', populatedServices.length);
-        
+        console.log('[getServices] Final Electricity Service Object:', JSON.stringify(populatedServices.find(s => s.category === 'Electricity')));
+
+
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
-        return []; // Return an empty array on catastrophic failure
+        return [];
     }
 }
 
@@ -587,7 +719,7 @@ export async function getDataPlans(): Promise<DataPlan[]> {
 
 export async function updateDataPlanStatus(id: string, status: 'Active' | 'Inactive') {
     const planRef = doc(db, 'dataPlans', id);
-    await updateDoc(planRef, { status });
+await updateDoc(planRef, { status });
 }
 
 export async function updateDataPlansStatusByType(networkName: string, planType: string, status: 'Active' | 'Inactive') {
@@ -639,24 +771,3 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    

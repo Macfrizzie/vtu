@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -73,14 +72,14 @@ export default function ElectricityPage() {
       setServicesLoading(true);
       try {
         const allServices = await getServices();
-        console.log("[ElectricityPage] All services fetched from backend:", allServices);
+        console.log("[ElectricityPage] All services fetched:", allServices);
         const service = allServices.find(s => s.category === 'Electricity' && s.status === 'Active');
         
         if (service) {
           console.log("[ElectricityPage] Found active Electricity service:", service);
           setElectricityService(service);
         } else {
-          console.warn("[ElectricityPage] No active 'Electricity' service found. Please check Firestore 'services' collection and getServices() logic.");
+          console.warn("[ElectricityPage] No active 'Electricity' service found.");
           setElectricityService(null);
         }
       } catch (error) {
@@ -318,5 +317,3 @@ export default function ElectricityPage() {
     </div>
   );
 }
-
-    
