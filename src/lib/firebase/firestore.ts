@@ -597,7 +597,6 @@ export async function getServices(): Promise<Service[]> {
                     console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
                     break;
                 default:
-                    // For services like 'Airtime' which may have variations defined directly in the service document
                     if (!service.variations) {
                         service.variations = [];
                     }
@@ -785,5 +784,7 @@ export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+
+  
 
   

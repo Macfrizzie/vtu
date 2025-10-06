@@ -34,7 +34,7 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles, AlertCircle } from 'lucide-react';
-import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -54,7 +54,6 @@ export default function CableTvPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [cableService, setCableService] = useState<Service | null>(null);
-  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -71,10 +70,7 @@ export default function CableTvPage() {
         console.log("[CablePage] Fetching services...");
         setServicesLoading(true);
         try {
-            const [allServices, allProviders] = await Promise.all([
-                getServices(),
-                getApiProviders(),
-            ]);
+            const allServices = await getServices();
             console.log("[CablePage] All services fetched:", allServices);
             const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
             if (service) {
@@ -84,7 +80,6 @@ export default function CableTvPage() {
                 console.warn("[CablePage] No active Cable service found.");
                 setCableService(null);
             }
-            setApiProviders(allProviders.filter(p => p.status === 'Active'));
         } catch (error) {
             console.error("[CablePage] Failed to fetch cable services:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
@@ -134,11 +129,12 @@ export default function CableTvPage() {
         return;
     }
 
+    const providers = await getServices(); // We need all providers to find the right one
     const providerInfo = cableService.apiProviderIds.find(p => p.priority === 'Primary') || cableService.apiProviderIds[0];
-    const provider = apiProviders.find(p => p.id === providerInfo.id);
+    const provider = providers.find(p => p.id === providerInfo.id);
 
-    if (!provider) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found or is inactive.' });
+    if (!provider || !('baseUrl' in provider) || !('apiKey' in provider)) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found, is inactive, or missing required fields.' });
         setIsVerifying(false);
         return;
     }
@@ -150,8 +146,8 @@ export default function CableTvPage() {
       }
       
       const verificationResult = await verifySmartCard(
-          provider.baseUrl,
-          provider.apiKey || '',
+          (provider as any).baseUrl,
+          (provider as any).apiKey || '',
           selectedProviderName,
           smartCardValue
       );
@@ -389,5 +385,7 @@ export default function CableTvPage() {
     </div>
   );
 }
+
+  
 
   

@@ -100,8 +100,9 @@ export default function ElectricityPage() {
         console.log("[ElectricityPage] Discos: No service or variations, returning empty array.");
         return [];
     }
-    console.log("[ElectricityPage] Discos derived from service variations:", electricityService.variations);
-    return electricityService.variations;
+    const activeDiscos = electricityService.variations.filter(d => d.status === 'Active');
+    console.log("[ElectricityPage] Active discos derived from service variations:", activeDiscos);
+    return activeDiscos;
   }, [electricityService]);
   
   const selectedDiscoId = form.watch('serviceId');
@@ -323,3 +324,5 @@ export default function ElectricityPage() {
     </div>
   );
 }
+
+  
