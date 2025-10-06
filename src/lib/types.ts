@@ -96,11 +96,13 @@ export type CablePlan = {
     planId: string; // The manual plan ID from admin
     planName: string;
     basePrice: number;
+    status?: 'Active' | 'Inactive';
 };
 
 export type Disco = {
     id: string;
     discoId: string;
     discoName: string;
+    status?: 'Active' | 'Inactive';
 };
     

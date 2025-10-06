@@ -59,22 +59,22 @@ export async function initializeServices(): Promise<string[]> {
         if (cablePlanSnapshot.empty) {
             const plans = [
                 // DSTV
-                { planId: 'dstv-padi', planName: 'Padi', providerName: 'DSTV', basePrice: 3950 },
-                { planId: 'dstv-yanga', planName: 'Yanga', providerName: 'DSTV', basePrice: 5100 },
-                { planId: 'dstv-confam', planName: 'Confam', providerName: 'DSTV', basePrice: 9300 },
-                { planId: 'dstv-compact', planName: 'Compact', providerName: 'DSTV', basePrice: 15700 },
-                { planId: 'dstv-compact-plus', planName: 'Compact Plus', providerName: 'DSTV', basePrice: 25000 },
-                { planId: 'dstv-premium', planName: 'Premium', providerName: 'DSTV', basePrice: 37000 },
+                { planId: 'dstv-padi', planName: 'Padi', providerName: 'DSTV', basePrice: 3950, status: 'Active' },
+                { planId: 'dstv-yanga', planName: 'Yanga', providerName: 'DSTV', basePrice: 5100, status: 'Active' },
+                { planId: 'dstv-confam', planName: 'Confam', providerName: 'DSTV', basePrice: 9300, status: 'Active' },
+                { planId: 'dstv-compact', planName: 'Compact', providerName: 'DSTV', basePrice: 15700, status: 'Active' },
+                { planId: 'dstv-compact-plus', planName: 'Compact Plus', providerName: 'DSTV', basePrice: 25000, status: 'Active' },
+                { planId: 'dstv-premium', planName: 'Premium', providerName: 'DSTV', basePrice: 37000, status: 'Active' },
                 // GOTV
-                { planId: 'gotv-jinja', planName: 'Smallie', providerName: 'GOTV', basePrice: 1300 },
-                { planId: 'gotv-jolli', planName: 'Jolli', providerName: 'GOTV', basePrice: 3950 },
-                { planId: 'gotv-max', planName: 'Max', providerName: 'GOTV', basePrice: 5700 },
-                { planId: 'gotv-supa', planName: 'Supa', providerName: 'GOTV', basePrice: 7600 },
+                { planId: 'gotv-jinja', planName: 'Smallie', providerName: 'GOTV', basePrice: 1300, status: 'Active' },
+                { planId: 'gotv-jolli', planName: 'Jolli', providerName: 'GOTV', basePrice: 3950, status: 'Active' },
+                { planId: 'gotv-max', planName: 'Max', providerName: 'GOTV', basePrice: 5700, status: 'Active' },
+                { planId: 'gotv-supa', planName: 'Supa', providerName: 'GOTV', basePrice: 7600, status: 'Active' },
                 // STARTIMES
-                { planId: 'nova', planName: 'Nova', providerName: 'STARTIMES', basePrice: 1500 },
-                { planId: 'basic', planName: 'Basic', providerName: 'STARTIMES', basePrice: 2300 },
-                { planId: 'smart', planName: 'Smart', providerName: 'STARTIMES', basePrice: 3500 },
-                { planId: 'classic', planName: 'Classic', providerName: 'STARTIMES', basePrice: 3800 },
+                { planId: 'nova', planName: 'Nova', providerName: 'STARTIMES', basePrice: 1500, status: 'Active' },
+                { planId: 'basic', planName: 'Basic', providerName: 'STARTIMES', basePrice: 2300, status: 'Active' },
+                { planId: 'smart', planName: 'Smart', providerName: 'STARTIMES', basePrice: 3500, status: 'Active' },
+                { planId: 'classic', planName: 'Classic', providerName: 'STARTIMES', basePrice: 3800, status: 'Active' },
             ];
             plans.forEach(plan => {
                 const planDocRef = doc(cablePlansCollection);
@@ -112,15 +112,15 @@ export async function initializeServices(): Promise<string[]> {
         const discoSnapshot = await getDocs(discosCollection);
         if (discoSnapshot.empty) {
             const discos = [
-                { discoId: 'ikeja-electric', discoName: 'Ikeja Electric (IKEDC)' },
-                { discoId: 'eko-electric', discoName: 'Eko Electric (EKEDC)' },
-                { discoId: 'abuja-electric', discoName: 'Abuja Electric (AEDC)' },
-                { discoId: 'kano-electric', discoName: 'Kano Electric (KEDCO)' },
-                { discoId: 'portharcourt-electric', discoName: 'Port Harcourt Electric (PHED)' },
-                { discoId: 'ibadan-electric', discoName: 'Ibadan Electric (IBEDC)' },
-                { discoId: 'kaduna-electric', discoName: 'Kaduna Electric (KAEDCO)' },
-                { discoId: 'jos-electric', discoName: 'Jos Electric (JED)' },
-                { discoId: 'enugu-electric', discoName: 'Enugu Electric (EEDC)' },
+                { discoId: 'ikeja-electric', discoName: 'Ikeja Electric (IKEDC)', status: 'Active' },
+                { discoId: 'eko-electric', discoName: 'Eko Electric (EKEDC)', status: 'Active' },
+                { discoId: 'abuja-electric', discoName: 'Abuja Electric (AEDC)', status: 'Active' },
+                { discoId: 'kano-electric', discoName: 'Kano Electric (KEDCO)', status: 'Active' },
+                { discoId: 'portharcourt-electric', discoName: 'Port Harcourt Electric (PHED)', status: 'Active' },
+                { discoId: 'ibadan-electric', discoName: 'Ibadan Electric (IBEDC)', status: 'Active' },
+                { discoId: 'kaduna-electric', discoName: 'Kaduna Electric (KAEDCO)', status: 'Active' },
+                { discoId: 'jos-electric', discoName: 'Jos Electric (JED)', status: 'Active' },
+                { discoId: 'enugu-electric', discoName: 'Enugu Electric (EEDC)', status: 'Active' },
             ];
             discos.forEach(disco => {
                 const discoDocRef = doc(discosCollection);
@@ -581,7 +581,8 @@ export async function getServices(): Promise<Service[]> {
                         id: p.planId,
                         name: p.planName,
                         price: p.basePrice,
-                        providerName: p.providerName
+                        providerName: p.providerName,
+                        status: p.status || 'Active',
                     }));
                     console.log(`[getServices] Populated 'Cable' service with ${service.variations.length} plan variations.`);
                     break;
@@ -590,7 +591,8 @@ export async function getServices(): Promise<Service[]> {
                         id: d.discoId,
                         name: d.discoName,
                         price: 0,
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 } 
+                        fees: { Customer: 100, Vendor: 100, Admin: 0 },
+                        status: d.status || 'Active',
                     }));
                     console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
                     break;
@@ -746,7 +748,7 @@ export async function deleteDataPlan(id: string) {
 
 // --- Cable Plan Pricing Functions ---
 export async function addCablePlan(plan: Omit<CablePlan, 'id'>) {
-    await addDoc(collection(db, 'cablePlans'), plan);
+    await addDoc(collection(db, 'cablePlans'), {...plan, status: 'Active'});
 }
 
 export async function getCablePlans(): Promise<CablePlan[]> {
@@ -754,19 +756,31 @@ export async function getCablePlans(): Promise<CablePlan[]> {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CablePlan));
 }
 
+export async function updateCablePlanStatus(id: string, status: 'Active' | 'Inactive') {
+    const planRef = doc(db, 'cablePlans', id);
+    await updateDoc(planRef, { status });
+}
+
+
 export async function deleteCablePlan(id: string) {
     await deleteDoc(doc(db, 'cablePlans', id));
 }
 
 // --- Disco Pricing Functions ---
 export async function addDisco(disco: Omit<Disco, 'id'>) {
-    await addDoc(collection(db, 'discos'), disco);
+    await addDoc(collection(db, 'discos'), {...disco, status: 'Active'});
 }
 
 export async function getDiscos(): Promise<Disco[]> {
     const snapshot = await getDocs(query(collection(db, 'discos')));
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Disco));
 }
+
+export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive') {
+    const discoRef = doc(db, 'discos', id);
+    await updateDoc(discoRef, { status });
+}
+
 
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco, updateDataPlanStatus, updateDataPlansStatusByType } from '@/lib/firebase/firestore';
+import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco, updateDataPlanStatus, updateDataPlansStatusByType, updateCablePlanStatus, updateDiscoStatus } from '@/lib/firebase/firestore';
 import type { DataPlan, CablePlan, Disco } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -342,6 +342,20 @@ export function CablePricingTab() {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete cable plan.' });
         }
     };
+    
+    const handleStatusToggle = async (plan: CablePlan) => {
+        const newStatus = plan.status === 'Active' ? 'Inactive' : 'Active';
+        try {
+            await updateCablePlanStatus(plan.id, newStatus);
+            setCablePlans(prevPlans => 
+                prevPlans.map(p => p.id === plan.id ? { ...p, status: newStatus } : p)
+            );
+            toast({ title: 'Status Updated', description: `${plan.planName} is now ${newStatus}.` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update plan status.' });
+        }
+    };
 
     return (
         <Card>
@@ -371,12 +385,37 @@ export function CablePricingTab() {
                 </Form>
                 {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
                  <Table>
-                    <TableHeader><TableRow><TableHead>Provider</TableHead><TableHead>Plan ID</TableHead><TableHead>Plan Name</TableHead><TableHead>Base Price</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Provider</TableHead><TableHead>Plan ID</TableHead><TableHead>Plan Name</TableHead><TableHead>Base Price</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Active</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                     <TableBody>
                         {cablePlans.map((plan) => (
-                            <TableRow key={plan.id}><TableCell>{plan.providerName}</TableCell><TableCell>{plan.planId}</TableCell><TableCell>{plan.planName}</TableCell><TableCell>₦{plan.basePrice}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this cable plan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
+                            <TableRow key={plan.id} className={cn(plan.status === 'Inactive' && 'opacity-50')}>
+                                <TableCell>{plan.providerName}</TableCell>
+                                <TableCell>{plan.planId}</TableCell>
+                                <TableCell>{plan.planName}</TableCell>
+                                <TableCell>₦{plan.basePrice}</TableCell>
+                                <TableCell>
+                                    <Badge variant={plan.status === 'Active' ? 'default' : 'secondary'} className={cn(plan.status === 'Active' ? 'bg-green-500' : 'bg-gray-500')}>
+                                        {plan.status || 'Active'}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <Switch
+                                        checked={plan.status === 'Active' || plan.status === undefined}
+                                        onCheckedChange={() => handleStatusToggle(plan)}
+                                    />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this cable plan.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(plan.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </TableCell>
+                            </TableRow>
                         ))}
-                        {cablePlans.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No cable plans added yet.</TableCell></TableRow>}
+                        {cablePlans.length === 0 && <TableRow><TableCell colSpan={7} className="text-center h-24 text-muted-foreground">No cable plans added yet.</TableCell></TableRow>}
                     </TableBody>
                 </Table>
                 )}
@@ -443,6 +482,20 @@ export function ElectricityPricingTab() {
         }
     };
 
+    const handleStatusToggle = async (disco: Disco) => {
+        const newStatus = disco.status === 'Active' ? 'Inactive' : 'Active';
+        try {
+            await updateDiscoStatus(disco.id, newStatus);
+            setDiscos(prevDiscos => 
+                prevDiscos.map(d => d.id === disco.id ? { ...d, status: newStatus } : d)
+            );
+            toast({ title: 'Status Updated', description: `${disco.discoName} is now ${newStatus}.` });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update disco status.' });
+        }
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -463,12 +516,35 @@ export function ElectricityPricingTab() {
                 </Form>
                 {loading ? (<div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>) : (
                  <Table>
-                    <TableHeader><TableRow><TableHead>Disco ID</TableHead><TableHead>Disco Name</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead>Disco ID</TableHead><TableHead>Disco Name</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Active</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
                     <TableBody>
                         {discos.map((disco) => (
-                            <TableRow key={disco.id}><TableCell>{disco.discoId}</TableCell><TableCell>{disco.discoName}</TableCell><TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this disco.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(disco.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell></TableRow>
+                            <TableRow key={disco.id} className={cn(disco.status === 'Inactive' && 'opacity-50')}>
+                                <TableCell>{disco.discoId}</TableCell>
+                                <TableCell>{disco.discoName}</TableCell>
+                                <TableCell>
+                                    <Badge variant={disco.status === 'Active' ? 'default' : 'secondary'} className={cn(disco.status === 'Active' ? 'bg-green-500' : 'bg-gray-500')}>
+                                        {disco.status || 'Active'}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <Switch
+                                        checked={disco.status === 'Active' || disco.status === undefined}
+                                        onCheckedChange={() => handleStatusToggle(disco)}
+                                    />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this disco.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(disco.id)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </TableCell>
+                            </TableRow>
                         ))}
-                        {discos.length === 0 && <TableRow><TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No discos added yet.</TableCell></TableRow>}
+                        {discos.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No discos added yet.</TableCell></TableRow>}
                     </TableBody>
                 </Table>
                 )}
@@ -476,8 +552,3 @@ export function ElectricityPricingTab() {
         </Card>
     );
 }
-
-
-    
-
-    
