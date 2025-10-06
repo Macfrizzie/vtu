@@ -389,5 +389,3 @@ export default function CableTvPage() {
     </div>
   );
 }
-
-    
