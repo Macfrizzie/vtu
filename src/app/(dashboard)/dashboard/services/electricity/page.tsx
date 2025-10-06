@@ -175,7 +175,12 @@ export default function ElectricityPage() {
   if (!electricityService) {
       return (
         <div className="mx-auto max-w-2xl space-y-8">
-            <h1 className="text-3xl font-bold">Pay Electricity Bill</h1>
+             <div>
+                <h1 className="text-3xl font-bold">Pay Electricity Bill</h1>
+                <p className="text-muted-foreground">
+                Pay for prepaid or postpaid meters with ease.
+                </p>
+            </div>
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Service Unavailable</AlertTitle>

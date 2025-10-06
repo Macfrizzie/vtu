@@ -561,19 +561,15 @@ export async function getServices(): Promise<Service[]> {
             return [];
         }
 
-        const servicesMap = new Map<string, Service>();
-        serviceSnapshot.docs.forEach(doc => {
-            servicesMap.set(doc.id, { id: doc.id, ...doc.data() } as Service);
-        });
+        const populatedServices = serviceSnapshot.docs.map(doc => {
+            const service = { id: doc.id, ...doc.data() } as Service;
+            console.log(`[getServices] Processing service: ${service.name} (Category: ${service.category})`);
 
-        console.log(`[getServices] Created a map of base services with keys:`, Array.from(servicesMap.keys()));
-
-        servicesMap.forEach(service => {
             switch(service.category) {
                 case 'Data':
                     const networks = [...new Set(allDataPlans.map(p => p.networkName))];
                     service.variations = networks.map(networkName => ({
-                        id: networkName, // Use network name as ID for the variation
+                        id: networkName,
                         name: networkName,
                         price: 0,
                         plans: allDataPlans.filter(p => p.networkName === networkName),
@@ -593,20 +589,23 @@ export async function getServices(): Promise<Service[]> {
                     service.variations = allDiscos.map(d => ({
                         id: d.discoId,
                         name: d.discoName,
-                        price: 0, // Price is variable for electricity
+                        price: 0,
                         fees: { Customer: 100, Vendor: 100, Admin: 0 } 
                     }));
                     console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
                     break;
                 default:
                     // For services like Airtime, variations might be managed directly on the service doc.
-                    // Or they are simple and don't need pre-aggregation.
+                    console.log(`[getServices] Service '${service.name}' has no special variation handling.`);
                     break;
             }
+            return service;
         });
 
-        const populatedServices = Array.from(servicesMap.values());
         console.log('[getServices] Successfully processed all services. Final count:', populatedServices.length);
+        populatedServices.forEach(s => {
+            console.log(`[getServices] Final check for service '${s.name}': variations count = ${s.variations?.length || 0}`);
+        });
         
         return populatedServices;
     } catch (error) {
