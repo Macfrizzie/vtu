@@ -577,7 +577,7 @@ export async function getServices(): Promise<Service[]> {
                     console.log(`[getServices] Populated 'Data' service with ${service.variations.length} network variations.`);
                     break;
                 case 'Cable':
-                    service.variations = allCablePlans.map(p => ({
+                     service.variations = allCablePlans.map(p => ({
                         id: p.planId,
                         name: p.planName,
                         price: p.basePrice,
@@ -590,24 +590,24 @@ export async function getServices(): Promise<Service[]> {
                     service.variations = allDiscos.map(d => ({
                         id: d.discoId,
                         name: d.discoName,
-                        price: 0,
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 },
+                        price: 0, // Base price for electricity is 0, amount is user-defined
+                        fees: { Customer: 100, Vendor: 100, Admin: 0 }, // Default fee
                         status: d.status || 'Active',
                     }));
                     console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
                     break;
                 default:
-                    console.log(`[getServices] Service '${service.name}' has no special variation handling.`);
+                    // For services like 'Airtime' which may have variations defined directly in the service document
+                    if (!service.variations) {
+                        service.variations = [];
+                    }
+                    console.log(`[getServices] Service '${service.name}' has no special variation handling or uses its own variations.`);
                     break;
             }
             return service;
         });
 
         console.log('[getServices] Successfully processed all services. Final count:', populatedServices.length);
-        populatedServices.forEach(s => {
-            console.log(`[getServices] Final check for service '${s.name}': variations count = ${s.variations?.length || 0}`);
-        });
-        
         return populatedServices;
     } catch (error) {
         console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
@@ -785,3 +785,5 @@ export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+
+  

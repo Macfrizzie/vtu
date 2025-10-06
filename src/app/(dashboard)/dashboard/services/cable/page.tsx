@@ -102,9 +102,9 @@ export default function CableTvPage() {
         return [];
     }
     const uniqueProviderNames = [...new Set(cableService.variations.map(v => v.providerName).filter(Boolean))];
-    const providerList = uniqueProviderNames.map(name => ({ id: name, name }));
+    const providerList = uniqueProviderNames.map(name => ({ id: name as string, name: name as string }));
     console.log("[CablePage] cableProviders derived:", providerList);
-    return providerList as { id: string; name: string; }[];
+    return providerList;
   }, [cableService]);
 
   const selectedCableName = form.watch('cablename');
@@ -115,7 +115,7 @@ export default function CableTvPage() {
       console.log("[CablePage] availablePackages: No selected provider or variations.");
       return [];
     }
-    const packages = cableService.variations.filter(v => v.providerName === selectedCableName);
+    const packages = cableService.variations.filter(v => v.providerName === selectedCableName && v.status === 'Active');
     console.log(`[CablePage] availablePackages for ${selectedCableName}:`, packages);
     return packages;
   }, [selectedCableName, cableService]);
@@ -389,3 +389,5 @@ export default function CableTvPage() {
     </div>
   );
 }
+
+  
