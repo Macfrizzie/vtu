@@ -563,7 +563,7 @@ export async function getServices(): Promise<Service[]> {
 
         const populatedServices = serviceSnapshot.docs.map(doc => {
             const service = { id: doc.id, ...doc.data() } as Service;
-            console.log(`[getServices] Processing service: ${service.name} (Category: ${service.category})`);
+            console.log(`[getServices] Processing service: ${service.name} (ID: ${service.id}, Category: ${service.category})`);
 
             switch(service.category) {
                 case 'Data':
@@ -595,7 +595,6 @@ export async function getServices(): Promise<Service[]> {
                     console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
                     break;
                 default:
-                    // For services like Airtime, variations might be managed directly on the service doc.
                     console.log(`[getServices] Service '${service.name}' has no special variation handling.`);
                     break;
             }
@@ -772,3 +771,5 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+
+    
