@@ -9,8 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addDataPlan, getDataPlans, deleteDataPlan, getCablePlans, addCablePlan, deleteCablePlan, addDisco, getDiscos, deleteDisco, updateDataPlanStatus, updateDataPlansStatusByType, updateCablePlanStatus, updateDiscoStatus } from '@/lib/firebase/firestore';
-import type { DataPlan, CablePlan, Disco } from '@/lib/types';
+import { 
+    addDataPlan, getDataPlans, deleteDataPlan, updateDataPlanStatus, updateDataPlansStatusByType,
+    getCablePlans, addCablePlan, deleteCablePlan, updateCablePlanStatus,
+    addDisco, getDiscos, deleteDisco, updateDiscoStatus,
+    addRechargeCardDenomination, getRechargeCardDenominations, deleteRechargeCardDenomination, updateRechargeCardDenominationStatus,
+    addEducationPinType, getEducationPinTypes, deleteEducationPinType, updateEducationPinTypeStatus
+} from '@/lib/firebase/firestore';
+import type { DataPlan, CablePlan, Disco, RechargeCardDenomination, EducationPinType } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,6 +41,8 @@ const cableProviders = [
     { id: '2', name: 'DSTV' },
     { id: '3', name: 'Startimes' },
 ];
+
+const examBodies = ['WAEC', 'NECO', 'JAMB'];
 
 // --- Data Pricing Tab ---
 const dataPlanSchema = z.object({
@@ -545,6 +553,255 @@ export function ElectricityPricingTab() {
                             </TableRow>
                         ))}
                         {discos.length === 0 && <TableRow><TableCell colSpan={5} className="text-center h-24 text-muted-foreground">No discos added yet.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+// --- Recharge Card Pricing Tab ---
+const rechargeCardSchema = z.object({
+    networkName: z.string().min(1, "Network is required"),
+    denominationId: z.string().min(1, "Denomination ID is required"),
+    name: z.string().min(1, "Name is required"),
+    price: z.coerce.number().min(0, "Price must be a positive number"),
+    fee: z.coerce.number().min(0, "Fee must be a positive number").optional(),
+});
+
+export function RechargeCardPricingTab() {
+    const { toast } = useToast();
+    const [denominations, setDenominations] = useState<RechargeCardDenomination[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const form = useForm<z.infer<typeof rechargeCardSchema>>({
+        resolver: zodResolver(rechargeCardSchema),
+        defaultValues: { networkName: 'MTN', denominationId: '', name: '', price: 100, fee: 0 },
+    });
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const data = await getRechargeCardDenominations();
+            setDenominations(data);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch denominations.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchData(); }, []);
+
+    const onSubmit = async (values: z.infer<typeof rechargeCardSchema>) => {
+        setIsSubmitting(true);
+        try {
+            await addRechargeCardDenomination({ 
+                ...values,
+                fees: { Customer: values.fee || 0, Vendor: values.fee || 0, Admin: 0 }
+            });
+            toast({ title: "Denomination Added" });
+            await fetchData();
+            form.reset();
+        } catch(error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add denomination.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteRechargeCardDenomination(id);
+            toast({ title: 'Success', description: 'Denomination deleted.' });
+            await fetchData();
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete denomination.' });
+        }
+    };
+
+    const handleStatusToggle = async (item: RechargeCardDenomination) => {
+        const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
+        try {
+            await updateRechargeCardDenominationStatus(item.id, newStatus);
+            setDenominations(prev => prev.map(p => p.id === item.id ? { ...p, status: newStatus } : p));
+            toast({ title: 'Status Updated' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
+        }
+    };
+    
+    return (
+        <Card>
+            <CardHeader><CardTitle>Recharge Card Denominations</CardTitle><CardDescription>Manage denominations for recharge card printing.</CardDescription></CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end p-4 border rounded-lg">
+                        <FormField control={form.control} name="networkName" render={({ field }) => (
+                            <FormItem><FormLabel>Network</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{networks.map(n => <SelectItem key={n.id} value={n.name}>{n.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="denominationId" render={({ field }) => (
+                            <FormItem><FormLabel>Denomination ID</FormLabel><FormControl><Input placeholder="e.g., mtn-100" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g., ₦100 Pin" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="price" render={({ field }) => (
+                            <FormItem><FormLabel>Price (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                         <FormField control={form.control} name="fee" render={({ field }) => (
+                            <FormItem><FormLabel>Fee (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <div className="lg:col-span-5"><Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add Denomination</Button></div>
+                    </form>
+                </Form>
+                {loading ? <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+                 <Table>
+                    <TableHeader><TableRow><TableHead>Network</TableHead><TableHead>ID</TableHead><TableHead>Name</TableHead><TableHead>Price</TableHead><TableHead>Fee</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Active</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {denominations.map((item) => (
+                            <TableRow key={item.id} className={cn(item.status === 'Inactive' && 'opacity-50')}>
+                                <TableCell>{item.networkName}</TableCell>
+                                <TableCell>{item.denominationId}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell>₦{item.price}</TableCell>
+                                <TableCell>₦{item.fees?.Customer || 0}</TableCell>
+                                <TableCell><Badge variant={item.status === 'Active' ? 'default' : 'secondary'} className={cn(item.status === 'Active' ? 'bg-green-500' : 'bg-gray-500')}>{item.status || 'Active'}</Badge></TableCell>
+                                <TableCell className="text-center"><Switch checked={item.status === 'Active'} onCheckedChange={() => handleStatusToggle(item)}/></TableCell>
+                                <TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this denomination.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+
+// --- Education Pricing Tab ---
+const educationPinSchema = z.object({
+    examBody: z.string().min(1, "Exam Body is required"),
+    pinTypeId: z.string().min(1, "Pin Type ID is required"),
+    name: z.string().min(1, "Name is required"),
+    price: z.coerce.number().min(0, "Price must be a positive number"),
+    fee: z.coerce.number().min(0, "Fee must be a positive number").optional(),
+});
+
+export function EducationPricingTab() {
+    const { toast } = useToast();
+    const [pinTypes, setPinTypes] = useState<EducationPinType[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    const form = useForm<z.infer<typeof educationPinSchema>>({
+        resolver: zodResolver(educationPinSchema),
+        defaultValues: { examBody: 'WAEC', pinTypeId: '', name: '', price: 2000, fee: 0 },
+    });
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const data = await getEducationPinTypes();
+            setPinTypes(data);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch E-Pins.' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchData(); }, []);
+
+    const onSubmit = async (values: z.infer<typeof educationPinSchema>) => {
+        setIsSubmitting(true);
+        try {
+            await addEducationPinType({ 
+                ...values,
+                fees: { Customer: values.fee || 0, Vendor: values.fee || 0, Admin: 0 }
+            });
+            toast({ title: "E-Pin Added" });
+            await fetchData();
+            form.reset();
+        } catch(error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to add E-Pin.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        try {
+            await deleteEducationPinType(id);
+            toast({ title: 'Success', description: 'E-Pin deleted.' });
+            await fetchData();
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete E-Pin.' });
+        }
+    };
+
+    const handleStatusToggle = async (item: EducationPinType) => {
+        const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
+        try {
+            await updateEducationPinTypeStatus(item.id, newStatus);
+            setPinTypes(prev => prev.map(p => p.id === item.id ? { ...p, status: newStatus } : p));
+            toast({ title: 'Status Updated' });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
+        }
+    };
+    
+    return (
+        <Card>
+            <CardHeader><CardTitle>Education E-Pin Prices</CardTitle><CardDescription>Manage prices for WAEC, NECO, and JAMB result checker pins.</CardDescription></CardHeader>
+            <CardContent>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end p-4 border rounded-lg">
+                        <FormField control={form.control} name="examBody" render={({ field }) => (
+                            <FormItem><FormLabel>Exam Body</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{examBodies.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="pinTypeId" render={({ field }) => (
+                            <FormItem><FormLabel>Pin Type ID</FormLabel><FormControl><Input placeholder="e.g., waec-result" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="name" render={({ field }) => (
+                            <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="e.g., WAEC Result Pin" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="price" render={({ field }) => (
+                            <FormItem><FormLabel>Price (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="fee" render={({ field }) => (
+                            <FormItem><FormLabel>Fee (₦)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <div className="lg:col-span-5"><Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add E-Pin</Button></div>
+                    </form>
+                </Form>
+                {loading ? <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+                 <Table>
+                    <TableHeader><TableRow><TableHead>Exam Body</TableHead><TableHead>ID</TableHead><TableHead>Name</TableHead><TableHead>Price</TableHead><TableHead>Fee</TableHead><TableHead>Status</TableHead><TableHead className="text-center">Active</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                    <TableBody>
+                        {pinTypes.map((item) => (
+                            <TableRow key={item.id} className={cn(item.status === 'Inactive' && 'opacity-50')}>
+                                <TableCell>{item.examBody}</TableCell>
+                                <TableCell>{item.pinTypeId}</TableCell>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell>₦{item.price}</TableCell>
+                                <TableCell>₦{item.fees?.Customer || 0}</TableCell>
+                                <TableCell><Badge variant={item.status === 'Active' ? 'default' : 'secondary'} className={cn(item.status === 'Active' ? 'bg-green-500' : 'bg-gray-500')}>{item.status || 'Active'}</Badge></TableCell>
+                                <TableCell className="text-center"><Switch checked={item.status === 'Active'} onCheckedChange={() => handleStatusToggle(item)}/></TableCell>
+                                <TableCell className="text-right"><AlertDialog><AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete this E-Pin type.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(item.id)}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></TableCell>
+                            </TableRow>
+                        ))}
                     </TableBody>
                 </Table>
                 )}

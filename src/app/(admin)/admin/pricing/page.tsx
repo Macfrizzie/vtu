@@ -2,7 +2,7 @@
 'use client';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DataPricingTab, CablePricingTab, ElectricityPricingTab } from './pricing-components';
+import { DataPricingTab, CablePricingTab, ElectricityPricingTab, RechargeCardPricingTab, EducationPricingTab } from './pricing-components';
 
 export default function AdminPricingPage() {
   return (
@@ -13,10 +13,12 @@ export default function AdminPricingPage() {
       </div>
 
       <Tabs defaultValue="data" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="data">Data Plans</TabsTrigger>
           <TabsTrigger value="cable">Cable TV</TabsTrigger>
           <TabsTrigger value="electricity">Electricity</TabsTrigger>
+          <TabsTrigger value="recharge-card">Recharge Card</TabsTrigger>
+          <TabsTrigger value="education">Education</TabsTrigger>
         </TabsList>
 
         <TabsContent value="data" className="mt-4">
@@ -27,6 +29,12 @@ export default function AdminPricingPage() {
         </TabsContent>
          <TabsContent value="electricity" className="mt-4">
           <ElectricityPricingTab />
+        </TabsContent>
+         <TabsContent value="recharge-card" className="mt-4">
+            <RechargeCardPricingTab />
+        </TabsContent>
+         <TabsContent value="education" className="mt-4">
+            <EducationPricingTab />
         </TabsContent>
       </Tabs>
     </div>

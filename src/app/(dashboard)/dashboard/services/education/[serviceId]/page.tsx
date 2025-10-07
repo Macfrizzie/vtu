@@ -49,6 +49,7 @@ import { AlertCircle } from 'lucide-react';
 
 const formSchema = z.object({
   variationId: z.string().min(1, 'Please select a pin type.'),
+  quantity: z.coerce.number().min(1, 'Quantity must be at least 1').max(10, 'You can buy a maximum of 10 pins at a time.'),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -63,7 +64,7 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [generatedPin, setGeneratedPin] = useState<GeneratedPin | null>(null);
+  const [generatedPin, setGeneratedPin] = useState<GeneratedPin[] | null>(null);
   const [isCopied, setIsCopied] = useState<'pin' | 'serial' | null>(null);
   const [service, setService] = useState<Service | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
@@ -72,6 +73,7 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
     resolver: zodResolver(formSchema),
     defaultValues: {
       variationId: '',
+      quantity: 1,
     },
   });
 
@@ -95,6 +97,7 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
 
 
   const selectedVariationId = form.watch('variationId');
+  const quantity = form.watch('quantity');
   
   const selectedPin = useMemo(() => 
       service?.variations?.find(p => p.id === selectedVariationId)
@@ -107,7 +110,7 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
     });
   };
   
-  const totalCost = selectedPin && userData ? selectedPin.price + (selectedPin.fees?.[userData.role] || 0) : 0;
+  const totalCost = selectedPin && userData ? (selectedPin.price + (selectedPin.fees?.[userData.role] || 0)) * quantity : 0;
 
   async function onSubmit(values: FormData) {
     if (!user || !userData || !service) {
@@ -132,13 +135,12 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
     setIsPurchasing(true);
     setGeneratedPin(null);
     try {
-      const purchaseInputs = { quantity: 1 };
+      const purchaseInputs = { quantity: values.quantity };
       
       const result = await purchaseService(user.uid, service.id, values.variationId, purchaseInputs, user.email!);
 
       if (typeof result !== 'string' && result.pins && result.pins.length > 0) {
-        const firstPin = result.pins[0];
-        setGeneratedPin({ pin: firstPin.pin, serial: firstPin.serial_number });
+        setGeneratedPin(result.pins);
         forceRefetch();
         toast({
           title: 'Purchase Successful!',
@@ -257,28 +259,32 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="pin">PIN</Label>
-              <div className="flex items-center gap-2">
-                <p id="pin" className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-lg font-semibold">
-                  {generatedPin?.pin}
-                </p>
-                <Button variant="outline" size="icon" onClick={() => copyToClipboard(generatedPin?.pin || '', 'pin')}>
-                  {isCopied === 'pin' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
+            {generatedPin?.map((pinData, index) => (
+              <div key={index} className="space-y-2 border-b pb-4 last:border-b-0 last:pb-0">
+                <div className="space-y-2">
+                    <Label htmlFor={`pin-${index}`}>PIN</Label>
+                    <div className="flex items-center gap-2">
+                        <p id={`pin-${index}`} className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-lg font-semibold">
+                        {pinData.pin}
+                        </p>
+                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(pinData.pin, 'pin')}>
+                        {isCopied === 'pin' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor={`serial-${index}`}>Serial Number</Label>
+                    <div className="flex items-center gap-2">
+                        <p id={`serial-${index}`} className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-lg font-semibold">
+                        {pinData.serial}
+                        </p>
+                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(pinData.serial, 'serial')}>
+                        {isCopied === 'serial' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="serial">Serial Number</Label>
-               <div className="flex items-center gap-2">
-                <p id="serial" className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-lg font-semibold">
-                  {generatedPin?.serial}
-                </p>
-                <Button variant="outline" size="icon" onClick={() => copyToClipboard(generatedPin?.serial || '', 'serial')}>
-                  {isCopied === 'serial' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+            ))}
           </div>
           <AlertDialogFooter>
             <AlertDialogAction onClick={() => setGeneratedPin(null)}>Close</AlertDialogAction>

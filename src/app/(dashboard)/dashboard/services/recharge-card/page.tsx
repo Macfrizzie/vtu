@@ -43,7 +43,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Copy, Check } from 'lucide-react';
 import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import { Label } from '@/components/ui/label';
-import type { Service, ServiceVariation } from '@/lib/types';
+import type { Service } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -142,7 +142,7 @@ export default function RechargeCardPage() {
     try {
       const selectedService = services.find(s => s.id === values.serviceId);
       const purchaseInputs = { 
-        network: selectedService?.provider,
+        network: selectedService?.name,
         network_amount: selectedDenomination.price, // Use base price for amount
         quantity: values.quantity,
         name_on_card: userData.fullName,

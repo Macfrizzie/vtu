@@ -4,7 +4,7 @@
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, ServiceVariation } from '../types';
+import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
@@ -397,9 +397,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
                 description = `${selectedVariation.name} Purchase`;
                 
-                const examBody = service.variations?.find(v => v.id === variationId)?.providerName;
+                const examBody = service.name; // e.g., 'WAEC', 'NECO'
                 if (!examBody) {
-                    throw new Error("Could not determine exam body from selected pin.");
+                    throw new Error("Could not determine exam body from the service.");
                 }
 
                 requestBody = {
@@ -553,59 +553,17 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    console.log('========== GET SERVICES DEBUG START ==========');
-    
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
+    const baseServices = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
     
-    console.log('📊 Total service documents found:', serviceSnapshot.size);
-    
-    const baseServices = serviceSnapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('📄 Service Document:', {
-            id: doc.id,
-            name: data.name,
-            category: data.category,
-            status: data.status,
-            hasApiProviderIds: !!data.apiProviderIds,
-            apiProviderCount: data.apiProviderIds?.length || 0
-        });
-        return { id: doc.id, ...data, apiProviderIds: data.apiProviderIds || [] } as Service;
-    });
-    
-    console.log('🔍 Looking for Cable service...');
-    const cableService = baseServices.find(s => s.category === 'Cable');
-    console.log('Cable Service Found?:', !!cableService);
-    if (cableService) {
-        console.log('Cable Service Details:', {
-            id: cableService.id,
-            name: cableService.name,
-            status: cableService.status,
-            category: cableService.category
-        });
-    }
-    
-    console.log('🔍 Looking for Electricity service...');
-    const electricityService = baseServices.find(s => s.category === 'Electricity');
-    console.log('Electricity Service Found?:', !!electricityService);
-    if (electricityService) {
-        console.log('Electricity Service Details:', {
-            id: electricityService.id,
-            name: electricityService.name,
-            status: electricityService.status
-        });
-    }
-    
-    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+    const [allDataPlans, allCablePlans, allDiscos, allRechargeCards, allEducationPins] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
-        getDiscos()
+        getDiscos(),
+        getRechargeCardDenominations(),
+        getEducationPinTypes(),
     ]);
-    
-    console.log('📦 Cable Plans Fetched:', allCablePlans.length);
-    console.log('Sample Cable Plan:', allCablePlans[0]);
-    console.log('⚡ Discos Fetched:', allDiscos.length);
-    console.log('Sample Disco:', allDiscos[0]);
     
     const populatedServices = baseServices.map(service => {
         switch(service.category) {
@@ -637,9 +595,31 @@ export async function getServices(): Promise<Service[]> {
                 }));
                 break;
             case 'Education':
-                // The variations are already stored on the service doc for education
-                if (!service.variations) {
-                    service.variations = [];
+                const educationService = baseServices.find(s => s.id === service.id);
+                if (educationService) {
+                    service.variations = allEducationPins
+                        .filter(p => p.examBody === educationService.name)
+                        .map(p => ({
+                            id: p.pinTypeId,
+                            name: p.name,
+                            price: p.price,
+                            fees: p.fees,
+                            status: p.status || 'Active',
+                        }));
+                }
+                break;
+            case 'Recharge Card':
+                 const rechargeService = baseServices.find(s => s.id === service.id);
+                if (rechargeService) {
+                    service.variations = allRechargeCards
+                        .filter(p => p.networkName === rechargeService.name)
+                        .map(p => ({
+                            id: p.denominationId,
+                            name: p.name,
+                            price: p.price,
+                            fees: p.fees,
+                            status: p.status || 'Active',
+                        }));
                 }
                 break;
             default:
@@ -650,17 +630,10 @@ export async function getServices(): Promise<Service[]> {
         }
         return service;
     });
-
-    const cableServiceWithVariations = populatedServices.find(s => s.category === 'Cable');
-    if (cableServiceWithVariations) {
-        console.log('✅ Cable Service Variations:', cableServiceWithVariations.variations?.length || 0);
-        console.log('Sample Variation:', cableServiceWithVariations.variations?.[0]);
-    }
-    
-    console.log('========== GET SERVICES DEBUG END ==========');
     
     return populatedServices;
 }
+
 
 export async function addService(data: { name: string; category: string }) {
     const servicesCol = collection(db, 'services');
@@ -832,6 +805,45 @@ export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive
 export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
+
+// --- Recharge Card Denomination Functions ---
+export async function addRechargeCardDenomination(denomination: Omit<RechargeCardDenomination, 'id'>) {
+    await addDoc(collection(db, 'rechargeCardDenominations'), { ...denomination, status: 'Active' });
+}
+
+export async function getRechargeCardDenominations(): Promise<RechargeCardDenomination[]> {
+    const snapshot = await getDocs(query(collection(db, 'rechargeCardDenominations')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RechargeCardDenomination));
+}
+
+export async function updateRechargeCardDenominationStatus(id: string, status: 'Active' | 'Inactive') {
+    const denominationRef = doc(db, 'rechargeCardDenominations', id);
+    await updateDoc(denominationRef, { status });
+}
+
+export async function deleteRechargeCardDenomination(id: string) {
+    await deleteDoc(doc(db, 'rechargeCardDenominations', id));
+}
+
+// --- Education Pin Type Functions ---
+export async function addEducationPinType(pinType: Omit<EducationPinType, 'id'>) {
+    await addDoc(collection(db, 'educationPinTypes'), { ...pinType, status: 'Active' });
+}
+
+export async function getEducationPinTypes(): Promise<EducationPinType[]> {
+    const snapshot = await getDocs(query(collection(db, 'educationPinTypes')));
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EducationPinType));
+}
+
+export async function updateEducationPinTypeStatus(id: string, status: 'Active' | 'Inactive') {
+    const pinTypeRef = doc(db, 'educationPinTypes', id);
+    await updateDoc(pinTypeRef, { status });
+}
+
+export async function deleteEducationPinType(id: string) {
+    await deleteDoc(doc(db, 'educationPinTypes', id));
+}
+
 
 export async function verifyDatabaseSetup() {
     console.log('🔍 VERIFYING DATABASE SETUP...\n');

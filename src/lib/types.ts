@@ -47,7 +47,7 @@ export type ServiceVariation = {
   validity?: string;
   plans?: ServiceVariation[];
   providerName?: string; // For distinguishing cable plans
-  status?: 'Active' | 'Inactive'; // For data plans
+  status?: 'Active' | 'Inactive';
 };
 
 export type Service = {
@@ -103,6 +103,26 @@ export type Disco = {
     id: string;
     discoId: string;
     discoName: string;
+    status?: 'Active' | 'Inactive';
+};
+
+export type RechargeCardDenomination = {
+    id: string; // Firestore doc id
+    networkName: string;
+    denominationId: string;
+    name: string; // e.g. "₦100 Recharge Card"
+    price: number;
+    fees?: { [key in UserData['role']]: number };
+    status?: 'Active' | 'Inactive';
+};
+
+export type EducationPinType = {
+    id: string; // Firestore doc id
+    examBody: string; // e.g., "WAEC", "NECO"
+    pinTypeId: string;
+    name: string;
+    price: number;
+    fees?: { [key in UserData['role']]: number };
     status?: 'Active' | 'Inactive';
 };
     
