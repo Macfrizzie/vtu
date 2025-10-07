@@ -545,73 +545,107 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    console.log('[getServices] Starting to fetch and aggregate all service data...');
-    try {
-        const [serviceSnapshot, allDataPlans, allCablePlans, allDiscos] = await Promise.all([
-            getDocs(query(collection(db, "services"))),
-            getDataPlans(),
-            getCablePlans(),
-            getDiscos()
-        ]);
-
-        console.log(`[getServices] Fetched ${serviceSnapshot.size} base services, ${allDataPlans.length} data plans, ${allCablePlans.length} cable plans, and ${allDiscos.length} discos.`);
-
-        if (serviceSnapshot.empty) {
-            console.warn("[getServices] The 'services' collection is empty. No services can be processed.");
-            return [];
-        }
-
-        const populatedServices = serviceSnapshot.docs.map(doc => {
-            const service = { id: doc.id, ...doc.data() } as Service;
-            console.log(`[getServices] Processing service: ${service.name} (ID: ${service.id}, Category: ${service.category})`);
-
-            switch(service.category) {
-                case 'Data':
-                    const networks = [...new Set(allDataPlans.map(p => p.networkName))];
-                    service.variations = networks.map(networkName => ({
-                        id: networkName,
-                        name: networkName,
-                        price: 0,
-                        plans: allDataPlans.filter(p => p.networkName === networkName),
-                    }));
-                    console.log(`[getServices] Populated 'Data' service with ${service.variations.length} network variations.`);
-                    break;
-                case 'Cable':
-                     service.variations = allCablePlans.map(p => ({
-                        id: p.planId,
-                        name: p.planName,
-                        price: p.basePrice,
-                        providerName: p.providerName,
-                        status: p.status || 'Active',
-                    }));
-                    console.log(`[getServices] Populated 'Cable' service with ${service.variations.length} plan variations.`);
-                    break;
-                case 'Electricity':
-                    service.variations = allDiscos.map(d => ({
-                        id: d.discoId,
-                        name: d.discoName,
-                        price: 0, // Base price for electricity is 0, amount is user-defined
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 }, // Default fee
-                        status: d.status || 'Active',
-                    }));
-                    console.log(`[getServices] Populated 'Electricity' service with ${service.variations.length} disco variations.`);
-                    break;
-                default:
-                    if (!service.variations) {
-                        service.variations = [];
-                    }
-                    console.log(`[getServices] Service '${service.name}' has no special variation handling or uses its own variations.`);
-                    break;
-            }
-            return service;
+    console.log('========== GET SERVICES DEBUG START ==========');
+    
+    const servicesCol = collection(db, "services");
+    const serviceSnapshot = await getDocs(query(servicesCol));
+    
+    console.log('📊 Total service documents found:', serviceSnapshot.size);
+    
+    const baseServices = serviceSnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('📄 Service Document:', {
+            id: doc.id,
+            name: data.name,
+            category: data.category,
+            status: data.status,
+            hasApiProviderIds: !!data.apiProviderIds,
+            apiProviderCount: data.apiProviderIds?.length || 0
         });
-
-        console.log('[getServices] Successfully processed all services. Final count:', populatedServices.length);
-        return populatedServices;
-    } catch (error) {
-        console.error('[getServices] CRITICAL ERROR fetching and populating services:', error);
-        return [];
+        return { id: doc.id, ...data, apiProviderIds: data.apiProviderIds || [] } as Service;
+    });
+    
+    console.log('🔍 Looking for Cable service...');
+    const cableService = baseServices.find(s => s.category === 'Cable');
+    console.log('Cable Service Found?:', !!cableService);
+    if (cableService) {
+        console.log('Cable Service Details:', {
+            id: cableService.id,
+            name: cableService.name,
+            status: cableService.status,
+            category: cableService.category
+        });
     }
+    
+    console.log('🔍 Looking for Electricity service...');
+    const electricityService = baseServices.find(s => s.category === 'Electricity');
+    console.log('Electricity Service Found?:', !!electricityService);
+    if (electricityService) {
+        console.log('Electricity Service Details:', {
+            id: electricityService.id,
+            name: electricityService.name,
+            status: electricityService.status
+        });
+    }
+    
+    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+        getDataPlans(),
+        getCablePlans(),
+        getDiscos()
+    ]);
+    
+    console.log('📦 Cable Plans Fetched:', allCablePlans.length);
+    console.log('Sample Cable Plan:', allCablePlans[0]);
+    console.log('⚡ Discos Fetched:', allDiscos.length);
+    console.log('Sample Disco:', allDiscos[0]);
+    
+    const populatedServices = baseServices.map(service => {
+        switch(service.category) {
+            case 'Data':
+                const networks = [...new Set(allDataPlans.map(p => p.networkName))];
+                service.variations = networks.map(networkName => ({
+                    id: networkName,
+                    name: networkName,
+                    price: 0,
+                    plans: allDataPlans.filter(p => p.networkName === networkName),
+                }));
+                break;
+            case 'Cable':
+                 service.variations = allCablePlans.map(p => ({
+                    id: p.planId,
+                    name: p.planName,
+                    price: p.basePrice,
+                    providerName: p.providerName,
+                    status: p.status || 'Active',
+                }));
+                break;
+            case 'Electricity':
+                service.variations = allDiscos.map(d => ({
+                    id: d.discoId,
+                    name: d.discoName,
+                    price: 0,
+                    fees: { Customer: 100, Vendor: 100, Admin: 0 },
+                    status: d.status || 'Active',
+                }));
+                break;
+            default:
+                if (!service.variations) {
+                    service.variations = [];
+                }
+                break;
+        }
+        return service;
+    });
+
+    const cableServiceWithVariations = populatedServices.find(s => s.category === 'Cable');
+    if (cableServiceWithVariations) {
+        console.log('✅ Cable Service Variations:', cableServiceWithVariations.variations?.length || 0);
+        console.log('Sample Variation:', cableServiceWithVariations.variations?.[0]);
+    }
+    
+    console.log('========== GET SERVICES DEBUG END ==========');
+    
+    return populatedServices;
 }
 
 export async function addService(data: { name: string; category: string }) {
@@ -785,6 +819,60 @@ export async function deleteDisco(id: string) {
     await deleteDoc(doc(db, 'discos', id));
 }
 
+export async function verifyDatabaseSetup() {
+    console.log('🔍 VERIFYING DATABASE SETUP...\n');
+    
+    // Check services collection
+    const servicesSnapshot = await getDocs(collection(db, 'services'));
+    console.log('📁 Services Collection:');
+    console.log(`   Total documents: ${servicesSnapshot.size}`);
+    servicesSnapshot.forEach(doc => {
+        const data = doc.data();
+        console.log(`   - ${data.name} (${data.category}): ${data.status}`);
+    });
+    
+    // Check cablePlans collection
+    const cablePlansSnapshot = await getDocs(collection(db, 'cablePlans'));
+    console.log('\n📁 Cable Plans Collection:');
+    console.log(`   Total documents: ${cablePlansSnapshot.size}`);
+    const providerGroups: Record<string, number> = {};
+    cablePlansSnapshot.forEach(doc => {
+        const data = doc.data();
+        providerGroups[data.providerName] = (providerGroups[data.providerName] || 0) + 1;
+    });
+    Object.entries(providerGroups).forEach(([provider, count]) => {
+        console.log(`   - ${provider}: ${count} plans`);
+    });
+    
+    // Check discos collection
+    const discosSnapshot = await getDocs(collection(db, 'discos'));
+    console.log('\n📁 Discos Collection:');
+    console.log(`   Total documents: ${discosSnapshot.size}`);
+    discosSnapshot.forEach(doc => {
+        const data = doc.data();
+        console.log(`   - ${data.discoName}`);
+    });
+    
+    // Check apiProviders collection
+    const providersSnapshot = await getDocs(collection(db, 'apiProviders'));
+    console.log('\n📁 API Providers Collection:');
+    console.log(`   Total documents: ${providersSnapshot.size}`);
+    providersSnapshot.forEach(doc => {
+        const data = doc.data();
+        console.log(`   - ${data.name}: ${data.status}`);
+    });
+    
+    console.log('\n✅ VERIFICATION COMPLETE\n');
+    
+    return {
+        services: servicesSnapshot.size,
+        cablePlans: cablePlansSnapshot.size,
+        discos: discosSnapshot.size,
+        apiProviders: providersSnapshot.size
+    };
+}
   
 
   
+
+    

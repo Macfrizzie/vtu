@@ -34,7 +34,7 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles, AlertCircle } from 'lucide-react';
-import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -54,6 +54,7 @@ export default function CableTvPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [cableService, setCableService] = useState<Service | null>(null);
+  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -67,25 +68,47 @@ export default function CableTvPage() {
 
   useEffect(() => {
     async function fetchServices() {
-        console.log("[CablePage] Fetching services...");
+        console.log('🎬 CABLE PAGE: Starting service fetch...');
         setServicesLoading(true);
         try {
-            const allServices = await getServices();
-            console.log("[CablePage] All services fetched:", allServices);
-            const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active') || null;
+            const [allServices, allProviders] = await Promise.all([
+                getServices(),
+                getApiProviders()
+            ]);
+            
+            console.log('🎬 CABLE PAGE: All services received:', allServices.length);
+            console.log('🎬 CABLE PAGE: All services:', allServices.map(s => ({
+                id: s.id,
+                name: s.name,
+                category: s.category,
+                status: s.status
+            })));
+            
+            const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active');
+            
+            console.log('🎬 CABLE PAGE: Cable service search result:', service ? 'FOUND' : 'NOT FOUND');
+            
             if (service) {
-                console.log("[CablePage] Found active Cable service:", service);
-                setCableService(service);
+                console.log('🎬 CABLE PAGE: Cable Service Details:', {
+                    id: service.id,
+                    name: service.name,
+                    status: service.status,
+                    variationsCount: service.variations?.length || 0,
+                    hasApiProviderIds: !!service.apiProviderIds,
+                    apiProviderIdsCount: service.apiProviderIds?.length || 0
+                });
             } else {
-                console.warn("[CablePage] No active Cable service found.");
-                setCableService(null);
+                console.error('❌ CABLE PAGE: No active Cable service found!');
+                console.log('Available services:', allServices.map(s => `${s.name} (${s.category}) - ${s.status}`));
             }
+            
+            setCableService(service || null);
+            setApiProviders(allProviders.filter(p => p.status === 'Active'));
+            
         } catch (error) {
-            console.error("[CablePage] Failed to fetch cable services:", error);
-            toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
+            console.error("❌ CABLE PAGE: Failed to fetch services:", error);
         } finally {
             setServicesLoading(false);
-            console.log("[CablePage] Service fetching finished.");
         }
     }
     fetchServices();
@@ -93,12 +116,10 @@ export default function CableTvPage() {
   
   const cableProviders = useMemo(() => {
     if (!cableService || !cableService.variations) {
-        console.log("[CablePage] cableProviders: No service or variations, returning empty array.");
         return [];
     }
     const uniqueProviderNames = [...new Set(cableService.variations.map(v => v.providerName).filter(Boolean))];
     const providerList = uniqueProviderNames.map(name => ({ id: name as string, name: name as string }));
-    console.log("[CablePage] cableProviders derived:", providerList);
     return providerList;
   }, [cableService]);
 
@@ -107,11 +128,9 @@ export default function CableTvPage() {
 
   const availablePackages = useMemo(() => {
     if (!selectedCableName || !cableService || !cableService.variations) {
-      console.log("[CablePage] availablePackages: No selected provider or variations.");
       return [];
     }
     const packages = cableService.variations.filter(v => v.providerName === selectedCableName && v.status === 'Active');
-    console.log(`[CablePage] availablePackages for ${selectedCableName}:`, packages);
     return packages;
   }, [selectedCableName, cableService]);
 
@@ -129,11 +148,10 @@ export default function CableTvPage() {
         return;
     }
 
-    const providers = await getServices(); // We need all providers to find the right one
     const providerInfo = cableService.apiProviderIds.find(p => p.priority === 'Primary') || cableService.apiProviderIds[0];
-    const provider = providers.find(p => p.id === providerInfo.id);
+    const provider = apiProviders.find(p => p.id === providerInfo.id);
 
-    if (!provider || !('baseUrl' in provider) || !('apiKey' in provider)) {
+    if (!provider) {
         toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found, is inactive, or missing required fields.' });
         setIsVerifying(false);
         return;
@@ -146,8 +164,8 @@ export default function CableTvPage() {
       }
       
       const verificationResult = await verifySmartCard(
-          (provider as any).baseUrl,
-          (provider as any).apiKey || '',
+          provider.baseUrl,
+          provider.apiKey || '',
           selectedProviderName,
           smartCardValue
       );
@@ -389,3 +407,5 @@ export default function CableTvPage() {
   
 
   
+
+    
