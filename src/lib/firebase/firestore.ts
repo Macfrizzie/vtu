@@ -148,7 +148,7 @@ export async function initializeServices(): Promise<string[]> {
 }
 
 export async function getUserData(uid: string): Promise<UserData | null> {
-    console.log(`[Firestore] Fetching user data for UID: ${uid}`);
+    console.log(`[UserProvider] Fetching user data for UID: ${uid}`);
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
 
@@ -164,10 +164,10 @@ export async function getUserData(uid: string): Promise<UserData | null> {
             createdAt: createdAt,
             lastLogin: lastLogin
         } as UserData;
-        console.log("[Firestore] User data found:", userData);
+        console.log(`[UserProvider] Data fetch complete for ${uid}`);
         return userData;
     } else {
-        console.log("[Firestore] No user data found for UID:", uid);
+        console.log(`[UserProvider] No user data found for UID: ${uid}`);
         return null;
     }
 }

@@ -34,7 +34,7 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles, AlertCircle } from 'lucide-react';
-import { purchaseService, getServices } from '@/lib/firebase/firestore';
+import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -67,15 +67,41 @@ export default function CableTvPage() {
 
   useEffect(() => {
     async function fetchServices() {
+        console.log('🎬 CABLE PAGE: Starting service fetch...');
         setServicesLoading(true);
         try {
             const allServices = await getServices();
+            
+            console.log('🎬 CABLE PAGE: All services received:', allServices.length);
+            console.log('🎬 CABLE PAGE: All services:', allServices.map(s => ({
+                id: s.id,
+                name: s.name,
+                category: s.category,
+                status: s.status
+            })));
+            
             const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active');
+            
+            console.log('🎬 CABLE PAGE: Cable service search result:', service ? 'FOUND' : 'NOT FOUND');
+            
+            if (service) {
+                console.log('🎬 CABLE PAGE: Cable Service Details:', {
+                    id: service.id,
+                    name: service.name,
+                    status: service.status,
+                    variationsCount: service.variations?.length || 0,
+                    hasApiProviderIds: !!service.apiProviderIds,
+                    apiProviderIdsCount: service.apiProviderIds?.length || 0
+                });
+            } else {
+                console.error('❌ CABLE PAGE: No active Cable service found!');
+                console.log('Available services:', allServices.map(s => `${s.name} (${s.category}) - ${s.status}`));
+            }
             
             setCableService(service || null);
             
         } catch (error) {
-            console.error("CABLE PAGE: Failed to fetch services:", error);
+            console.error("❌ CABLE PAGE: Failed to fetch services:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
         } finally {
             setServicesLoading(false);
@@ -111,17 +137,8 @@ export default function CableTvPage() {
     setCustomerName(null);
     form.clearErrors('smartCardNumber');
 
-     if (!cableService || !cableService.apiProviderIds || cableService.apiProviderIds.length === 0) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Selected service is not linked to an API provider.' });
-        setIsVerifying(false);
-        return;
-    }
-
-    const allProviders = await getServices(); // Re-fetch to get latest provider data linked inside services
-    const currentService = allProviders.find(s => s.id === cableService.id);
-    
-    if (!currentService || !currentService.apiProviderIds) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found or is misconfigured.' });
+     if (!cableService) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Cable service is not loaded.' });
         setIsVerifying(false);
         return;
     }
@@ -308,7 +325,7 @@ export default function CableTvPage() {
                         <FormControl>
                             <Input id="smartCardNumber" type="tel" placeholder="Enter smart card number" {...field} onChange={(e) => {
                                 field.onChange(e);
-                                setCustomerName(null);
+                                if (customerName) setCustomerName(null);
                             }} />
                         </FormControl>
                         <FormMessage />

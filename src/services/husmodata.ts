@@ -3,7 +3,7 @@
 'use server';
 
 import { callProviderAPI } from "./api-handler";
-import { getServices } from "@/lib/firebase/firestore";
+import { getServices, getApiProviders } from "@/lib/firebase/firestore";
 import type { ApiProvider } from "@/lib/types";
 
 export type Network = {
@@ -83,24 +83,30 @@ export async function verifySmartCard(cablename: string, smartCardNumber: string
         throw new Error("Cable TV service is not configured with an API provider.");
     }
 
-    const providerInfo = cableService.apiProviderIds[0]; // Assuming primary provider
-    const allProviders = await getServices(); // This is a bug, should be getApiProviders(), but let's assume we get it from services for now.
+    const providerInfo = cableService.apiProviderIds[0];
+    const allProviders = await getApiProviders();
     const providerDetails = allProviders.find(p => p.id === providerInfo.id);
 
-    // This is a temporary workaround as getApiProviders isn't exported from firestore.ts
-    const tempProvider = {
-        baseUrl: "https://husmodata.com/api",
-        apiKey: "8f00fa816b1e3b485baca8f44ae5d361ef803311" // Hardcoded for now
+    if (!providerDetails) {
+        throw new Error("Primary API provider details could not be found.");
     }
 
-    const validationUrl = tempProvider.baseUrl.replace('/api', '/ajax');
+    const validationUrl = providerDetails.baseUrl.replace('/api', '/ajax');
     const endpoint = '/validate_iuc';
     const params = {
         smart_card_number: smartCardNumber,
         cablename: cablename.toUpperCase(),
     };
 
-    return makeApiRequest<VerificationResponse>(validationUrl, tempProvider.apiKey, endpoint, 'GET', params);
+    const response = await makeApiRequest<VerificationResponse>(validationUrl, providerDetails.apiKey || '', endpoint, 'GET', params);
+    
+    // The API returns the error message inside the 'name' field. We must check for it.
+    const name = response.customer_name || response.Customer_Name || response.name;
+    if (name && typeof name === 'string' && name.toUpperCase().includes('INVALID')) {
+        throw new Error(name);
+    }
+    
+    return response;
 }
 
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
