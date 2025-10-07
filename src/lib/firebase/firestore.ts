@@ -636,6 +636,12 @@ export async function getServices(): Promise<Service[]> {
                     status: d.status || 'Active',
                 }));
                 break;
+            case 'Education':
+                // The variations are already stored on the service doc for education
+                if (!service.variations) {
+                    service.variations = [];
+                }
+                break;
             default:
                 if (!service.variations) {
                     service.variations = [];
