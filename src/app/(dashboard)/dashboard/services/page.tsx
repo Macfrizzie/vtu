@@ -38,8 +38,7 @@ export default function ServicesPage() {
             setLoading(true);
             try {
                 const fetchedServices = await getServices();
-                const filteredServices = fetchedServices.filter(s => s.name !== 'DSTV' && s.name !== 'GOTV' && s.name !== 'Startimes');
-                setServices(filteredServices);
+                setServices(fetchedServices);
             } catch (error) {
                 console.error("Failed to fetch services:", error);
             } finally {
@@ -51,7 +50,8 @@ export default function ServicesPage() {
 
     const displayedServices = useMemo(() => {
         if (loading) return [];
-        return services.filter(service => service.status === 'Active');
+        // This ensures we only show the main categories and not the sub-items if they are separate documents
+        return services.filter(service => service.status === 'Active' && service.variations && service.variations.length > 0);
     }, [services, loading]);
 
   return (
