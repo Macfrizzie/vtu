@@ -15,6 +15,7 @@ export async function initializeServices(): Promise<string[]> {
     const report: string[] = [];
     const batch = writeBatch(db);
     let hasWrites = false;
+    const servicesCollection = collection(db, 'services');
 
     try {
         // 1. Get an active API provider to link to services
@@ -37,14 +38,8 @@ export async function initializeServices(): Promise<string[]> {
             { name: "Electricity Bill", category: "Electricity", endpoint: "/billpayment", markupType: 'fixed', markupValue: 100 },
             { name: "Airtime", category: "Airtime", endpoint: "/topup", markupType: 'percentage', markupValue: 2 },
             { name: "Data", category: "Data", endpoint: "/data", markupType: 'none', markupValue: 0 },
-            { name: "WAEC", category: "Education", endpoint: "/epin", markupType: 'fixed', markupValue: 100 },
-            { name: "NECO", category: "Education", endpoint: "/epin", markupType: 'fixed', markupValue: 100 },
-            { name: "MTN Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
-            { name: "GLO Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
-            { name: "AIRTEL Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
-            { name: "9MOBILE Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
         ];
-
+        
         for (const serviceDef of coreServices) {
             const serviceQuery = query(servicesCollection, where('name', '==', serviceDef.name));
             const serviceSnapshot = await getDocs(serviceQuery);
@@ -62,28 +57,90 @@ export async function initializeServices(): Promise<string[]> {
             }
         }
         
-        // 3. Check and seed cablePlans
+        // --- Recharge Card Service ---
+        console.log('🔍 Checking Recharge Card service...');
+        const rechargeCardServiceQuery = query(servicesCollection, where('category', '==', 'Recharge Card'));
+        const rechargeCardSnapshot = await getDocs(rechargeCardServiceQuery);
+        if (rechargeCardSnapshot.empty) {
+            const variations = [
+                { id: 'mtn-100', name: 'MTN ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'mtn-200', name: 'MTN ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'mtn-500', name: 'MTN ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'mtn-1000', name: 'MTN ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'airtel-100', name: 'Airtel ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'airtel-200', name: 'Airtel ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'airtel-500', name: 'Airtel ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'airtel-1000', name: 'Airtel ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'glo-100', name: 'Glo ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'glo-200', name: 'Glo ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'glo-500', name: 'Glo ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: 'glo-1000', name: 'Glo ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: '9mobile-100', name: '9mobile ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: '9mobile-200', name: '9mobile ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: '9mobile-500', name: '9mobile ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                { id: '9mobile-1000', name: '9mobile ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+            ];
+            const serviceDocRef = doc(servicesCollection);
+            batch.set(serviceDocRef, {
+                name: "Recharge Card",
+                category: "Recharge Card",
+                endpoint: "/recharge-card",
+                status: "Active",
+                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
+                markupType: 'none',
+                markupValue: 0,
+                variations: variations
+            });
+            hasWrites = true;
+            console.log(`✨ Created Recharge Card service with ${variations.length} variations`);
+            report.push(`[CREATED] 'Recharge Card' service document created with ${variations.length} variations.`);
+        } else {
+            console.log('✅ Recharge Card service already exists');
+            report.push(`[EXISTS] 'Recharge Card' service document already exists.`);
+        }
+
+        // --- Education Pin Service ---
+        console.log('🔍 Checking Education service...');
+        const educationServiceQuery = query(servicesCollection, where('category', '==', 'Education'));
+        const educationSnapshot = await getDocs(educationServiceQuery);
+        if (educationSnapshot.empty) {
+             const variations = [
+                { id: 'waec-result', name: 'WAEC Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                { id: 'waec-reg', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
+                { id: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                { id: 'neco-gce', name: 'NECO GCE Registration Pin', price: 18000, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
+                { id: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                { id: 'jamb-mock', name: 'JAMB Mock Exam Pin', price: 1000, fees: { Customer: 50, Vendor: 25, Admin: 0 } },
+                { id: 'nabteb-result', name: 'NABTEB Result Checker', price: 900, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                { id: 'nabteb-reg', name: 'NABTEB Registration Pin', price: 12500, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
+            ];
+             const serviceDocRef = doc(servicesCollection);
+             batch.set(serviceDocRef, {
+                name: "Education",
+                category: "Education",
+                endpoint: "/epin",
+                status: "Active",
+                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
+                markupType: 'none',
+                markupValue: 0,
+                variations: variations
+            });
+            hasWrites = true;
+            console.log(`✨ Created Education service with ${variations.length} variations`);
+            report.push(`[CREATED] 'Education' service document created with ${variations.length} variations.`);
+        } else {
+             console.log('✅ Education service already exists');
+             report.push(`[EXISTS] 'Education' service document already exists.`);
+        }
+
+        // --- Collections Seeding ---
         const cablePlansCollection = collection(db, 'cablePlans');
         const cablePlanSnapshot = await getDocs(cablePlansCollection);
         if (cablePlanSnapshot.empty) {
             const plans = [
-                // DSTV
                 { planId: 'dstv-padi', planName: 'Padi', providerName: 'DSTV', basePrice: 3950, status: 'Active' },
-                { planId: 'dstv-yanga', planName: 'Yanga', providerName: 'DSTV', basePrice: 5100, status: 'Active' },
-                { planId: 'dstv-confam', planName: 'Confam', providerName: 'DSTV', basePrice: 9300, status: 'Active' },
-                { planId: 'dstv-compact', planName: 'Compact', providerName: 'DSTV', basePrice: 15700, status: 'Active' },
-                { planId: 'dstv-compact-plus', planName: 'Compact Plus', providerName: 'DSTV', basePrice: 25000, status: 'Active' },
-                { planId: 'dstv-premium', planName: 'Premium', providerName: 'DSTV', basePrice: 37000, status: 'Active' },
-                // GOTV
-                { planId: 'gotv-jinja', planName: 'Smallie', providerName: 'GOTV', basePrice: 1300, status: 'Active' },
                 { planId: 'gotv-jolli', planName: 'Jolli', providerName: 'GOTV', basePrice: 3950, status: 'Active' },
-                { planId: 'gotv-max', planName: 'Max', providerName: 'GOTV', basePrice: 5700, status: 'Active' },
-                { planId: 'gotv-supa', planName: 'Supa', providerName: 'GOTV', basePrice: 7600, status: 'Active' },
-                // STARTIMES
                 { planId: 'nova', planName: 'Nova', providerName: 'STARTIMES', basePrice: 1500, status: 'Active' },
-                { planId: 'basic', planName: 'Basic', providerName: 'STARTIMES', basePrice: 2300, status: 'Active' },
-                { planId: 'smart', planName: 'Smart', providerName: 'STARTIMES', basePrice: 3500, status: 'Active' },
-                { planId: 'classic', planName: 'Classic', providerName: 'STARTIMES', basePrice: 3800, status: 'Active' },
             ];
             plans.forEach(plan => {
                 const planDocRef = doc(cablePlansCollection);
@@ -95,20 +152,12 @@ export async function initializeServices(): Promise<string[]> {
             report.push(`[EXISTS] 'cablePlans' collection already has ${cablePlanSnapshot.size} documents.`);
         }
 
-        // 5. Check and seed discos
         const discosCollection = collection(db, 'discos');
         const discoSnapshot = await getDocs(discosCollection);
         if (discoSnapshot.empty) {
             const discos = [
                 { discoId: 'ikeja-electric', discoName: 'Ikeja Electric (IKEDC)', status: 'Active' },
                 { discoId: 'eko-electric', discoName: 'Eko Electric (EKEDC)', status: 'Active' },
-                { discoId: 'abuja-electric', discoName: 'Abuja Electric (AEDC)', status: 'Active' },
-                { discoId: 'kano-electric', discoName: 'Kano Electric (KEDCO)', status: 'Active' },
-                { discoId: 'portharcourt-electric', discoName: 'Port Harcourt Electric (PHED)', status: 'Active' },
-                { discoId: 'ibadan-electric', discoName: 'Ibadan Electric (IBEDC)', status: 'Active' },
-                { discoId: 'kaduna-electric', discoName: 'Kaduna Electric (KAEDCO)', status: 'Active' },
-                { discoId: 'jos-electric', discoName: 'Jos Electric (JED)', status: 'Active' },
-                { discoId: 'enugu-electric', discoName: 'Enugu Electric (EEDC)', status: 'Active' },
             ];
             discos.forEach(disco => {
                 const discoDocRef = doc(discosCollection);
@@ -118,43 +167,6 @@ export async function initializeServices(): Promise<string[]> {
             report.push(`[CREATED] Seeded 'discos' collection with ${discos.length} distributors.`);
         } else {
             report.push(`[EXISTS] 'discos' collection already has ${discoSnapshot.size} documents.`);
-        }
-
-        // Seed Education Pins
-        const eduPinCollection = collection(db, 'educationPinTypes');
-        const eduPinSnapshot = await getDocs(eduPinCollection);
-        if (eduPinSnapshot.empty) {
-            const pins = [
-                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'Result Checker Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-            ];
-            pins.forEach(pin => {
-                const pinDocRef = doc(eduPinCollection);
-                batch.set(pinDocRef, pin);
-            });
-            hasWrites = true;
-            report.push(`[CREATED] Seeded 'educationPinTypes' with ${pins.length} pins.`);
-        } else {
-             report.push(`[EXISTS] 'educationPinTypes' collection already has ${eduPinSnapshot.size} documents.`);
-        }
-
-        // Seed Recharge Card Denominations
-        const rechargeCardCollection = collection(db, 'rechargeCardDenominations');
-        const rechargeCardSnapshot = await getDocs(rechargeCardCollection);
-        if (rechargeCardSnapshot.empty) {
-            const denominations = [
-                { networkName: 'MTN Recharge Card', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'MTN Recharge Card', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'AIRTEL Recharge Card', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-            ];
-            denominations.forEach(item => {
-                const itemDocRef = doc(rechargeCardCollection);
-                batch.set(itemDocRef, item);
-            });
-            hasWrites = true;
-            report.push(`[CREATED] Seeded 'rechargeCardDenominations' with ${denominations.length} items.`);
-        } else {
-            report.push(`[EXISTS] 'rechargeCardDenominations' collection already has ${rechargeCardSnapshot.size} documents.`);
         }
 
 
@@ -638,6 +650,14 @@ export async function getServices(): Promise<Service[]> {
     console.log('Sample Education Pin:', allEducationPins[0] || 'N/A');
     
     const populatedServices = baseServices.map(service => {
+        // This is a direct check. If variations are already in the doc, we use them.
+        // This supports the newly added Recharge Card and Education services.
+        if (service.variations && service.variations.length > 0) {
+            console.log(`Service '${service.name}' has embedded variations. Skipping collection lookup.`);
+            return service;
+        }
+
+        // This is the logic for services with separate collections.
         switch(service.category) {
             case 'Data':
                 const networks = [...new Set(allDataPlans.map(p => p.networkName))];
@@ -665,28 +685,6 @@ export async function getServices(): Promise<Service[]> {
                     fees: { Customer: 100, Vendor: 100, Admin: 0 },
                     status: d.status || 'Active',
                 }));
-                break;
-            case 'Education':
-                service.variations = allEducationPins
-                    .filter(p => p.examBody === service.name)
-                    .map(p => ({
-                        id: p.pinTypeId,
-                        name: p.name,
-                        price: p.price,
-                        fees: p.fees,
-                        status: p.status || 'Active',
-                    }));
-                break;
-            case 'Recharge Card':
-                service.variations = allRechargeCards
-                    .filter(p => p.networkName === service.name)
-                    .map(p => ({
-                        id: p.denominationId,
-                        name: p.name,
-                        price: p.price,
-                        fees: p.fees,
-                        status: p.status || 'Active',
-                    }));
                 break;
             default:
                 if (!service.variations) {
@@ -933,29 +931,61 @@ export async function deleteEducationPinType(id: string) {
 
 export async function verifyDatabaseSetup() {
     console.log('🔍 VERIFYING DATABASE SETUP...\n');
-    
+
     const collectionsToVerify = [
-        { name: 'services', log: (doc: any) => `${doc.name} (${doc.category}): ${doc.status}` },
+        { name: 'services', log: (doc: any) => `${doc.name} (${doc.category}): ${doc.status}${doc.variations ? ` - ${doc.variations.length} variations` : ''}` },
         { name: 'cablePlans', log: (doc: any) => `${doc.providerName} - ${doc.planName}: ${doc.status}` },
         { name: 'discos', log: (doc: any) => `${doc.discoName}: ${doc.status}` },
         { name: 'apiProviders', log: (doc: any) => `${doc.name}: ${doc.status}` },
         { name: 'dataPlans', log: (doc: any) => `${doc.networkName} ${doc.name}: ${doc.status}` },
-        { name: 'rechargeCardDenominations', log: (doc: any) => `${doc.networkName} - ${doc.name}: ${doc.status}` },
-        { name: 'educationPinTypes', log: (doc: any) => `${doc.examBody} - ${doc.name}: ${doc.status}` },
     ];
 
     const results: Record<string, number> = {};
 
     for (const { name, log } of collectionsToVerify) {
-        const snapshot = await getDocs(collection(db, name));
-        results[name] = snapshot.size;
-        console.log(`\n📁 ${name} Collection:`);
-        console.log(`   Total documents: ${snapshot.size}`);
-        snapshot.forEach(doc => {
-            console.log(`   - ${log(doc.data())}`);
-        });
+        try {
+            const snapshot = await getDocs(collection(db, name));
+            results[name] = snapshot.size;
+            console.log(`\n📁 ${name} Collection:`);
+            console.log(`   Total documents: ${snapshot.size}`);
+            if (snapshot.size > 0) {
+                 snapshot.docs.forEach(doc => {
+                    console.log(`   - ${log(doc.data())}`);
+                });
+            } else {
+                console.log('   - Collection is empty.');
+            }
+        } catch(e) {
+            console.error(`   - Failed to read collection ${name}:`, e);
+        }
     }
     
+    // Specific check for Recharge Card and Education variations within the services collection
+    const servicesSnapshot = await getDocs(collection(db, "services"));
+    const rechargeCardService = servicesSnapshot.docs.find(doc => doc.data().category === 'Recharge Card');
+    const educationService = servicesSnapshot.docs.find(doc => doc.data().category === 'Education');
+
+    console.log('\n📁 Recharge Card Service (Embedded Variations):');
+    if (rechargeCardService) {
+        const variations = rechargeCardService.data().variations || [];
+        console.log(`   - Found 'Recharge Card' service with ${variations.length} embedded variations.`);
+        results['rechargeCardVariations'] = variations.length;
+    } else {
+        console.log("   - 'Recharge Card' service document not found.");
+        results['rechargeCardVariations'] = 0;
+    }
+    
+    console.log('\n📁 Education Service (Embedded Variations):');
+    if (educationService) {
+        const variations = educationService.data().variations || [];
+        console.log(`   - Found 'Education' service with ${variations.length} embedded variations.`);
+        results['educationVariations'] = variations.length;
+    } else {
+        console.log("   - 'Education' service document not found.");
+        results['educationVariations'] = 0;
+    }
+
+
     console.log('\n✅ VERIFICATION COMPLETE\n');
     
     return results;
@@ -965,4 +995,5 @@ export async function verifyDatabaseSetup() {
   
 
     
+
 
