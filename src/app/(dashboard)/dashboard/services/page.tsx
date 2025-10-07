@@ -12,7 +12,9 @@ import { ServiceIcon } from '@/components/service-icon';
 
 
 const getServiceUrl = (service: Service) => {
-    if (service.status === 'Inactive' || !service.name) return '#';
+    // A service is considered configurable and clickable if it has variations.
+    const isClickable = service.status === 'Active' && service.variations && service.variations.length > 0;
+    if (!isClickable) return '#';
 
     const query = `?provider=${encodeURIComponent(service.name)}&name=${encodeURIComponent(service.name)}`;
     
@@ -50,8 +52,8 @@ export default function ServicesPage() {
 
     const displayedServices = useMemo(() => {
         if (loading) return [];
-        // This ensures we only show the main categories and not the sub-items if they are separate documents
-        return services.filter(service => service.status === 'Active' && service.variations && service.variations.length > 0);
+        // Only show active services. The getServiceUrl function will handle whether it's clickable.
+        return services.filter(service => service.status === 'Active');
     }, [services, loading]);
 
   return (
@@ -67,21 +69,22 @@ export default function ServicesPage() {
             </div>
         ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {displayedServices.map((service) => (
-                    <Link href={getServiceUrl(service)} key={service.id} className={cn(service.status === 'Inactive' && 'pointer-events-none opacity-50')}>
-                        <Card className="hover:bg-secondary transition-colors h-full">
-                            <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
-                                <ServiceIcon serviceName={service.name} />
-                                <span className="text-center font-medium">{service.name}</span>
-                                {service.status === 'Inactive' && <div className="text-xs text-destructive font-semibold absolute bottom-2">Coming Soon</div>}
-                            </CardContent>
-                        </Card>
-                    </Link>
-                ))}
+                {displayedServices.map((service) => {
+                    const isClickable = service.status === 'Active' && service.variations && service.variations.length > 0;
+                    return (
+                        <Link href={getServiceUrl(service)} key={service.id} className={cn(!isClickable && 'pointer-events-none opacity-50')}>
+                            <Card className="hover:bg-secondary transition-colors h-full">
+                                <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center relative">
+                                    <ServiceIcon serviceName={service.name} />
+                                    <span className="text-center font-medium">{service.name}</span>
+                                    {!isClickable && <div className="text-xs text-destructive font-semibold absolute bottom-2">Coming Soon</div>}
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    );
+                })}
             </div>
         )}
     </div>
   );
 }
-
-    
