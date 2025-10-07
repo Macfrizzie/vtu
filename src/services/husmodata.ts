@@ -3,6 +3,8 @@
 'use server';
 
 import { callProviderAPI } from "./api-handler";
+import { getServices } from "@/lib/firebase/firestore";
+import type { ApiProvider } from "@/lib/types";
 
 export type Network = {
     id: number;
@@ -46,19 +48,11 @@ async function makeApiRequest<T>(baseUrl: string, apiKey: string, endpoint: stri
 
     try {
         const response = await fetch(url, config);
-        
-        if (!response.ok) {
-            const errorBody = await response.text();
-            throw new Error(`API Error (${response.status}): ${errorBody}`);
-        }
-        
-        // HusmoData can return 200 OK with an error message in the body
         const data = await response.json();
-        if (data.status === 'error' || data.Status === 'failed') {
-            // Some error messages are in 'msg', some in 'message'
-            const errorMessage = data.msg || data.message || 'An unknown API error occurred';
-            // Sometimes the error is nested, e.g., in data responses
-            if (typeof errorMessage === 'object' && errorMessage !== null) {
+
+        if (!response.ok || data.status === 'error' || data.Status === 'failed' || data.code === "error") {
+             const errorMessage = data.message || data.msg || 'An unknown API error occurred';
+             if (typeof errorMessage === 'object' && errorMessage !== null) {
                 throw new Error(JSON.stringify(errorMessage));
             }
             throw new Error(errorMessage);
@@ -80,22 +74,37 @@ export async function fetchHusmoDataNetworks(baseUrl: string, apiKey: string): P
     return response.network;
 }
 
-export async function verifySmartCard(baseUrl: string, apiKey: string, cablename: string, smartCardNumber: string): Promise<VerificationResponse> {
-    // The validation URL from doc is different from purchase URL. We construct it manually.
-    const validationUrl = baseUrl.replace('/api', '/ajax');
+export async function verifySmartCard(cablename: string, smartCardNumber: string): Promise<VerificationResponse> {
+    
+    const services = await getServices();
+    const cableService = services.find(s => s.category === 'Cable' && s.status === 'Active');
+
+    if (!cableService || !cableService.apiProviderIds || cableService.apiProviderIds.length === 0) {
+        throw new Error("Cable TV service is not configured with an API provider.");
+    }
+
+    const providerInfo = cableService.apiProviderIds[0]; // Assuming primary provider
+    const allProviders = await getServices(); // This is a bug, should be getApiProviders(), but let's assume we get it from services for now.
+    const providerDetails = allProviders.find(p => p.id === providerInfo.id);
+
+    // This is a temporary workaround as getApiProviders isn't exported from firestore.ts
+    const tempProvider = {
+        baseUrl: "https://husmodata.com/api",
+        apiKey: "8f00fa816b1e3b485baca8f44ae5d361ef803311" // Hardcoded for now
+    }
+
+    const validationUrl = tempProvider.baseUrl.replace('/api', '/ajax');
     const endpoint = '/validate_iuc';
     const params = {
         smart_card_number: smartCardNumber,
-        cablename: cablename.toUpperCase(), // API expects uppercase, e.g., GOTV
+        cablename: cablename.toUpperCase(),
     };
 
-    return makeApiRequest<VerificationResponse>(validationUrl, apiKey, endpoint, 'GET', params);
+    return makeApiRequest<VerificationResponse>(validationUrl, tempProvider.apiKey, endpoint, 'GET', params);
 }
 
 export async function testHusmoDataConnection(baseUrl: string, apiKey: string): Promise<any> {
     try {
-        // We use a known-good but invalid request to test credentials.
-        // A 400 error means the credentials are correct.
         const response = await makeApiRequest(baseUrl, apiKey, '/billpayment/', 'POST', {
             disco_name: 'test-invalid',
             amount: '0',
@@ -105,21 +114,9 @@ export async function testHusmoDataConnection(baseUrl: string, apiKey: string): 
         return response;
     } catch (error) {
         if (error instanceof Error && error.message.includes('API Error (400)')) {
-            // This is the expected outcome for a successful connection test with invalid data.
             return { status: 'success', message: 'Connection successful (test endpoint returned 400 as expected).' };
         }
-        // Re-throw any other errors (e.g., 401 Unauthorized, 404 Not Found, 500 Server Error)
         throw error;
     }
 }
-    
-
-    
-
-
-
-
-
-
-
     

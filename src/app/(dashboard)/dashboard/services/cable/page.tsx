@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -33,7 +34,7 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, UserCheck, Sparkles, AlertCircle } from 'lucide-react';
-import { purchaseService, getServices, getApiProviders } from '@/lib/firebase/firestore';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import { verifySmartCard } from '@/services/husmodata';
 import type { Service, ApiProvider, ServiceVariation } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -53,7 +54,6 @@ export default function CableTvPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [cableService, setCableService] = useState<Service | null>(null);
-  const [apiProviders, setApiProviders] = useState<ApiProvider[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -67,44 +67,19 @@ export default function CableTvPage() {
 
   useEffect(() => {
     async function fetchServices() {
-      console.log('🎬 CABLE PAGE: Starting service fetch...');
-      setServicesLoading(true);
-      try {
-        const allServices = await getServices();
-        
-        console.log('🎬 CABLE PAGE: All services received:', allServices.length);
-        console.log('🎬 CABLE PAGE: All services:', allServices.map(s => ({
-            id: s.id,
-            name: s.name,
-            category: s.category,
-            status: s.status
-        })));
-        
-        const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active');
-        
-        console.log('🎬 CABLE PAGE: Cable service search result:', service ? 'FOUND' : 'NOT FOUND');
-        
-        if (service) {
-            console.log('🎬 CABLE PAGE: Cable Service Details:', {
-                id: service.id,
-                name: service.name,
-                status: service.status,
-                variationsCount: service.variations?.length || 0,
-                hasApiProviderIds: !!service.apiProviderIds,
-                apiProviderIdsCount: service.apiProviderIds?.length || 0
-            });
-        } else {
-            console.error('❌ CABLE PAGE: No active Cable service found!');
-            console.log('Available services:', allServices.map(s => `${s.name} (${s.category}) - ${s.status}`));
+        setServicesLoading(true);
+        try {
+            const allServices = await getServices();
+            const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active');
+            
+            setCableService(service || null);
+            
+        } catch (error) {
+            console.error("CABLE PAGE: Failed to fetch services:", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not load cable providers.' });
+        } finally {
+            setServicesLoading(false);
         }
-        
-        setCableService(service || null);
-        
-      } catch (error) {
-          console.error("❌ CABLE PAGE: Failed to fetch services:", error);
-      } finally {
-          setServicesLoading(false);
-      }
     }
     fetchServices();
   }, [toast]);
@@ -142,12 +117,11 @@ export default function CableTvPage() {
         return;
     }
 
-    const allProviders = await getApiProviders();
-    const providerInfo = cableService.apiProviderIds.find(p => p.priority === 'Primary') || cableService.apiProviderIds[0];
-    const provider = allProviders.find(p => p.id === providerInfo.id);
-
-    if (!provider) {
-        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found, is inactive, or missing required fields.' });
+    const allProviders = await getServices(); // Re-fetch to get latest provider data linked inside services
+    const currentService = allProviders.find(s => s.id === cableService.id);
+    
+    if (!currentService || !currentService.apiProviderIds) {
+        toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found or is misconfigured.' });
         setIsVerifying(false);
         return;
     }
@@ -159,8 +133,6 @@ export default function CableTvPage() {
       }
       
       const verificationResult = await verifySmartCard(
-          provider.baseUrl,
-          provider.apiKey || '',
           selectedProviderName,
           smartCardValue
       );
