@@ -326,6 +326,7 @@ export default function CableTvPage() {
                             <Input id="smartCardNumber" type="tel" placeholder="Enter smart card number" {...field} onChange={(e) => {
                                 field.onChange(e);
                                 if (customerName) setCustomerName(null);
+                                form.clearErrors('smartCardNumber');
                             }} />
                         </FormControl>
                         <FormMessage />
@@ -391,3 +392,4 @@ export default function CableTvPage() {
     </div>
   );
 }
+
