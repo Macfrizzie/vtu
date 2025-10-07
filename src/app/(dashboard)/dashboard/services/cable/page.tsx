@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -68,48 +67,44 @@ export default function CableTvPage() {
 
   useEffect(() => {
     async function fetchServices() {
-        console.log('🎬 CABLE PAGE: Starting service fetch...');
-        setServicesLoading(true);
-        try {
-            const [allServices, allProviders] = await Promise.all([
-                getServices(),
-                getApiProviders()
-            ]);
-            
-            console.log('🎬 CABLE PAGE: All services received:', allServices.length);
-            console.log('🎬 CABLE PAGE: All services:', allServices.map(s => ({
-                id: s.id,
-                name: s.name,
-                category: s.category,
-                status: s.status
-            })));
-            
-            const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active');
-            
-            console.log('🎬 CABLE PAGE: Cable service search result:', service ? 'FOUND' : 'NOT FOUND');
-            
-            if (service) {
-                console.log('🎬 CABLE PAGE: Cable Service Details:', {
-                    id: service.id,
-                    name: service.name,
-                    status: service.status,
-                    variationsCount: service.variations?.length || 0,
-                    hasApiProviderIds: !!service.apiProviderIds,
-                    apiProviderIdsCount: service.apiProviderIds?.length || 0
-                });
-            } else {
-                console.error('❌ CABLE PAGE: No active Cable service found!');
-                console.log('Available services:', allServices.map(s => `${s.name} (${s.category}) - ${s.status}`));
-            }
-            
-            setCableService(service || null);
-            setApiProviders(allProviders.filter(p => p.status === 'Active'));
-            
-        } catch (error) {
-            console.error("❌ CABLE PAGE: Failed to fetch services:", error);
-        } finally {
-            setServicesLoading(false);
+      console.log('🎬 CABLE PAGE: Starting service fetch...');
+      setServicesLoading(true);
+      try {
+        const allServices = await getServices();
+        
+        console.log('🎬 CABLE PAGE: All services received:', allServices.length);
+        console.log('🎬 CABLE PAGE: All services:', allServices.map(s => ({
+            id: s.id,
+            name: s.name,
+            category: s.category,
+            status: s.status
+        })));
+        
+        const service = allServices.find(s => s.category === 'Cable' && s.status === 'Active');
+        
+        console.log('🎬 CABLE PAGE: Cable service search result:', service ? 'FOUND' : 'NOT FOUND');
+        
+        if (service) {
+            console.log('🎬 CABLE PAGE: Cable Service Details:', {
+                id: service.id,
+                name: service.name,
+                status: service.status,
+                variationsCount: service.variations?.length || 0,
+                hasApiProviderIds: !!service.apiProviderIds,
+                apiProviderIdsCount: service.apiProviderIds?.length || 0
+            });
+        } else {
+            console.error('❌ CABLE PAGE: No active Cable service found!');
+            console.log('Available services:', allServices.map(s => `${s.name} (${s.category}) - ${s.status}`));
         }
+        
+        setCableService(service || null);
+        
+      } catch (error) {
+          console.error("❌ CABLE PAGE: Failed to fetch services:", error);
+      } finally {
+          setServicesLoading(false);
+      }
     }
     fetchServices();
   }, [toast]);
@@ -130,8 +125,7 @@ export default function CableTvPage() {
     if (!selectedCableName || !cableService || !cableService.variations) {
       return [];
     }
-    const packages = cableService.variations.filter(v => v.providerName === selectedCableName && v.status === 'Active');
-    return packages;
+    return cableService.variations.filter(v => v.providerName === selectedCableName && v.status === 'Active');
   }, [selectedCableName, cableService]);
 
   const selectedVariationId = form.watch('variationId');
@@ -142,14 +136,15 @@ export default function CableTvPage() {
     setCustomerName(null);
     form.clearErrors('smartCardNumber');
 
-    if (!cableService || !cableService.apiProviderIds || cableService.apiProviderIds.length === 0) {
+     if (!cableService || !cableService.apiProviderIds || cableService.apiProviderIds.length === 0) {
         toast({ variant: 'destructive', title: 'Configuration Error', description: 'Selected service is not linked to an API provider.' });
         setIsVerifying(false);
         return;
     }
 
+    const allProviders = await getApiProviders();
     const providerInfo = cableService.apiProviderIds.find(p => p.priority === 'Primary') || cableService.apiProviderIds[0];
-    const provider = apiProviders.find(p => p.id === providerInfo.id);
+    const provider = allProviders.find(p => p.id === providerInfo.id);
 
     if (!provider) {
         toast({ variant: 'destructive', title: 'Configuration Error', description: 'Primary API provider not found, is inactive, or missing required fields.' });
@@ -248,6 +243,7 @@ export default function CableTvPage() {
   }
 
   const totalCost = selectedVariation ? selectedVariation.price + (cableService?.markupValue || 0) : 0;
+  const isSmartCardValid = form.getFieldState('smartCardNumber').isDirty && !form.getFieldState('smartCardNumber').invalid;
 
   if (servicesLoading) {
       return (
@@ -328,22 +324,38 @@ export default function CableTvPage() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="smartCardNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Smart Card / IUC Number</FormLabel>
-                    <FormControl>
-                        <Input type="tel" placeholder="Enter smart card number" {...field} onChange={(e) => {
-                            field.onChange(e);
-                            setCustomerName(null); // Reset verification on change
-                        }} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              
+              <div className="space-y-2">
+                <FormLabel htmlFor="smartCardNumber">Smart Card / IUC Number</FormLabel>
+                <div className="flex gap-2">
+                  <FormField
+                    control={form.control}
+                    name="smartCardNumber"
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormControl>
+                            <Input id="smartCardNumber" type="tel" placeholder="Enter smart card number" {...field} onChange={(e) => {
+                                field.onChange(e);
+                                setCustomerName(null);
+                            }} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button type="button" onClick={handleVerify} disabled={isVerifying || !isSmartCardValid}>
+                    {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4"/>}
+                    Verify
+                  </Button>
+                </div>
+              </div>
+
+              {customerName && (
+                <div className="flex items-center gap-2 rounded-md border border-green-500 bg-green-50 p-3">
+                  <UserCheck className="h-5 w-5 text-green-600" />
+                  <p className="text-sm font-semibold text-green-800">{customerName}</p>
+                </div>
+              )}
 
               <FormField
                 control={form.control}
@@ -354,11 +366,11 @@ export default function CableTvPage() {
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={!selectedCableName || availablePackages.length === 0}
+                      disabled={!customerName || availablePackages.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={!selectedCableName ? "Select provider first" : "Select a package"} />
+                          <SelectValue placeholder={!customerName ? "Verify card first" : "Select a package"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -377,25 +389,12 @@ export default function CableTvPage() {
                 )}
               />
                 
-              {customerName && (
-                <div className="flex items-center gap-2 rounded-md border border-green-500 bg-green-50 p-3">
-                  <UserCheck className="h-5 w-5 text-green-600" />
-                  <p className="text-sm font-semibold text-green-800">{customerName}</p>
-                </div>
-              )}
             </CardContent>
             <CardFooter>
-                 {customerName ? (
-                     <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !selectedVariationId}>
-                        {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Subscription')}
-                    </Button>
-                 ) : (
-                    <Button type="button" className="w-full" size="lg" onClick={handleVerify} disabled={isVerifying || !form.formState.isValid || !selectedCableName}>
-                        {isVerifying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4"/>}
-                        Verify Details
-                    </Button>
-                 )}
+              <Button type="submit" className="w-full" size="lg" disabled={isPurchasing || !customerName || !selectedVariationId}>
+                  {isPurchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isPurchasing ? 'Processing...' : (totalCost > 0 ? `Pay ₦${totalCost.toLocaleString()}` : 'Purchase Subscription')}
+              </Button>
             </CardFooter>
           </form>
         </Form>
@@ -403,9 +402,3 @@ export default function CableTvPage() {
     </div>
   );
 }
-
-  
-
-  
-
-    
