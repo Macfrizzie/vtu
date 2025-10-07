@@ -604,60 +604,32 @@ export async function getServices(): Promise<Service[]> {
             category: data.category,
             status: data.status,
             hasApiProviderIds: !!data.apiProviderIds,
-            apiProviderCount: data.apiProviderIds?.length || 0
+            apiProviderCount: data.apiProviderIds?.length || 0,
+            hasEmbeddedVariations: !!data.variations && data.variations.length > 0,
         });
         return { id: doc.id, ...doc.data(), apiProviderIds: data.apiProviderIds || [] } as Service;
     });
     
-    console.log('🔍 Looking for Cable service...');
-    const cableService = baseServices.find(s => s.category === 'Cable');
-    console.log('Cable Service Found?:', !!cableService);
-    if (cableService) {
-        console.log('Cable Service Details:', {
-            id: cableService.id,
-            name: cableService.name,
-            status: cableService.status,
-            category: cableService.category
-        });
-    }
-    
-    console.log('🔍 Looking for Electricity service...');
-    const electricityService = baseServices.find(s => s.category === 'Electricity');
-    console.log('Electricity Service Found?:', !!electricityService);
-    if (electricityService) {
-        console.log('Electricity Service Details:', {
-            id: electricityService.id,
-            name: electricityService.name,
-            status: electricityService.status
-        });
-    }
-    
-    const [allDataPlans, allCablePlans, allDiscos, allRechargeCards, allEducationPins] = await Promise.all([
+    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
-        getDiscos(),
-        getRechargeCardDenominations(),
-        getEducationPinTypes(),
+        getDiscos()
     ]);
-
-    console.log('📦 Cable Plans Fetched:', allCablePlans.length);
-    console.log('Sample Cable Plan:', allCablePlans[0] || 'N/A');
-    console.log('⚡ Discos Fetched:', allDiscos.length);
-    console.log('Sample Disco:', allDiscos[0] || 'N/A');
-    console.log('💳 Recharge Cards Fetched:', allRechargeCards.length);
-    console.log('Sample Recharge Card:', allRechargeCards[0] || 'N/A');
-    console.log('🎓 Education Pins Fetched:', allEducationPins.length);
-    console.log('Sample Education Pin:', allEducationPins[0] || 'N/A');
+    
+    console.log('📦 Fetched from separate collections:', {
+        dataPlans: allDataPlans.length,
+        cablePlans: allCablePlans.length,
+        discos: allDiscos.length,
+    });
     
     const populatedServices = baseServices.map(service => {
-        // This is a direct check. If variations are already in the doc, we use them.
-        // This supports the newly added Recharge Card and Education services.
+        // If variations are already embedded in the service document, use them directly.
         if (service.variations && service.variations.length > 0) {
-            console.log(`Service '${service.name}' has embedded variations. Skipping collection lookup.`);
+            console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
             return service;
         }
 
-        // This is the logic for services with separate collections.
+        // Otherwise, populate from separate collections based on category.
         switch(service.category) {
             case 'Data':
                 const networks = [...new Set(allDataPlans.map(p => p.networkName))];
@@ -692,27 +664,10 @@ export async function getServices(): Promise<Service[]> {
                 }
                 break;
         }
+        console.log(`🔄 Populated ${service.variations.length} variations for '${service.name}' from collection.`);
         return service;
     });
 
-    const cableServiceWithVariations = populatedServices.find(s => s.category === 'Cable');
-    if (cableServiceWithVariations) {
-        console.log('✅ Cable Service Variations:', cableServiceWithVariations.variations?.length || 0);
-        console.log('Sample Variation:', cableServiceWithVariations.variations?.[0] || 'N/A');
-    }
-
-    const educationServicesWithVariations = populatedServices.filter(s => s.category === 'Education');
-     educationServicesWithVariations.forEach(eduService => {
-        console.log(`✅ ${eduService.name} Service Variations:`, eduService.variations?.length || 0);
-        console.log(`Sample ${eduService.name} Variation:`, eduService.variations?.[0] || 'N/A');
-    });
-
-    const rechargeCardServicesWithVariations = populatedServices.filter(s => s.category === 'Recharge Card');
-    rechargeCardServicesWithVariations.forEach(rcService => {
-        console.log(`✅ ${rcService.name} Service Variations:`, rcService.variations?.length || 0);
-        console.log(`Sample ${rcService.name} Variation:`, rcService.variations?.[0] || 'N/A');
-    });
-    
     console.log('========== GET SERVICES DEBUG END ==========');
     
     return populatedServices;
@@ -997,3 +952,6 @@ export async function verifyDatabaseSetup() {
     
 
 
+
+
+    
