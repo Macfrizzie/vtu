@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -80,12 +81,15 @@ export default function RechargeCardPage() {
 
   useEffect(() => {
     async function fetchServices() {
+        console.log('💳 RECHARGE CARD PAGE: Starting service fetch...');
         setServicesLoading(true);
         try {
             const allServices = await getServices();
-            setServices(allServices.filter(s => s.category === 'Recharge Card' && s.status === 'Active'));
+            const activeServices = allServices.filter(s => s.category === 'Recharge Card' && s.status === 'Active');
+            console.log('💳 RECHARGE CARD PAGE: Active services found:', activeServices.length);
+            setServices(activeServices);
         } catch (error) {
-            console.error("Failed to fetch recharge card services:", error);
+            console.error("❌ RECHARGE CARD PAGE: Failed to fetch services:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load services.' });
         } finally {
             setServicesLoading(false);
@@ -101,6 +105,8 @@ export default function RechargeCardPage() {
   
   const availableDenominations = useMemo(() => {
     const selectedService = services.find(s => s.id === selectedServiceId);
+    console.log('💳 RECHARGE CARD PAGE: Selected service:', selectedService?.name);
+    console.log('💳 RECHARGE CARD PAGE: Variations for selected service:', selectedService?.variations);
     return selectedService?.variations || [];
   }, [selectedServiceId, services]);
   

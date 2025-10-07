@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -46,6 +47,7 @@ import { Label } from '@/components/ui/label';
 import type { Service } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 const formSchema = z.object({
   variationId: z.string().min(1, 'Please select a pin type.'),
@@ -80,13 +82,23 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
   useEffect(() => {
     async function fetchService() {
         if (!serviceId) return;
+        console.log(`🎓 EDUCATION PAGE [${serviceId}]: Starting service fetch...`);
         setServicesLoading(true);
         try {
             const allServices = await getServices();
             const specificService = allServices.find(s => s.id === serviceId && s.category === 'Education' && s.status === 'Active');
+            console.log(`🎓 EDUCATION PAGE [${serviceId}]: Service search result:`, specificService ? 'FOUND' : 'NOT FOUND');
+            if (specificService) {
+                console.log(`🎓 EDUCATION PAGE [${serviceId}]: Service Details:`, {
+                    id: specificService.id,
+                    name: specificService.name,
+                    status: specificService.status,
+                    variationsCount: specificService.variations?.length || 0,
+                });
+            }
             setService(specificService || null);
         } catch (error) {
-            console.error("Failed to fetch education service:", error);
+            console.error(`❌ EDUCATION PAGE [${serviceId}]: Failed to fetch service:`, error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load service details.' });
         } finally {
             setServicesLoading(false);
@@ -237,6 +249,19 @@ export default function EducationPinPurchasePage({ params }: { params: Promise<{
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Quantity</FormLabel>
+                        <FormControl>
+                            <Input type="number" min="1" max="10" placeholder="e.g., 1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
                 />
               </CardContent>
               <CardFooter>

@@ -31,26 +31,35 @@ export async function initializeServices(): Promise<string[]> {
             return report;
         }
 
-        // 2. Check and create Cable TV service
-        const servicesCollection = collection(db, 'services');
-        const cableServiceQuery = query(servicesCollection, where('category', '==', 'Cable'));
-        const cableServiceSnapshot = await getDocs(cableServiceQuery);
+        // --- Core Service Definitions ---
+        const coreServices = [
+            { name: "Cable TV", category: "Cable", endpoint: "/cablesub", markupType: 'fixed', markupValue: 0 },
+            { name: "Electricity Bill", category: "Electricity", endpoint: "/billpayment", markupType: 'fixed', markupValue: 100 },
+            { name: "Airtime", category: "Airtime", endpoint: "/topup", markupType: 'percentage', markupValue: 2 },
+            { name: "Data", category: "Data", endpoint: "/data", markupType: 'none', markupValue: 0 },
+            { name: "WAEC", category: "Education", endpoint: "/epin", markupType: 'fixed', markupValue: 100 },
+            { name: "NECO", category: "Education", endpoint: "/epin", markupType: 'fixed', markupValue: 100 },
+            { name: "MTN Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
+            { name: "GLO Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
+            { name: "AIRTEL Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
+            { name: "9MOBILE Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'fixed', markupValue: 10 },
+        ];
 
-        if (cableServiceSnapshot.empty) {
-            const cableServiceDocRef = doc(servicesCollection);
-            batch.set(cableServiceDocRef, {
-                name: "Cable TV",
-                category: "Cable",
-                status: "Active",
-                markupType: "fixed",
-                markupValue: 0,
-                endpoint: "/cablesub", 
-                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }]
-            });
-            hasWrites = true;
-            report.push("[CREATED] 'Cable TV' service document created in 'services' collection.");
-        } else {
-            report.push("[EXISTS] 'Cable TV' service document already exists.");
+        for (const serviceDef of coreServices) {
+            const serviceQuery = query(servicesCollection, where('name', '==', serviceDef.name));
+            const serviceSnapshot = await getDocs(serviceQuery);
+            if (serviceSnapshot.empty) {
+                const serviceDocRef = doc(servicesCollection);
+                batch.set(serviceDocRef, {
+                    ...serviceDef,
+                    status: 'Active',
+                    apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }]
+                });
+                hasWrites = true;
+                report.push(`[CREATED] '${serviceDef.name}' service document created.`);
+            } else {
+                 report.push(`[EXISTS] '${serviceDef.name}' service document already exists.`);
+            }
         }
         
         // 3. Check and seed cablePlans
@@ -86,27 +95,6 @@ export async function initializeServices(): Promise<string[]> {
             report.push(`[EXISTS] 'cablePlans' collection already has ${cablePlanSnapshot.size} documents.`);
         }
 
-        // 4. Check and create Electricity service
-        const electricityServiceQuery = query(servicesCollection, where('category', '==', 'Electricity'));
-        const electricityServiceSnapshot = await getDocs(electricityServiceQuery);
-
-        if (electricityServiceSnapshot.empty) {
-            const electricityServiceDocRef = doc(servicesCollection);
-            batch.set(electricityServiceDocRef, {
-                name: "Electricity Bill",
-                category: "Electricity",
-                status: "Active",
-                markupType: "fixed",
-                markupValue: 100, // Default ₦100 fee
-                endpoint: "/billpayment",
-                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }]
-            });
-            hasWrites = true;
-            report.push("[CREATED] 'Electricity Bill' service document created in 'services' collection.");
-        } else {
-            report.push("[EXISTS] 'Electricity Bill' service document already exists.");
-        }
-
         // 5. Check and seed discos
         const discosCollection = collection(db, 'discos');
         const discoSnapshot = await getDocs(discosCollection);
@@ -131,6 +119,44 @@ export async function initializeServices(): Promise<string[]> {
         } else {
             report.push(`[EXISTS] 'discos' collection already has ${discoSnapshot.size} documents.`);
         }
+
+        // Seed Education Pins
+        const eduPinCollection = collection(db, 'educationPinTypes');
+        const eduPinSnapshot = await getDocs(eduPinCollection);
+        if (eduPinSnapshot.empty) {
+            const pins = [
+                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'Result Checker Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+            ];
+            pins.forEach(pin => {
+                const pinDocRef = doc(eduPinCollection);
+                batch.set(pinDocRef, pin);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'educationPinTypes' with ${pins.length} pins.`);
+        } else {
+             report.push(`[EXISTS] 'educationPinTypes' collection already has ${eduPinSnapshot.size} documents.`);
+        }
+
+        // Seed Recharge Card Denominations
+        const rechargeCardCollection = collection(db, 'rechargeCardDenominations');
+        const rechargeCardSnapshot = await getDocs(rechargeCardCollection);
+        if (rechargeCardSnapshot.empty) {
+            const denominations = [
+                { networkName: 'MTN Recharge Card', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'MTN Recharge Card', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL Recharge Card', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+            ];
+            denominations.forEach(item => {
+                const itemDocRef = doc(rechargeCardCollection);
+                batch.set(itemDocRef, item);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'rechargeCardDenominations' with ${denominations.length} items.`);
+        } else {
+            report.push(`[EXISTS] 'rechargeCardDenominations' collection already has ${rechargeCardSnapshot.size} documents.`);
+        }
+
 
         if (hasWrites) {
             await batch.commit();
@@ -553,9 +579,46 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
+    console.log('========== GET SERVICES DEBUG START ==========');
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
-    const baseServices = serviceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Service));
+    
+    console.log('📊 Total service documents found:', serviceSnapshot.size);
+    const baseServices = serviceSnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('📄 Service Document:', {
+            id: doc.id,
+            name: data.name,
+            category: data.category,
+            status: data.status,
+            hasApiProviderIds: !!data.apiProviderIds,
+            apiProviderCount: data.apiProviderIds?.length || 0
+        });
+        return { id: doc.id, ...doc.data(), apiProviderIds: data.apiProviderIds || [] } as Service;
+    });
+    
+    console.log('🔍 Looking for Cable service...');
+    const cableService = baseServices.find(s => s.category === 'Cable');
+    console.log('Cable Service Found?:', !!cableService);
+    if (cableService) {
+        console.log('Cable Service Details:', {
+            id: cableService.id,
+            name: cableService.name,
+            status: cableService.status,
+            category: cableService.category
+        });
+    }
+    
+    console.log('🔍 Looking for Electricity service...');
+    const electricityService = baseServices.find(s => s.category === 'Electricity');
+    console.log('Electricity Service Found?:', !!electricityService);
+    if (electricityService) {
+        console.log('Electricity Service Details:', {
+            id: electricityService.id,
+            name: electricityService.name,
+            status: electricityService.status
+        });
+    }
     
     const [allDataPlans, allCablePlans, allDiscos, allRechargeCards, allEducationPins] = await Promise.all([
         getDataPlans(),
@@ -564,6 +627,15 @@ export async function getServices(): Promise<Service[]> {
         getRechargeCardDenominations(),
         getEducationPinTypes(),
     ]);
+
+    console.log('📦 Cable Plans Fetched:', allCablePlans.length);
+    console.log('Sample Cable Plan:', allCablePlans[0] || 'N/A');
+    console.log('⚡ Discos Fetched:', allDiscos.length);
+    console.log('Sample Disco:', allDiscos[0] || 'N/A');
+    console.log('💳 Recharge Cards Fetched:', allRechargeCards.length);
+    console.log('Sample Recharge Card:', allRechargeCards[0] || 'N/A');
+    console.log('🎓 Education Pins Fetched:', allEducationPins.length);
+    console.log('Sample Education Pin:', allEducationPins[0] || 'N/A');
     
     const populatedServices = baseServices.map(service => {
         switch(service.category) {
@@ -595,32 +667,26 @@ export async function getServices(): Promise<Service[]> {
                 }));
                 break;
             case 'Education':
-                const educationService = baseServices.find(s => s.id === service.id);
-                if (educationService) {
-                    service.variations = allEducationPins
-                        .filter(p => p.examBody === educationService.name)
-                        .map(p => ({
-                            id: p.pinTypeId,
-                            name: p.name,
-                            price: p.price,
-                            fees: p.fees,
-                            status: p.status || 'Active',
-                        }));
-                }
+                service.variations = allEducationPins
+                    .filter(p => p.examBody === service.name)
+                    .map(p => ({
+                        id: p.pinTypeId,
+                        name: p.name,
+                        price: p.price,
+                        fees: p.fees,
+                        status: p.status || 'Active',
+                    }));
                 break;
             case 'Recharge Card':
-                 const rechargeService = baseServices.find(s => s.id === service.id);
-                if (rechargeService) {
-                    service.variations = allRechargeCards
-                        .filter(p => p.networkName === rechargeService.name)
-                        .map(p => ({
-                            id: p.denominationId,
-                            name: p.name,
-                            price: p.price,
-                            fees: p.fees,
-                            status: p.status || 'Active',
-                        }));
-                }
+                service.variations = allRechargeCards
+                    .filter(p => p.networkName === service.name)
+                    .map(p => ({
+                        id: p.denominationId,
+                        name: p.name,
+                        price: p.price,
+                        fees: p.fees,
+                        status: p.status || 'Active',
+                    }));
                 break;
             default:
                 if (!service.variations) {
@@ -630,6 +696,26 @@ export async function getServices(): Promise<Service[]> {
         }
         return service;
     });
+
+    const cableServiceWithVariations = populatedServices.find(s => s.category === 'Cable');
+    if (cableServiceWithVariations) {
+        console.log('✅ Cable Service Variations:', cableServiceWithVariations.variations?.length || 0);
+        console.log('Sample Variation:', cableServiceWithVariations.variations?.[0] || 'N/A');
+    }
+
+    const educationServicesWithVariations = populatedServices.filter(s => s.category === 'Education');
+     educationServicesWithVariations.forEach(eduService => {
+        console.log(`✅ ${eduService.name} Service Variations:`, eduService.variations?.length || 0);
+        console.log(`Sample ${eduService.name} Variation:`, eduService.variations?.[0] || 'N/A');
+    });
+
+    const rechargeCardServicesWithVariations = populatedServices.filter(s => s.category === 'Recharge Card');
+    rechargeCardServicesWithVariations.forEach(rcService => {
+        console.log(`✅ ${rcService.name} Service Variations:`, rcService.variations?.length || 0);
+        console.log(`Sample ${rcService.name} Variation:`, rcService.variations?.[0] || 'N/A');
+    });
+    
+    console.log('========== GET SERVICES DEBUG END ==========');
     
     return populatedServices;
 }
@@ -848,57 +934,35 @@ export async function deleteEducationPinType(id: string) {
 export async function verifyDatabaseSetup() {
     console.log('🔍 VERIFYING DATABASE SETUP...\n');
     
-    // Check services collection
-    const servicesSnapshot = await getDocs(collection(db, 'services'));
-    console.log('📁 Services Collection:');
-    console.log(`   Total documents: ${servicesSnapshot.size}`);
-    servicesSnapshot.forEach(doc => {
-        const data = doc.data();
-        console.log(`   - ${data.name} (${data.category}): ${data.status}`);
-    });
-    
-    // Check cablePlans collection
-    const cablePlansSnapshot = await getDocs(collection(db, 'cablePlans'));
-    console.log('\n📁 Cable Plans Collection:');
-    console.log(`   Total documents: ${cablePlansSnapshot.size}`);
-    const providerGroups: Record<string, number> = {};
-    cablePlansSnapshot.forEach(doc => {
-        const data = doc.data();
-        providerGroups[data.providerName] = (providerGroups[data.providerName] || 0) + 1;
-    });
-    Object.entries(providerGroups).forEach(([provider, count]) => {
-        console.log(`   - ${provider}: ${count} plans`);
-    });
-    
-    // Check discos collection
-    const discosSnapshot = await getDocs(collection(db, 'discos'));
-    console.log('\n📁 Discos Collection:');
-    console.log(`   Total documents: ${discosSnapshot.size}`);
-    discosSnapshot.forEach(doc => {
-        const data = doc.data();
-        console.log(`   - ${data.discoName}`);
-    });
-    
-    // Check apiProviders collection
-    const providersSnapshot = await getDocs(collection(db, 'apiProviders'));
-    console.log('\n📁 API Providers Collection:');
-    console.log(`   Total documents: ${providersSnapshot.size}`);
-    providersSnapshot.forEach(doc => {
-        const data = doc.data();
-        console.log(`   - ${data.name}: ${data.status}`);
-    });
+    const collectionsToVerify = [
+        { name: 'services', log: (doc: any) => `${doc.name} (${doc.category}): ${doc.status}` },
+        { name: 'cablePlans', log: (doc: any) => `${doc.providerName} - ${doc.planName}: ${doc.status}` },
+        { name: 'discos', log: (doc: any) => `${doc.discoName}: ${doc.status}` },
+        { name: 'apiProviders', log: (doc: any) => `${doc.name}: ${doc.status}` },
+        { name: 'dataPlans', log: (doc: any) => `${doc.networkName} ${doc.name}: ${doc.status}` },
+        { name: 'rechargeCardDenominations', log: (doc: any) => `${doc.networkName} - ${doc.name}: ${doc.status}` },
+        { name: 'educationPinTypes', log: (doc: any) => `${doc.examBody} - ${doc.name}: ${doc.status}` },
+    ];
+
+    const results: Record<string, number> = {};
+
+    for (const { name, log } of collectionsToVerify) {
+        const snapshot = await getDocs(collection(db, name));
+        results[name] = snapshot.size;
+        console.log(`\n📁 ${name} Collection:`);
+        console.log(`   Total documents: ${snapshot.size}`);
+        snapshot.forEach(doc => {
+            console.log(`   - ${log(doc.data())}`);
+        });
+    }
     
     console.log('\n✅ VERIFICATION COMPLETE\n');
     
-    return {
-        services: servicesSnapshot.size,
-        cablePlans: cablePlansSnapshot.size,
-        discos: discosSnapshot.size,
-        apiProviders: providersSnapshot.size
-    };
+    return results;
 }
   
 
   
 
     
+
