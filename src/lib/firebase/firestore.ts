@@ -390,16 +390,24 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                      amount: inputs.amount,
                  };
             } else if (service.category === 'Education') {
-                const selectedVariation = service.variations?.find(v => v.id === variationId);
+                 const selectedVariation = service.variations?.find(v => v.id === variationId);
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected E-Pin type.");
                 }
                 totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
                 description = `${selectedVariation.name} Purchase`;
+                
+                const examBody = service.variations?.find(v => v.id === variationId)?.providerName;
+                if (!examBody) {
+                    throw new Error("Could not determine exam body from selected pin.");
+                }
+
                 requestBody = {
-                    variation_code: selectedVariation.id,
-                    ...inputs
+                    exam_name: examBody,
+                    variation_code: variationId,
+                    quantity: inputs.quantity || 1, // Default to 1 if not provided
                 };
+                
             } else if (service.category === 'Recharge Card') {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
                  if (!selectedVariation) {

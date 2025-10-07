@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -135,8 +136,7 @@ export default function EducationPinPage() {
     setIsPurchasing(true);
     setGeneratedPin(null);
     try {
-      const selectedService = services.find(s => s.id === values.serviceId);
-      const purchaseInputs = { exam_name: selectedService?.provider, quantity: 1 };
+      const purchaseInputs = { quantity: 1 };
       
       const result = await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
 
