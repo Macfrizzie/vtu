@@ -149,26 +149,41 @@ export function DataPricingTab() {
     
     const handleStatusToggle = async (plan: DataPlan) => {
         const newStatus = plan.status === 'Active' ? 'Inactive' : 'Active';
+        
+        // Optimistic UI update
+        setDataPlans(prevPlans => 
+            prevPlans.map(p => p.id === plan.id ? { ...p, status: newStatus } : p)
+        );
+
         try {
             await updateDataPlanStatus(plan.id, newStatus);
-            setDataPlans(prevPlans => 
-                prevPlans.map(p => p.id === plan.id ? { ...p, status: newStatus } : p)
-            );
             toast({ title: 'Status Updated', description: `${plan.name} is now ${newStatus}.` });
         } catch (error) {
+            // Revert UI on error
+            setDataPlans(prevPlans => 
+                prevPlans.map(p => p.id === plan.id ? { ...p, status: plan.status } : p)
+            );
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update plan status.' });
         }
     };
 
     const handlePlanTypeStatusToggle = async (networkName: string, planType: string, newStatus: 'Active' | 'Inactive') => {
+        const originalStatuses = new Map(dataPlans.map(p => [p.id, p.status]));
+
+        // Optimistic UI update
+        setDataPlans(prevPlans => 
+            prevPlans.map(p => (p.networkName === networkName && p.planType === planType) ? { ...p, status: newStatus } : p)
+        );
+        
         try {
             await updateDataPlansStatusByType(networkName, planType, newStatus);
-            setDataPlans(prevPlans => 
-                prevPlans.map(p => (p.networkName === networkName && p.planType === planType) ? { ...p, status: newStatus } : p)
-            );
             toast({ title: 'Status Updated', description: `All ${planType} plans for ${networkName} are now ${newStatus}.` });
         } catch (error) {
+            // Revert UI on error
+             setDataPlans(prevPlans => 
+                prevPlans.map(p => ({ ...p, status: originalStatuses.get(p.id) || p.status }))
+            );
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update plan statuses.' });
         }
@@ -220,7 +235,7 @@ export function DataPricingTab() {
                                     <div className="space-y-6 pl-2">
                                         {Object.keys(groupedPlans[networkName]).sort().map(planType => {
                                             const plansInGroup = groupedPlans[networkName][planType];
-                                            const isGroupActive = plansInGroup.some(p => p.status === 'Active' || p.status === undefined);
+                                            const isGroupActive = plansInGroup.some(p => p.status === 'Active');
                                             return (
                                             <div key={planType}>
                                                 <div className="flex items-center justify-between mb-2">
@@ -253,7 +268,7 @@ export function DataPricingTab() {
                                                                     </TableCell>
                                                                     <TableCell className="text-center">
                                                                         <Switch
-                                                                            checked={plan.status === 'Active' || plan.status === undefined}
+                                                                            checked={plan.status === 'Active'}
                                                                             onCheckedChange={() => handleStatusToggle(plan)}
                                                                         />
                                                                     </TableCell>
@@ -353,13 +368,18 @@ export function CablePricingTab() {
     
     const handleStatusToggle = async (plan: CablePlan) => {
         const newStatus = plan.status === 'Active' ? 'Inactive' : 'Active';
+
+        setCablePlans(prevPlans => 
+            prevPlans.map(p => p.id === plan.id ? { ...p, status: newStatus } : p)
+        );
+
         try {
             await updateCablePlanStatus(plan.id, newStatus);
-            setCablePlans(prevPlans => 
-                prevPlans.map(p => p.id === plan.id ? { ...p, status: newStatus } : p)
-            );
             toast({ title: 'Status Updated', description: `${plan.planName} is now ${newStatus}.` });
         } catch (error) {
+            setCablePlans(prevPlans => 
+                prevPlans.map(p => p.id === plan.id ? { ...p, status: plan.status } : p)
+            );
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update plan status.' });
         }
@@ -408,7 +428,7 @@ export function CablePricingTab() {
                                 </TableCell>
                                 <TableCell className="text-center">
                                     <Switch
-                                        checked={plan.status === 'Active' || plan.status === undefined}
+                                        checked={plan.status === 'Active'}
                                         onCheckedChange={() => handleStatusToggle(plan)}
                                     />
                                 </TableCell>
@@ -492,13 +512,18 @@ export function ElectricityPricingTab() {
 
     const handleStatusToggle = async (disco: Disco) => {
         const newStatus = disco.status === 'Active' ? 'Inactive' : 'Active';
+        
+        setDiscos(prevDiscos => 
+            prevDiscos.map(d => d.id === disco.id ? { ...d, status: newStatus } : d)
+        );
+
         try {
             await updateDiscoStatus(disco.id, newStatus);
-            setDiscos(prevDiscos => 
-                prevDiscos.map(d => d.id === disco.id ? { ...d, status: newStatus } : d)
-            );
             toast({ title: 'Status Updated', description: `${disco.discoName} is now ${newStatus}.` });
         } catch (error) {
+            setDiscos(prevDiscos => 
+                prevDiscos.map(d => d.id === disco.id ? { ...d, status: disco.status } : d)
+            );
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update disco status.' });
         }
@@ -537,7 +562,7 @@ export function ElectricityPricingTab() {
                                 </TableCell>
                                 <TableCell className="text-center">
                                     <Switch
-                                        checked={disco.status === 'Active' || disco.status === undefined}
+                                        checked={disco.status === 'Active'}
                                         onCheckedChange={() => handleStatusToggle(disco)}
                                     />
                                 </TableCell>
@@ -627,11 +652,14 @@ export function RechargeCardPricingTab() {
 
     const handleStatusToggle = async (item: RechargeCardDenomination) => {
         const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
+        
+        setDenominations(prev => prev.map(p => p.id === item.id ? { ...p, status: newStatus } : p));
+        
         try {
             await updateRechargeCardDenominationStatus(item.id, newStatus);
-            setDenominations(prev => prev.map(p => p.id === item.id ? { ...p, status: newStatus } : p));
             toast({ title: 'Status Updated' });
         } catch (error) {
+            setDenominations(prev => prev.map(p => p.id === item.id ? { ...p, status: item.status } : p));
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
         }
@@ -752,11 +780,14 @@ export function EducationPricingTab() {
 
     const handleStatusToggle = async (item: EducationPinType) => {
         const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
+
+        setPinTypes(prev => prev.map(p => p.id === item.id ? { ...p, status: newStatus } : p));
+        
         try {
             await updateEducationPinTypeStatus(item.id, newStatus);
-            setPinTypes(prev => prev.map(p => p.id === item.id ? { ...p, status: newStatus } : p));
             toast({ title: 'Status Updated' });
         } catch (error) {
+            setPinTypes(prev => prev.map(p => p.id === item.id ? { ...p, status: item.status } : p));
             console.error(error);
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update status.' });
         }
