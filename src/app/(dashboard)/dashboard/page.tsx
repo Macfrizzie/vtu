@@ -31,20 +31,26 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 
 const getServiceUrl = (service: Service) => {
-    if (service.status === 'Inactive' || !service.name) return '#';
+    if (service.status === 'Inactive') return '#';
 
-    const query = `?provider=${encodeURIComponent(service.name)}&name=${encodeURIComponent(service.name)}`;
+    const category = service.category.toLowerCase();
     
-    // Fallback based on name if it contains keywords
-    const name = service.name.toLowerCase();
-    if (name.includes('airtime')) return `/dashboard/services/airtime${query}`;
-    if (name.includes('data')) return `/dashboard/services/data${query}`;
-    if (name.includes('electricity')) return `/dashboard/services/electricity${query}`;
-    if (name.includes('cable')) return `/dashboard/services/cable${query}`;
-    if (name.includes('education')) return `/dashboard/services/education${query}`;
-    if (name.includes('recharge card')) return `/dashboard/services/recharge-card${query}`;
-
-    return '#';
+    switch (category) {
+        case 'airtime':
+            return '/dashboard/services/airtime';
+        case 'data':
+            return '/dashboard/services/data';
+        case 'electricity':
+            return '/dashboard/services/electricity';
+        case 'cable':
+            return '/dashboard/services/cable';
+        case 'education':
+            return '/dashboard/services/education';
+        case 'recharge card':
+            return '/dashboard/services/recharge-card';
+        default:
+            return '#';
+    }
 }
 
 
