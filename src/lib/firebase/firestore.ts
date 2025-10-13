@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -759,34 +760,38 @@ export async function getServices(): Promise<Service[]> {
                 }));
                 break;
              case 'Recharge Card':
-                service.variations = allRechargeCardDenominations.map(d => ({
-                    id: d.denominationId,
-                    name: d.name,
-                    price: d.price,
-                    networkName: d.networkName,
-                    fees: d.fees,
-                    status: d.status || 'Active',
+                const activeDenominations = allRechargeCardDenominations.filter(d => d.status === 'Active');
+                const rechargeCardNetworks = [...new Set(activeDenominations.map(d => d.networkName))];
+
+                service.variations = rechargeCardNetworks.map(network => ({
+                    id: network,
+                    name: network,
+                    price: 0, // This is a container, price is per denomination
+                    variations: activeDenominations.filter(d => d.networkName === network)
                 }));
                 break;
             case 'Education':
-                 service.variations = allEducationPinTypes.map(e => ({
-                    id: e.pinTypeId,
-                    name: e.name,
-                    price: e.price,
-                    examBody: e.examBody,
-                    fees: e.fees,
-                    status: e.status || 'Active',
-                }));
-                break;
+                const activePinTypes = allEducationPinTypes.filter(p => p.status === 'Active');
+                const examBodies = [...new Set(activePinTypes.map(p => p.examBody))];
+                
+                const educationServices = baseServices.filter(s => s.category === 'Education');
+
+                return educationServices.map(eduService => {
+                    const variations = activePinTypes.filter(p => p.examBody === eduService.name);
+                    console.log(`📚 Mapping ${variations.length} pins to service '${eduService.name}'`);
+                    return { ...eduService, variations };
+                });
             default:
                 if (!service.variations) {
                     service.variations = [];
                 }
                 break;
         }
-        console.log(`🔄 Populated ${service.variations.length} variations for '${service.name}' from collection.`);
+        if (service.category !== 'Education') {
+            console.log(`🔄 Populated ${service.variations.length} variations for '${service.name}' from collection.`);
+        }
         return service;
-    });
+    }).flat(); // Flatten the array in case the 'Education' case returns an array of services
 
     console.log('========== GET SERVICES DEBUG END ==========');
     
