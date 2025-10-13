@@ -48,6 +48,8 @@ export type ServiceVariation = {
   plans?: ServiceVariation[];
   providerName?: string; // For distinguishing cable plans
   status?: 'Active' | 'Inactive';
+  networkName?: string;
+  examBody?: string;
 };
 
 export type Service = {
@@ -125,4 +127,33 @@ export type EducationPinType = {
     fees?: { [key in UserData['role']]: number };
     status?: 'Active' | 'Inactive';
 };
+
+export interface SystemHealth {
+  database: {
+    connected: boolean;
+    collections: {
+      [key: string]: { count: number; issues: string[] };
+    };
+  };
+  services: {
+    [category: string]: {
+      exists: boolean;
+      status: string;
+      hasVariations: boolean;
+      variationCount: number;
+      hasApiProvider: boolean;
+      hasEndpoint: boolean;
+      issues: string[];
+    };
+  };
+  apiProviders: {
+    [name: string]: {
+      status: string;
+      reachable: boolean;
+      lastTested: Date | null;
+      responseTime: number | null;
+      issues: string[];
+    };
+  };
+}
     

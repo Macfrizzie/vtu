@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Users, Zap, History, Plug, DollarSign, GanttChartSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Zap, History, Plug, DollarSign, GanttChartSquare, HeartPulse } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea, ScrollBar } from './ui/scroll-area';
 
@@ -13,6 +13,7 @@ const navItems = [
     { href: '/admin/services', title: 'Services', icon: <Zap /> },
     { href: '/admin/pricing', title: 'Pricing', icon: <DollarSign /> },
     { href: '/admin/transactions', title: 'Transactions', icon: <History /> },
+    { href: '/admin/system-health', title: 'Health', icon: <HeartPulse /> },
     { href: '/admin/initialize-data', title: 'Initialize', icon: <GanttChartSquare /> },
 ];
 

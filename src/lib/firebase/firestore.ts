@@ -1,15 +1,111 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType } from '../types';
+import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType, SystemHealth } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
 
 const db = getFirestore(app);
+
+export async function getSystemHealth(): Promise<SystemHealth> {
+    const health: SystemHealth = {
+        database: {
+            connected: false,
+            collections: {
+                services: { count: 0, issues: [] },
+                users: { count: 0, issues: [] },
+                transactions: { count: 0, issues: [] },
+                apiProviders: { count: 0, issues: [] },
+                cablePlans: { count: 0, issues: [] },
+                dataPlans: { count: 0, issues: [] },
+                discos: { count: 0, issues: [] },
+                rechargeCardDenominations: { count: 0, issues: [] },
+                educationPinTypes: { count: 0, issues: [] },
+            },
+        },
+        services: {},
+        apiProviders: {},
+    };
+
+    try {
+        // --- 1. Database Connection & Collection Counts ---
+        const collectionsToCount = Object.keys(health.database.collections);
+        const counts = await Promise.all(collectionsToCount.map(async (name) => {
+            const snapshot = await getDocs(collection(db, name));
+            return { name, count: snapshot.size };
+        }));
+        counts.forEach(c => {
+             if (health.database.collections[c.name as keyof typeof health.database.collections]) {
+                health.database.collections[c.name as keyof typeof health.database.collections].count = c.count;
+             }
+        });
+        health.database.connected = true;
+
+    } catch (e) {
+        health.database.connected = false;
+        health.database.collections.services.issues.push(`Failed to connect to Firestore: ${(e as Error).message}`);
+        return health; // Stop here if DB is not connected
+    }
+    
+    // --- 2. Services Analysis ---
+    const allServices = await getServices(); // This function now populates variations
+    const expectedCategories = ['Airtime', 'Data', 'Cable', 'Electricity', 'Recharge Card', 'Education'];
+
+    for (const category of expectedCategories) {
+        const service = allServices.find(s => s.category === category);
+        const serviceHealth = {
+            exists: !!service,
+            status: service?.status || 'Missing',
+            hasVariations: (service?.variations?.length || 0) > 0,
+            variationCount: service?.variations?.length || 0,
+            hasApiProvider: (service?.apiProviderIds?.length || 0) > 0,
+            hasEndpoint: !!service?.endpoint,
+            issues: [] as string[],
+        };
+
+        if (!service) {
+            serviceHealth.issues.push(`Service document for category '${category}' is missing.`);
+        } else {
+            if (service.status !== 'Active') {
+                serviceHealth.issues.push('Service is not marked as Active.');
+            }
+            if (!serviceHealth.hasVariations) {
+                serviceHealth.issues.push('Service has no pricing variations (plans, packages, etc).');
+            }
+            if (!serviceHealth.hasApiProvider) {
+                serviceHealth.issues.push('Service is not linked to any API provider.');
+            }
+            if (!serviceHealth.hasEndpoint) {
+                 serviceHealth.issues.push('Service has no API endpoint configured.');
+            }
+        }
+        health.services[category] = serviceHealth;
+    }
+
+    // --- 3. API Providers Analysis ---
+    const providers = await getApiProviders();
+    if (providers.length === 0) {
+         health.database.collections.apiProviders.issues.push('No API providers configured.');
+    }
+    providers.forEach(provider => {
+        health.apiProviders[provider.name] = {
+            status: provider.status,
+            reachable: false, // This will be updated by a client-side test
+            lastTested: null,
+            responseTime: null,
+            issues: [],
+        };
+        if(provider.status !== 'Active') {
+            health.apiProviders[provider.name].issues.push('Provider is not active.');
+        }
+    });
+
+    return health;
+}
+
 
 export async function initializeServices(): Promise<string[]> {
     const report: string[] = [];
@@ -610,16 +706,20 @@ export async function getServices(): Promise<Service[]> {
         return { id: doc.id, ...doc.data(), apiProviderIds: data.apiProviderIds || [] } as Service;
     });
     
-    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+    const [allDataPlans, allCablePlans, allDiscos, allRechargeCardDenominations, allEducationPinTypes] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
-        getDiscos()
+        getDiscos(),
+        getRechargeCardDenominations(),
+        getEducationPinTypes()
     ]);
     
     console.log('📦 Fetched from separate collections:', {
         dataPlans: allDataPlans.length,
         cablePlans: allCablePlans.length,
         discos: allDiscos.length,
+        rechargeCardDenominations: allRechargeCardDenominations.length,
+        educationPinTypes: allEducationPinTypes.length
     });
     
     const populatedServices = baseServices.map(service => {
@@ -656,6 +756,26 @@ export async function getServices(): Promise<Service[]> {
                     price: 0,
                     fees: { Customer: 100, Vendor: 100, Admin: 0 },
                     status: d.status || 'Active',
+                }));
+                break;
+             case 'Recharge Card':
+                service.variations = allRechargeCardDenominations.map(d => ({
+                    id: d.denominationId,
+                    name: d.name,
+                    price: d.price,
+                    networkName: d.networkName,
+                    fees: d.fees,
+                    status: d.status || 'Active',
+                }));
+                break;
+            case 'Education':
+                 service.variations = allEducationPinTypes.map(e => ({
+                    id: e.pinTypeId,
+                    name: e.name,
+                    price: e.price,
+                    examBody: e.examBody,
+                    fees: e.fees,
+                    status: e.status || 'Active',
                 }));
                 break;
             default:
@@ -893,6 +1013,8 @@ export async function verifyDatabaseSetup() {
         { name: 'discos', log: (doc: any) => `${doc.discoName}: ${doc.status}` },
         { name: 'apiProviders', log: (doc: any) => `${doc.name}: ${doc.status}` },
         { name: 'dataPlans', log: (doc: any) => `${doc.networkName} ${doc.name}: ${doc.status}` },
+        { name: 'rechargeCardDenominations', log: (doc: any) => `${doc.networkName} - ${doc.name}` },
+        { name: 'educationPinTypes', log: (doc: any) => `${doc.examBody} - ${doc.name}` },
     ];
 
     const results: Record<string, number> = {};
@@ -903,11 +1025,11 @@ export async function verifyDatabaseSetup() {
             results[name] = snapshot.size;
             console.log(`\n📁 ${name} Collection:`);
             console.log(`   Total documents: ${snapshot.size}`);
-            if (snapshot.size > 0) {
-                 snapshot.docs.forEach(doc => {
+            if (snapshot.size > 0 && log) {
+                 snapshot.docs.slice(0, 5).forEach(doc => { // Log first 5 samples
                     console.log(`   - ${log(doc.data())}`);
                 });
-            } else {
+            } else if(snapshot.size === 0) {
                 console.log('   - Collection is empty.');
             }
         } catch(e) {
@@ -920,24 +1042,24 @@ export async function verifyDatabaseSetup() {
     const rechargeCardService = servicesSnapshot.docs.find(doc => doc.data().category === 'Recharge Card');
     const educationService = servicesSnapshot.docs.find(doc => doc.data().category === 'Education');
 
-    console.log('\n📁 Recharge Card Service (Embedded Variations):');
+    console.log('\n📁 Recharge Card Service (Embedded Variations Check):');
     if (rechargeCardService) {
         const variations = rechargeCardService.data().variations || [];
         console.log(`   - Found 'Recharge Card' service with ${variations.length} embedded variations.`);
-        results['rechargeCardVariations'] = variations.length;
+        results['rechargeCardVariations_embedded'] = variations.length;
     } else {
         console.log("   - 'Recharge Card' service document not found.");
-        results['rechargeCardVariations'] = 0;
+        results['rechargeCardVariations_embedded'] = 0;
     }
     
-    console.log('\n📁 Education Service (Embedded Variations):');
+    console.log('\n📁 Education Service (Embedded Variations Check):');
     if (educationService) {
         const variations = educationService.data().variations || [];
         console.log(`   - Found 'Education' service with ${variations.length} embedded variations.`);
-        results['educationVariations'] = variations.length;
+        results['educationVariations_embedded'] = variations.length;
     } else {
         console.log("   - 'Education' service document not found.");
-        results['educationVariations'] = 0;
+        results['educationVariations_embedded'] = 0;
     }
 
 
@@ -945,13 +1067,3 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
-  
-
-  
-
-    
-
-
-
-
-    
