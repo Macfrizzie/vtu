@@ -9,8 +9,6 @@ import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
 
-const db = getFirestore(app);
-
 export async function getSystemHealth(): Promise<SystemHealth> {
     const health: SystemHealth = {
         database: {
@@ -109,6 +107,7 @@ export async function getSystemHealth(): Promise<SystemHealth> {
 
 
 export async function initializeServices(): Promise<string[]> {
+    console.log('🚀 INITIALIZING SERVICES...');
     const report: string[] = [];
     const batch = writeBatch(db);
     let hasWrites = false;
@@ -196,10 +195,10 @@ export async function initializeServices(): Promise<string[]> {
         const educationPinSnapshot = await getDocs(educationPinTypesCollection);
         if (educationPinSnapshot.empty) {
             const pins = [
-                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'WAEC Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'WAEC', pinTypeId: 'waec-reg', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 }, status: 'Active' },
-                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'JAMB', pinTypeId: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'WAEC', name: 'WAEC Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'WAEC', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 }, status: 'Active' },
+                { examBody: 'NECO', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'JAMB', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
             ];
             pins.forEach(pin => {
                 const pinDocRef = doc(educationPinTypesCollection);
@@ -497,7 +496,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 
                 requestBody = {
                     exam_name: selectedPin.examBody,
-                    variation_code: selectedPin.pinTypeId,
+                    variation_code: selectedPin.name,
                     quantity: inputs.quantity || 1,
                 };
             } else if (service.category === 'Recharge Card') {
@@ -662,7 +661,7 @@ export async function getServices(): Promise<Service[]> {
     
     const populatedServices = baseServices.map(service => {
         // If variations are already embedded in the service document, use them.
-        if (service.variations && service.variations.length > 0 && service.category !== 'Education') {
+        if (service.variations && service.variations.length > 0) {
              console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
             return service;
         }
