@@ -49,7 +49,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
-  serviceId: z.string().min(1, 'Please select a network.'),
+  networkId: z.string().min(1, 'Please select a network.'),
   variationId: z.string().min(1, 'Please select a denomination.'),
   quantity: z.coerce.number().min(1, 'Quantity must be at least 1.').max(10, 'You can buy a maximum of 10 pins at a time.'),
 });
@@ -67,13 +67,13 @@ export default function RechargeCardPage() {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [generatedPins, setGeneratedPins] = useState<GeneratedPin[] | null>(null);
   const [isCopied, setIsCopied] = useState<string | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
+  const [rechargeCardService, setRechargeCardService] = useState<Service | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      serviceId: '',
+      networkId: '',
       variationId: '',
       quantity: 1,
     },
@@ -85,9 +85,9 @@ export default function RechargeCardPage() {
         setServicesLoading(true);
         try {
             const allServices = await getServices();
-            const activeServices = allServices.filter(s => s.category === 'Recharge Card' && s.status === 'Active');
-            console.log('💳 RECHARGE CARD PAGE: Active services found:', activeServices.length);
-            setServices(activeServices);
+            const service = allServices.find(s => s.category === 'Recharge Card' && s.status === 'Active');
+            console.log('💳 RECHARGE CARD PAGE: Active service found:', service);
+            setRechargeCardService(service || null);
         } catch (error) {
             console.error("❌ RECHARGE CARD PAGE: Failed to fetch services:", error);
             toast({ variant: 'destructive', title: 'Error', description: 'Could not load services.' });
@@ -99,16 +99,16 @@ export default function RechargeCardPage() {
   }, [toast]);
 
 
-  const selectedServiceId = form.watch('serviceId');
+  const selectedNetworkId = form.watch('networkId');
   const selectedVariationId = form.watch('variationId');
   const quantity = form.watch('quantity');
   
   const availableDenominations = useMemo(() => {
-    const selectedService = services.find(s => s.id === selectedServiceId);
-    console.log('💳 RECHARGE CARD PAGE: Selected service:', selectedService?.name);
-    console.log('💳 RECHARGE CARD PAGE: Variations for selected service:', selectedService?.variations);
-    return selectedService?.variations || [];
-  }, [selectedServiceId, services]);
+    const selectedNetwork = rechargeCardService?.variations?.find(v => v.id === selectedNetworkId);
+    console.log('💳 RECHARGE CARD PAGE: Selected network:', selectedNetwork?.name);
+    console.log('💳 RECHARGE CARD PAGE: Denominations for selected network:', selectedNetwork?.variations);
+    return selectedNetwork?.variations || [];
+  }, [selectedNetworkId, rechargeCardService]);
   
   const selectedDenomination = useMemo(() => 
       availableDenominations.find(p => p.id === selectedVariationId)
@@ -124,7 +124,7 @@ export default function RechargeCardPage() {
   const totalCost = selectedDenomination && userData ? (selectedDenomination.price + (selectedDenomination.fees?.[userData.role] || 0)) * quantity : 0;
 
   async function onSubmit(values: FormData) {
-    if (!user || !userData) {
+    if (!user || !userData || !rechargeCardService) {
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
@@ -146,15 +146,12 @@ export default function RechargeCardPage() {
     setIsPurchasing(true);
     setGeneratedPins(null);
     try {
-      const selectedService = services.find(s => s.id === values.serviceId);
       const purchaseInputs = { 
-        network: selectedService?.name,
-        network_amount: selectedDenomination.price, // Use base price for amount
         quantity: values.quantity,
         name_on_card: userData.fullName,
       };
       
-      const result = await purchaseService(user.uid, values.serviceId, values.variationId, purchaseInputs, user.email!);
+      const result = await purchaseService(user.uid, rechargeCardService.id, values.variationId, purchaseInputs, user.email!);
       
       if (typeof result !== 'string' && result.CARDS && result.CARDS.length > 0) {
         const pins = result.CARDS.map((card: any) => ({ pin: card.pin, serial: card.serial_number }));
@@ -208,7 +205,7 @@ export default function RechargeCardPage() {
               <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
-                  name="serviceId"
+                  name="networkId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Network</FormLabel>
@@ -218,7 +215,7 @@ export default function RechargeCardPage() {
                           form.resetField('variationId');
                         }}
                         value={field.value}
-                        disabled={servicesLoading}
+                        disabled={servicesLoading || !rechargeCardService?.variations?.length}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -226,7 +223,7 @@ export default function RechargeCardPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {services.map(s => (
+                          {rechargeCardService?.variations?.map(s => (
                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                           ))}
                         </SelectContent>
@@ -242,7 +239,7 @@ export default function RechargeCardPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Denomination</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedServiceId || availableDenominations.length === 0}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!selectedNetworkId || availableDenominations.length === 0}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a denomination" />
