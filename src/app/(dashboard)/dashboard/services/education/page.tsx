@@ -9,9 +9,11 @@ import { getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { ServiceIcon } from '@/components/service-icon';
 import { cn } from '@/lib/utils';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function EducationServicesHubPage() {
-    const [educationServices, setEducationServices] = useState<Service[]>([]);
+    const [educationService, setEducationService] = useState<Service | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -19,10 +21,10 @@ export default function EducationServicesHubPage() {
             setLoading(true);
             try {
                 const allServices = await getServices();
-                const activeEducationServices = allServices.filter(
+                const mainEducationService = allServices.find(
                     service => service.category === 'Education' && service.status === 'Active'
                 );
-                setEducationServices(activeEducationServices);
+                setEducationService(mainEducationService || null);
             } catch (error) {
                 console.error("Failed to fetch education services:", error);
             } finally {
@@ -43,28 +45,29 @@ export default function EducationServicesHubPage() {
                 <div className="flex justify-center items-center h-40">
                     <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
-            ) : (
+            ) : educationService && educationService.variations && educationService.variations.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {educationServices.map((service) => {
-                         const isClickable = service.status === 'Active' && service.variations && service.variations.length > 0;
+                    {educationService.variations.map((variation) => {
                         return (
-                            <Link href={`/dashboard/services/education/${service.id}`} key={service.id} className={cn(!isClickable && "pointer-events-none opacity-50")}>
+                            <Link href={`/dashboard/services/education/${variation.id}`} key={variation.id}>
                                 <Card className="hover:bg-secondary transition-colors h-full">
                                     <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
-                                        <ServiceIcon serviceName={service.name} />
-                                        <span className="text-center font-medium">{service.name}</span>
-                                        {!isClickable && <div className="text-xs text-destructive font-semibold absolute bottom-2">Coming Soon</div>}
+                                        <ServiceIcon serviceName={variation.name} />
+                                        <span className="text-center font-medium">{variation.name}</span>
                                     </CardContent>
                                 </Card>
                             </Link>
                         );
                     })}
-                     {educationServices.length === 0 && (
-                        <div className="col-span-full text-center text-muted-foreground py-10">
-                            <p>No education services are currently available.</p>
-                        </div>
-                    )}
                 </div>
+            ) : (
+                 <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>No Services Available</AlertTitle>
+                    <AlertDescription>
+                        There are no active education services configured. Please contact support or check back later.
+                    </AlertDescription>
+                </Alert>
             )}
         </div>
     );

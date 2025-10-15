@@ -529,12 +529,12 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 if (!selectedVariation) {
                     throw new Error("Could not find the selected E-Pin type.");
                 }
-                totalCost = selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0);
-                description = `${selectedVariation.name} Purchase`;
+                totalCost = (selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0)) * inputs.quantity;
+                description = `${inputs.quantity} x ${selectedVariation.name} Purchase`;
                 
-                const examBody = service.name; // e.g., 'WAEC', 'NECO'
+                const examBody = selectedVariation.examBody;
                 if (!examBody) {
-                    throw new Error("Could not determine exam body from the service.");
+                    throw new Error("Could not determine exam body from the service variation.");
                 }
 
                 requestBody = {
@@ -688,49 +688,28 @@ export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor
 }
 
 export async function getServices(): Promise<Service[]> {
-    console.log('========== GET SERVICES DEBUG START ==========');
     const servicesCol = collection(db, "services");
     const serviceSnapshot = await getDocs(query(servicesCol));
     
-    console.log('📊 Total service documents found:', serviceSnapshot.size);
     const baseServices = serviceSnapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log('📄 Service Document:', {
-            id: doc.id,
-            name: data.name,
-            category: data.category,
-            status: data.status,
-            hasApiProviderIds: !!data.apiProviderIds,
-            apiProviderCount: data.apiProviderIds?.length || 0,
-            hasEmbeddedVariations: !!data.variations && data.variations.length > 0,
-        });
-        return { id: doc.id, ...doc.data(), apiProviderIds: data.apiProviderIds || [] } as Service;
+        return { id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service;
     });
     
-    const [allDataPlans, allCablePlans, allDiscos, allRechargeCardDenominations, allEducationPinTypes] = await Promise.all([
+    const [allDataPlans, allCablePlans, allDiscos, allEducationPinTypes, allRechargeCardDenominations] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
         getDiscos(),
-        getRechargeCardDenominations(),
-        getEducationPinTypes()
+        getEducationPinTypes(),
+        getRechargeCardDenominations()
     ]);
     
-    console.log('📦 Fetched from separate collections:', {
-        dataPlans: allDataPlans.length,
-        cablePlans: allCablePlans.length,
-        discos: allDiscos.length,
-        rechargeCardDenominations: allRechargeCardDenominations.length,
-        educationPinTypes: allEducationPinTypes.length
-    });
-    
     const populatedServices = baseServices.map(service => {
-        // If variations are already embedded in the service document, use them directly.
-        if (service.variations && service.variations.length > 0) {
-            console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
+        // If variations are already embedded in the service document, use them.
+        if (service.variations && service.variations.length > 0 && service.category !== 'Education') {
+             console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
             return service;
         }
 
-        // Otherwise, populate from separate collections based on category.
         switch(service.category) {
             case 'Data':
                 const networks = [...new Set(allDataPlans.map(p => p.networkName))];
@@ -759,42 +738,24 @@ export async function getServices(): Promise<Service[]> {
                     status: d.status || 'Active',
                 }));
                 break;
-             case 'Recharge Card':
-                const activeDenominations = allRechargeCardDenominations.filter(d => d.status === 'Active');
-                const rechargeCardNetworks = [...new Set(activeDenominations.map(d => d.networkName))];
-
-                service.variations = rechargeCardNetworks.map(network => ({
-                    id: network,
-                    name: network,
-                    price: 0, // This is a container, price is per denomination
-                    variations: activeDenominations.filter(d => d.networkName === network)
-                }));
-                break;
             case 'Education':
                 const activePinTypes = allEducationPinTypes.filter(p => p.status === 'Active');
                 const examBodies = [...new Set(activePinTypes.map(p => p.examBody))];
-                
-                const educationServices = baseServices.filter(s => s.category === 'Education');
-
-                return educationServices.map(eduService => {
-                    const variations = activePinTypes.filter(p => p.examBody === eduService.name);
-                    console.log(`📚 Mapping ${variations.length} pins to service '${eduService.name}'`);
-                    return { ...eduService, variations };
-                });
+                service.variations = examBodies.map(examBody => ({
+                    id: examBody,
+                    name: examBody,
+                    price: 0 // This is a container, price is per pin type
+                }));
+                break;
             default:
                 if (!service.variations) {
                     service.variations = [];
                 }
                 break;
         }
-        if (service.category !== 'Education') {
-            console.log(`🔄 Populated ${service.variations.length} variations for '${service.name}' from collection.`);
-        }
         return service;
-    }).flat(); // Flatten the array in case the 'Education' case returns an array of services
+    });
 
-    console.log('========== GET SERVICES DEBUG END ==========');
-    
     return populatedServices;
 }
 
