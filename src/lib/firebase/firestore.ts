@@ -137,6 +137,8 @@ export async function initializeServices(): Promise<string[]> {
                 { id: '1', name: 'MTN'}, { id: '2', name: 'GLO'}, { id: '3', name: 'AIRTEL'}, { id: '4', name: '9MOBILE'},
             ] },
             { name: "Data", category: "Data", endpoint: "/data", markupType: 'none', markupValue: 0 },
+            { name: "Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'none', markupValue: 0 },
+            { name: "Education", category: "Education", endpoint: "/epin", markupType: 'none', markupValue: 0 },
         ];
         
         for (const serviceDef of coreServices) {
@@ -154,79 +156,6 @@ export async function initializeServices(): Promise<string[]> {
             } else {
                  report.push(`[EXISTS] '${serviceDef.name}' service document already exists.`);
             }
-        }
-        
-        // --- Service Definitions with Embedded Variations ---
-        console.log('🔍 Checking Recharge Card service...');
-        const rcQuery = query(servicesCollection, where('category', '==', 'Recharge Card'));
-        const rcSnapshot = await getDocs(rcQuery);
-        if (rcSnapshot.empty) {
-            const docRef = doc(servicesCollection);
-            const variations = [
-                { id: 'MTN', name: 'MTN', price: 0, fees: {}, variations: [
-                    { id: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: 'mtn-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                    { id: 'mtn-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                ]},
-                { id: 'AIRTEL', name: 'Airtel', price: 0, fees: {}, variations: [
-                    { id: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: 'airtel-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: 'airtel-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                    { id: 'airtel-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                ]},
-                 { id: 'GLO', name: 'Glo', price: 0, fees: {}, variations: [
-                    { id: 'glo-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: 'glo-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: 'glo-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                    { id: 'glo-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                ]},
-                 { id: '9MOBILE', name: '9mobile', price: 0, fees: {}, variations: [
-                    { id: '9mobile-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: '9mobile-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                    { id: '9mobile-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                    { id: '9mobile-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
-                ]}
-            ];
-            batch.set(docRef, {
-                name: 'Recharge Card', category: 'Recharge Card', endpoint: '/recharge-card', status: 'Active',
-                markupType: 'none', markupValue: 0,
-                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
-                variations
-            });
-            hasWrites = true;
-            report.push(`[CREATED] 'Recharge Card' service document created with ${variations.length} network variations.`);
-        } else {
-             report.push(`[EXISTS] 'Recharge Card' service document already exists.`);
-        }
-
-        console.log('🔍 Checking Education service...');
-        const eduQuery = query(servicesCollection, where('category', '==', 'Education'));
-        const eduSnapshot = await getDocs(eduQuery);
-        if (eduSnapshot.empty) {
-            const docRef = doc(servicesCollection);
-            const variations = [
-                { id: 'WAEC', name: 'WAEC', price: 0, fees: {}, variations: [
-                     { id: 'waec-result', name: 'WAEC Result Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                     { id: 'waec-reg', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
-                ]},
-                { id: 'NECO', name: 'NECO', price: 0, fees: {}, variations: [
-                    { id: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                ]},
-                { id: 'JAMB', name: 'JAMB', price: 0, fees: {}, variations: [
-                    { id: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                ]},
-            ];
-            batch.set(docRef, {
-                name: 'Education', category: 'Education', endpoint: '/epin', status: 'Active',
-                markupType: 'none', markupValue: 0,
-                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
-                variations
-            });
-            hasWrites = true;
-            report.push(`[CREATED] 'Education' service document created with ${variations.length} exam body variations.`);
-        } else {
-            report.push(`[EXISTS] 'Education' service document already exists.`);
         }
         
         // --- Collections Seeding ---
@@ -264,6 +193,45 @@ export async function initializeServices(): Promise<string[]> {
         } else {
             report.push(`[EXISTS] 'discos' collection already has ${discoSnapshot.size} documents.`);
         }
+
+        // --- Recharge Card Denominations Seeding ---
+        const rechargeCardDenominationsCollection = collection(db, 'rechargeCardDenominations');
+        const rechargeCardSnapshot = await getDocs(rechargeCardDenominationsCollection);
+        if (rechargeCardSnapshot.empty) {
+            const denominations = [
+                { networkName: 'MTN', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+            ];
+            denominations.forEach(denom => {
+                const denomDocRef = doc(rechargeCardDenominationsCollection);
+                batch.set(denomDocRef, denom);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'rechargeCardDenominations' collection with ${denominations.length} denominations.`);
+        } else {
+             report.push(`[EXISTS] 'rechargeCardDenominations' collection already has ${rechargeCardSnapshot.size} documents.`);
+        }
+
+        // --- Education Pin Types Seeding ---
+        const educationPinTypesCollection = collection(db, 'educationPinTypes');
+        const educationPinSnapshot = await getDocs(educationPinTypesCollection);
+        if (educationPinSnapshot.empty) {
+            const pins = [
+                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'WAEC Result Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'JAMB', pinTypeId: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+            ];
+            pins.forEach(pin => {
+                const pinDocRef = doc(educationPinTypesCollection);
+                batch.set(pinDocRef, pin);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'educationPinTypes' collection with ${pins.length} pin types.`);
+        } else {
+            report.push(`[EXISTS] 'educationPinTypes' collection already has ${educationPinSnapshot.size} documents.`);
+        }
+
 
         if (hasWrites) {
             await batch.commit();
@@ -523,8 +491,9 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                      amount: inputs.amount,
                  };
             } else if (service.category === 'Education') {
-                const allPinTypes = await getEducationPinTypes();
-                const selectedPin = allPinTypes.find(p => p.pinTypeId === variationId);
+                const examBodyVariation = service.variations?.find(v => v.id === inputs.examBody);
+                const selectedPin = examBodyVariation?.plans?.find(p => p.id === variationId);
+
                 if (!selectedPin) {
                     throw new Error("Could not find the selected E-Pin type.");
                 }
@@ -532,24 +501,23 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 description = `${inputs.quantity} x ${selectedPin.name} Purchase`;
                 
                 requestBody = {
-                    exam_name: selectedPin.examBody,
+                    exam_name: inputs.examBody,
                     variation_code: selectedPin.name,
                     quantity: inputs.quantity || 1,
                 };
             } else if (service.category === 'Recharge Card') {
-                // Find the network service that holds this denomination
-                const networkService = service.variations?.find(net => net.variations?.some(denom => denom.id === variationId));
-                const selectedDenomination = networkService?.variations?.find(d => d.id === variationId);
+                const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
+                const selectedDenomination = networkVariation?.plans?.find(p => p.id === variationId);
 
-                 if (!selectedDenomination || !networkService) {
+                 if (!selectedDenomination || !networkVariation) {
                     throw new Error("Could not find the selected recharge card denomination.");
                  }
                  totalCost = (selectedDenomination.price + (selectedDenomination.fees?.[userData.role] || 0)) * inputs.quantity;
-                 description = `${inputs.quantity} x ₦${selectedDenomination.price} ${networkService.name} Purchase`;
+                 description = `${inputs.quantity} x ${selectedDenomination.name} Purchase`;
                  requestBody = {
-                    variation_code: selectedDenomination.id,
+                    variation_code: selectedDenomination.planId,
                     ...inputs,
-                    network: networkService.name // Add network name to request
+                    network: networkVariation.name // Add network name to request
                  };
             } else {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
@@ -692,16 +660,17 @@ export async function getServices(): Promise<Service[]> {
         return { id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service;
     });
     
-    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
+    const [allDataPlans, allCablePlans, allDiscos, allRechargeDenominations, allEducationPinTypes] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
         getDiscos(),
+        getRechargeCardDenominations(),
+        getEducationPinTypes(),
     ]);
     
     const populatedServices = baseServices.map(service => {
-        // If variations are already embedded, prioritize them.
-        if (service.variations && service.variations.length > 0 && !['Data', 'Cable', 'Electricity'].includes(service.category)) {
-            console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
+        // If variations are already embedded for Airtime, use them.
+        if (service.category === 'Airtime' && service.variations && service.variations.length > 0) {
             return service;
         }
 
@@ -712,7 +681,7 @@ export async function getServices(): Promise<Service[]> {
                     id: networkName,
                     name: networkName,
                     price: 0,
-                    plans: allDataPlans.filter(p => p.networkName === networkName),
+                    plans: allDataPlans.filter(p => p.networkName === networkName && p.status === 'Active'),
                 }));
                 break;
             case 'Cable':
@@ -731,6 +700,36 @@ export async function getServices(): Promise<Service[]> {
                     price: 0,
                     fees: { Customer: 100, Vendor: 100, Admin: 0 },
                     status: d.status || 'Active',
+                }));
+                break;
+            case 'Recharge Card':
+                const rcNetworks = [...new Set(allRechargeDenominations.map(p => p.networkName))];
+                service.variations = rcNetworks.map(networkName => ({
+                    id: networkName,
+                    name: networkName,
+                    price: 0,
+                    plans: allRechargeDenominations.filter(p => p.networkName === networkName && p.status === 'Active').map(d => ({
+                        id: d.denominationId,
+                        planId: d.denominationId,
+                        name: d.name,
+                        price: d.price,
+                        fees: d.fees
+                    })),
+                }));
+                break;
+            case 'Education':
+                const examBodies = [...new Set(allEducationPinTypes.map(p => p.examBody))];
+                service.variations = examBodies.map(examBody => ({
+                    id: examBody,
+                    name: examBody,
+                    price: 0,
+                    plans: allEducationPinTypes.filter(p => p.examBody === examBody && p.status === 'Active').map(p => ({
+                        id: p.id,
+                        planId: p.pinTypeId,
+                        name: p.name,
+                        price: p.price,
+                        fees: p.fees
+                    })),
                 }));
                 break;
             default:
@@ -1019,3 +1018,4 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
+

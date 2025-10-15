@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,7 +9,6 @@ import { Loader2 } from 'lucide-react';
 import { getServices } from '@/lib/firebase/firestore';
 import type { Service } from '@/lib/types';
 import { ServiceIcon } from '@/components/service-icon';
-import { cn } from '@/lib/utils';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 

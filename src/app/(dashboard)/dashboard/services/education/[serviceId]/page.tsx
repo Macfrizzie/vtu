@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -41,9 +42,9 @@ import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Copy, Check, AlertCircle } from 'lucide-react';
-import { purchaseService, getServices, getEducationPinTypes } from '@/lib/firebase/firestore';
+import { purchaseService, getServices } from '@/lib/firebase/firestore';
 import { Label } from '@/components/ui/label';
-import type { Service, EducationPinType } from '@/lib/types';
+import type { Service, ServiceVariation } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 
@@ -67,7 +68,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
   const [generatedPin, setGeneratedPin] = useState<GeneratedPin[] | null>(null);
   const [isCopied, setIsCopied] = useState<'pin' | 'serial' | null>(null);
   const [educationService, setEducationService] = useState<Service | null>(null);
-  const [pinTypes, setPinTypes] = useState<EducationPinType[]>([]);
+  const [examBodyVariation, setExamBodyVariation] = useState<ServiceVariation | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -91,9 +92,8 @@ export default function EducationPinPurchasePage({ params }: { params: { service
             }
             setEducationService(mainEducationService);
 
-            const allPinTypes = await getEducationPinTypes();
-            const relevantPinTypes = allPinTypes.filter(p => p.examBody === examBody && p.status === 'Active');
-            setPinTypes(relevantPinTypes);
+            const relevantVariation = mainEducationService.variations?.find(v => v.id === examBody);
+            setExamBodyVariation(relevantVariation || null);
 
         } catch (error) {
             console.error(`Failed to fetch data for ${examBody}:`, error);
@@ -109,6 +109,8 @@ export default function EducationPinPurchasePage({ params }: { params: { service
   const selectedVariationId = form.watch('variationId');
   const quantity = form.watch('quantity');
   
+  const pinTypes = useMemo(() => examBodyVariation?.plans || [], [examBodyVariation]);
+
   const selectedPin = useMemo(() => 
       pinTypes.find(p => p.id === selectedVariationId)
   , [pinTypes, selectedVariationId]);
@@ -145,7 +147,10 @@ export default function EducationPinPurchasePage({ params }: { params: { service
     setIsPurchasing(true);
     setGeneratedPin(null);
     try {
-      const purchaseInputs = { quantity: values.quantity };
+      const purchaseInputs = { 
+        quantity: values.quantity,
+        examBody: examBody,
+      };
       
       const result = await purchaseService(user.uid, educationService.id, values.variationId, purchaseInputs, user.email!);
 
@@ -181,7 +186,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
     );
   }
 
-  if (!educationService) {
+  if (!educationService || !examBodyVariation) {
       return (
         <div className="mx-auto max-w-2xl space-y-8">
              <div>
@@ -191,7 +196,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Service Unavailable</AlertTitle>
               <AlertDescription>
-                The requested education service is inactive or could not be found.
+                The requested education service '{examBody}' is inactive or could not be found.
               </AlertDescription>
             </Alert>
         </div>
@@ -203,8 +208,8 @@ export default function EducationPinPurchasePage({ params }: { params: { service
     <>
       <div className="mx-auto max-w-2xl space-y-8">
         <div>
-          <h1 className="text-3xl font-bold">{examBody} E-Pin</h1>
-          <p className="text-muted-foreground">Purchase pins for {examBody}.</p>
+          <h1 className="text-3xl font-bold">{examBodyVariation.name} E-Pin</h1>
+          <p className="text-muted-foreground">Purchase pins for {examBodyVariation.name}.</p>
         </div>
 
         <Card>
@@ -229,7 +234,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
                       <Select onValueChange={field.onChange} value={field.value} disabled={pinTypes.length === 0}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder={pinTypes.length === 0 ? `No pins available for ${examBody}` : "Select a pin type"} />
+                            <SelectValue placeholder={pinTypes.length === 0 ? `No pins available for ${examBodyVariation.name}` : "Select a pin type"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
