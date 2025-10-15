@@ -524,7 +524,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                  };
             } else if (service.category === 'Education') {
                 const allPinTypes = await getEducationPinTypes();
-                const selectedPin = allPinTypes.find(p => p.id === variationId);
+                const selectedPin = allPinTypes.find(p => p.pinTypeId === variationId);
                 if (!selectedPin) {
                     throw new Error("Could not find the selected E-Pin type.");
                 }
@@ -692,18 +692,16 @@ export async function getServices(): Promise<Service[]> {
         return { id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service;
     });
     
-    const [allDataPlans, allCablePlans, allDiscos, allEducationPinTypes, allRechargeCardDenominations] = await Promise.all([
+    const [allDataPlans, allCablePlans, allDiscos] = await Promise.all([
         getDataPlans(),
         getCablePlans(),
         getDiscos(),
-        getEducationPinTypes(),
-        getRechargeCardDenominations()
     ]);
     
     const populatedServices = baseServices.map(service => {
-        // If variations are already embedded in the service document, use them.
-        if (service.variations && service.variations.length > 0 && service.category !== 'Education' && service.category !== 'Recharge Card') {
-             console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
+        // If variations are already embedded, prioritize them.
+        if (service.variations && service.variations.length > 0 && !['Data', 'Cable', 'Electricity'].includes(service.category)) {
+            console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
             return service;
         }
 
@@ -733,25 +731,6 @@ export async function getServices(): Promise<Service[]> {
                     price: 0,
                     fees: { Customer: 100, Vendor: 100, Admin: 0 },
                     status: d.status || 'Active',
-                }));
-                break;
-            case 'Education':
-                const examBodies = [...new Set(allEducationPinTypes.filter(p => p.status === 'Active').map(p => p.examBody))];
-                service.variations = examBodies.map(examBody => ({
-                    id: examBody,
-                    name: examBody,
-                    price: 0,
-                    variations: allEducationPinTypes.filter(p => p.examBody === examBody && p.status === 'Active'),
-                }));
-                break;
-            case 'Recharge Card':
-                const activeDenominations = allRechargeCardDenominations.filter(d => d.status === 'Active');
-                const cardNetworks = [...new Set(activeDenominations.map(d => d.networkName))];
-                service.variations = cardNetworks.map(networkName => ({
-                    id: networkName,
-                    name: networkName,
-                    price: 0,
-                    variations: activeDenominations.filter(d => d.networkName === networkName),
                 }));
                 break;
             default:

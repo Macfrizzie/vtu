@@ -87,6 +87,9 @@ export default function RechargeCardPage() {
             const allServices = await getServices();
             const service = allServices.find(s => s.category === 'Recharge Card' && s.status === 'Active');
             console.log('💳 RECHARGE CARD PAGE: Active service found:', service);
+            if(service) {
+              console.log('💳 RECHARGE CARD PAGE: Variations received:', service.variations);
+            }
             setRechargeCardService(service || null);
         } catch (error) {
             console.error("❌ RECHARGE CARD PAGE: Failed to fetch services:", error);
@@ -105,7 +108,7 @@ export default function RechargeCardPage() {
   
   const availableDenominations = useMemo(() => {
     const selectedNetwork = rechargeCardService?.variations?.find(v => v.id === selectedNetworkId);
-    console.log('💳 RECHARGE CARD PAGE: Selected network:', selectedNetwork?.name);
+    console.log('💳 RECHARGE CARD PAGE: Selected network in useMemo:', selectedNetwork?.name);
     console.log('💳 RECHARGE CARD PAGE: Denominations for selected network:', selectedNetwork?.variations);
     return selectedNetwork?.variations || [];
   }, [selectedNetworkId, rechargeCardService]);
@@ -251,7 +254,7 @@ export default function RechargeCardPage() {
                              const finalPrice = p.price + fee;
                             return (
                                 <SelectItem key={p.id} value={p.id}>
-                                  ₦{p.price.toLocaleString()} Pin (Cost: ₦{finalPrice.toLocaleString()})
+                                  {p.name} (Cost: ₦{finalPrice.toLocaleString()})
                                 </SelectItem>
                             )
                           })}
