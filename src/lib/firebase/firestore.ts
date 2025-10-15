@@ -135,6 +135,8 @@ export async function initializeServices(): Promise<string[]> {
             { name: "Electricity Bill", category: "Electricity", endpoint: "/billpayment", markupType: 'fixed', markupValue: 100 },
             { name: "Airtime", category: "Airtime", endpoint: "/topup", markupType: 'percentage', markupValue: 2 },
             { name: "Data", category: "Data", endpoint: "/data", markupType: 'none', markupValue: 0 },
+            { name: "Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'none', markupValue: 0 },
+            { name: "Education", category: "Education", endpoint: "/epin", markupType: 'none', markupValue: 0 },
         ];
         
         for (const serviceDef of coreServices) {
@@ -154,82 +156,6 @@ export async function initializeServices(): Promise<string[]> {
             }
         }
         
-        // --- Recharge Card Service ---
-        console.log('🔍 Checking Recharge Card service...');
-        const rechargeCardServiceQuery = query(servicesCollection, where('category', '==', 'Recharge Card'));
-        const rechargeCardSnapshot = await getDocs(rechargeCardServiceQuery);
-        if (rechargeCardSnapshot.empty) {
-            const variations = [
-                { id: 'mtn-100', name: 'MTN ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'mtn-200', name: 'MTN ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'mtn-500', name: 'MTN ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'mtn-1000', name: 'MTN ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'airtel-100', name: 'Airtel ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'airtel-200', name: 'Airtel ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'airtel-500', name: 'Airtel ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'airtel-1000', name: 'Airtel ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'glo-100', name: 'Glo ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'glo-200', name: 'Glo ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'glo-500', name: 'Glo ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: 'glo-1000', name: 'Glo ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: '9mobile-100', name: '9mobile ₦100', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: '9mobile-200', name: '9mobile ₦200', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: '9mobile-500', name: '9mobile ₦500', price: 500, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-                { id: '9mobile-1000', name: '9mobile ₦1000', price: 1000, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
-            ];
-            const serviceDocRef = doc(servicesCollection);
-            batch.set(serviceDocRef, {
-                name: "Recharge Card",
-                category: "Recharge Card",
-                endpoint: "/recharge-card",
-                status: "Active",
-                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
-                markupType: 'none',
-                markupValue: 0,
-                variations: variations
-            });
-            hasWrites = true;
-            console.log(`✨ Created Recharge Card service with ${variations.length} variations`);
-            report.push(`[CREATED] 'Recharge Card' service document created with ${variations.length} variations.`);
-        } else {
-            console.log('✅ Recharge Card service already exists');
-            report.push(`[EXISTS] 'Recharge Card' service document already exists.`);
-        }
-
-        // --- Education Pin Service ---
-        console.log('🔍 Checking Education service...');
-        const educationServiceQuery = query(servicesCollection, where('category', '==', 'Education'));
-        const educationSnapshot = await getDocs(educationServiceQuery);
-        if (educationSnapshot.empty) {
-             const variations = [
-                { id: 'waec-result', name: 'WAEC Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                { id: 'waec-reg', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
-                { id: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                { id: 'neco-gce', name: 'NECO GCE Registration Pin', price: 18000, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
-                { id: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                { id: 'jamb-mock', name: 'JAMB Mock Exam Pin', price: 1000, fees: { Customer: 50, Vendor: 25, Admin: 0 } },
-                { id: 'nabteb-result', name: 'NABTEB Result Checker', price: 900, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
-                { id: 'nabteb-reg', name: 'NABTEB Registration Pin', price: 12500, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
-            ];
-             const serviceDocRef = doc(servicesCollection);
-             batch.set(serviceDocRef, {
-                name: "Education",
-                category: "Education",
-                endpoint: "/epin",
-                status: "Active",
-                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
-                markupType: 'none',
-                markupValue: 0,
-                variations: variations
-            });
-            hasWrites = true;
-            console.log(`✨ Created Education service with ${variations.length} variations`);
-            report.push(`[CREATED] 'Education' service document created with ${variations.length} variations.`);
-        } else {
-             console.log('✅ Education service already exists');
-             report.push(`[EXISTS] 'Education' service document already exists.`);
-        }
-
         // --- Collections Seeding ---
         const cablePlansCollection = collection(db, 'cablePlans');
         const cablePlanSnapshot = await getDocs(cablePlansCollection);
@@ -265,7 +191,43 @@ export async function initializeServices(): Promise<string[]> {
         } else {
             report.push(`[EXISTS] 'discos' collection already has ${discoSnapshot.size} documents.`);
         }
-
+        
+        const educationPinTypesCollection = collection(db, 'educationPinTypes');
+        const educationPinSnapshot = await getDocs(educationPinTypesCollection);
+        if (educationPinSnapshot.empty) {
+            const pins = [
+                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'WAEC Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'WAEC', pinTypeId: 'waec-reg', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 }, status: 'Active' },
+                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'JAMB', pinTypeId: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+            ];
+            pins.forEach(pin => {
+                const pinDocRef = doc(educationPinTypesCollection);
+                batch.set(pinDocRef, pin);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'educationPinTypes' collection with ${pins.length} E-Pins.`);
+        } else {
+            report.push(`[EXISTS] 'educationPinTypes' collection already has ${educationPinSnapshot.size} documents.`);
+        }
+        
+        const rechargeCardDenominationsCollection = collection(db, 'rechargeCardDenominations');
+        const rechargeCardSnapshot = await getDocs(rechargeCardDenominationsCollection);
+        if (rechargeCardSnapshot.empty) {
+            const denominations = [
+                { networkName: 'MTN', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+            ];
+            denominations.forEach(item => {
+                const itemDocRef = doc(rechargeCardDenominationsCollection);
+                batch.set(itemDocRef, item);
+            });
+            hasWrites = true;
+            report.push(`[CREATED] Seeded 'rechargeCardDenominations' collection with ${denominations.length} items.`);
+        } else {
+            report.push(`[EXISTS] 'rechargeCardDenominations' collection already has ${rechargeCardSnapshot.size} documents.`);
+        }
 
         if (hasWrites) {
             await batch.commit();
@@ -525,24 +487,19 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                      amount: inputs.amount,
                  };
             } else if (service.category === 'Education') {
-                 const selectedVariation = service.variations?.find(v => v.id === variationId);
-                if (!selectedVariation) {
+                const allPinTypes = await getEducationPinTypes();
+                const selectedPin = allPinTypes.find(p => p.id === variationId);
+                if (!selectedPin) {
                     throw new Error("Could not find the selected E-Pin type.");
                 }
-                totalCost = (selectedVariation.price + (selectedVariation.fees?.[userData.role] || 0)) * inputs.quantity;
-                description = `${inputs.quantity} x ${selectedVariation.name} Purchase`;
+                totalCost = (selectedPin.price + (selectedPin.fees?.[userData.role] || 0)) * inputs.quantity;
+                description = `${inputs.quantity} x ${selectedPin.name} Purchase`;
                 
-                const examBody = selectedVariation.examBody;
-                if (!examBody) {
-                    throw new Error("Could not determine exam body from the service variation.");
-                }
-
                 requestBody = {
-                    exam_name: examBody,
-                    variation_code: variationId,
-                    quantity: inputs.quantity || 1, // Default to 1 if not provided
+                    exam_name: selectedPin.examBody,
+                    variation_code: selectedPin.pinTypeId,
+                    quantity: inputs.quantity || 1,
                 };
-                
             } else if (service.category === 'Recharge Card') {
                  const selectedVariation = service.variations?.find(v => v.id === variationId);
                  if (!selectedVariation) {
@@ -745,6 +702,16 @@ export async function getServices(): Promise<Service[]> {
                     id: examBody,
                     name: examBody,
                     price: 0 // This is a container, price is per pin type
+                }));
+                break;
+            case 'Recharge Card':
+                service.variations = allRechargeCardDenominations.map(d => ({
+                    id: d.id, // The doc ID is the variation ID for purchase
+                    name: d.name,
+                    price: d.price,
+                    networkName: d.networkName,
+                    fees: d.fees,
+                    status: d.status || 'Active'
                 }));
                 break;
             default:

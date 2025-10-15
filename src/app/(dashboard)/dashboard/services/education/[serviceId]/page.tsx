@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useUser } from '@/context/user-context';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useMemo, useEffect, use } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Copy, Check, AlertCircle } from 'lucide-react';
 import { purchaseService, getServices, getEducationPinTypes } from '@/lib/firebase/firestore';
 import { Label } from '@/components/ui/label';
@@ -149,7 +149,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
       
       const result = await purchaseService(user.uid, educationService.id, values.variationId, purchaseInputs, user.email!);
 
-      if (typeof result !== 'string' && result.pins && result.pins.length > 0) {
+      if (typeof result !== 'string' && result.pins && Array.isArray(result.pins) && result.pins.length > 0) {
         setGeneratedPin(result.pins);
         forceRefetch();
         toast({
