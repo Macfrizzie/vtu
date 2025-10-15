@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -8,6 +7,7 @@ import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, 
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
+const db = getFirestore(app);
 
 export async function getSystemHealth(): Promise<SystemHealth> {
     const health: SystemHealth = {
@@ -112,7 +112,7 @@ export async function initializeServices(): Promise<string[]> {
     const batch = writeBatch(db);
     let hasWrites = false;
     const servicesCollection = collection(db, 'services');
-
+    
     try {
         // 1. Get an active API provider to link to services
         const apiProvidersCollection = collection(db, 'apiProviders');
@@ -130,16 +130,16 @@ export async function initializeServices(): Promise<string[]> {
 
         // --- Core Service Definitions ---
         const coreServices = [
+            { name: "Airtime", category: "Airtime", endpoint: "/topup", markupType: 'percentage', markupValue: 2, variations: [
+                { id: '1', name: 'MTN'}, { id: '2', name: 'GLO'}, { id: '3', name: 'AIRTEL'}, { id: '4', name: '9MOBILE'},
+            ] },
+            { name: "Data", category: "Data", endpoint: "/data", markupType: 'none', markupValue: 0 },
             { name: "Cable TV", category: "Cable", endpoint: "/cablesub", markupType: 'fixed', markupValue: 0 },
             { name: "Electricity Bill", category: "Electricity", endpoint: "/billpayment", markupType: 'fixed', markupValue: 100 },
-            { name: "Airtime", category: "Airtime", endpoint: "/topup", markupType: 'percentage', markupValue: 2 },
-            { name: "Data", category: "Data", endpoint: "/data", markupType: 'none', markupValue: 0 },
-            { name: "Recharge Card", category: "Recharge Card", endpoint: "/recharge-card", markupType: 'none', markupValue: 0 },
-            { name: "Education", category: "Education", endpoint: "/epin", markupType: 'none', markupValue: 0 },
         ];
         
         for (const serviceDef of coreServices) {
-            const serviceQuery = query(servicesCollection, where('name', '==', serviceDef.name));
+            const serviceQuery = query(servicesCollection, where('category', '==', serviceDef.category));
             const serviceSnapshot = await getDocs(serviceQuery);
             if (serviceSnapshot.empty) {
                 const serviceDocRef = doc(servicesCollection);
@@ -153,6 +153,73 @@ export async function initializeServices(): Promise<string[]> {
             } else {
                  report.push(`[EXISTS] '${serviceDef.name}' service document already exists.`);
             }
+        }
+        
+        // --- Service Definitions with Embedded Variations ---
+        console.log('🔍 Checking Recharge Card service...');
+        const rcQuery = query(servicesCollection, where('category', '==', 'Recharge Card'));
+        const rcSnapshot = await getDocs(rcQuery);
+        if (rcSnapshot.empty) {
+            const docRef = doc(servicesCollection);
+            const variations = [
+                { id: 'MTN', name: 'MTN', variations: [
+                    { id: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: 'mtn-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                    { id: 'mtn-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                ]},
+                { id: 'AIRTEL', name: 'Airtel', variations: [
+                    { id: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: 'airtel-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: 'airtel-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                    { id: 'airtel-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                ]},
+                 { id: 'GLO', name: 'Glo', variations: [
+                    { id: 'glo-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: 'glo-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: 'glo-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                    { id: 'glo-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                ]},
+                 { id: '9MOBILE', name: '9mobile', variations: [
+                    { id: '9mobile-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: '9mobile-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 } },
+                    { id: '9mobile-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                    { id: '9mobile-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 } },
+                ]}
+            ];
+            batch.set(docRef, {
+                name: 'Recharge Card', category: 'Recharge Card', endpoint: '/recharge-card', status: 'Active',
+                markupType: 'none', markupValue: 0,
+                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
+                variations: variations.flatMap(v => v.variations)
+            });
+            hasWrites = true;
+            report.push(`[CREATED] 'Recharge Card' service document created with ${variations.flatMap(v => v.variations).length} variations.`);
+        } else {
+             report.push(`[EXISTS] 'Recharge Card' service document already exists.`);
+        }
+
+        console.log('🔍 Checking Education service...');
+        const eduQuery = query(servicesCollection, where('category', '==', 'Education'));
+        const eduSnapshot = await getDocs(eduQuery);
+        if (eduSnapshot.empty) {
+            const docRef = doc(servicesCollection);
+            const variations = [
+                { id: 'WAEC', name: 'WAEC Result Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                { id: 'WAEC-REG', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 } },
+                { id: 'NECO', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+                { id: 'JAMB', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 } },
+            ];
+            batch.set(docRef, {
+                name: 'Education', category: 'Education', endpoint: '/epin', status: 'Active',
+                markupType: 'none', markupValue: 0,
+                apiProviderIds: [{ id: primaryProviderId, priority: "Primary" }],
+                variations
+            });
+            hasWrites = true;
+            report.push(`[CREATED] 'Education' service document created with ${variations.length} variations.`);
+        } else {
+            report.push(`[EXISTS] 'Education' service document already exists.`);
         }
         
         // --- Collections Seeding ---
@@ -189,43 +256,6 @@ export async function initializeServices(): Promise<string[]> {
             report.push(`[CREATED] Seeded 'discos' collection with ${discos.length} distributors.`);
         } else {
             report.push(`[EXISTS] 'discos' collection already has ${discoSnapshot.size} documents.`);
-        }
-        
-        const educationPinTypesCollection = collection(db, 'educationPinTypes');
-        const educationPinSnapshot = await getDocs(educationPinTypesCollection);
-        if (educationPinSnapshot.empty) {
-            const pins = [
-                { examBody: 'WAEC', name: 'WAEC Result Checker Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'WAEC', name: 'WAEC Registration Pin', price: 25000, fees: { Customer: 200, Vendor: 100, Admin: 0 }, status: 'Active' },
-                { examBody: 'NECO', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'JAMB', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-            ];
-            pins.forEach(pin => {
-                const pinDocRef = doc(educationPinTypesCollection);
-                batch.set(pinDocRef, pin);
-            });
-            hasWrites = true;
-            report.push(`[CREATED] Seeded 'educationPinTypes' collection with ${pins.length} E-Pins.`);
-        } else {
-            report.push(`[EXISTS] 'educationPinTypes' collection already has ${educationPinSnapshot.size} documents.`);
-        }
-        
-        const rechargeCardDenominationsCollection = collection(db, 'rechargeCardDenominations');
-        const rechargeCardSnapshot = await getDocs(rechargeCardDenominationsCollection);
-        if (rechargeCardSnapshot.empty) {
-            const denominations = [
-                { networkName: 'MTN', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'MTN', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'AIRTEL', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-            ];
-            denominations.forEach(item => {
-                const itemDocRef = doc(rechargeCardDenominationsCollection);
-                batch.set(itemDocRef, item);
-            });
-            hasWrites = true;
-            report.push(`[CREATED] Seeded 'rechargeCardDenominations' collection with ${denominations.length} items.`);
-        } else {
-            report.push(`[EXISTS] 'rechargeCardDenominations' collection already has ${rechargeCardSnapshot.size} documents.`);
         }
 
         if (hasWrites) {
@@ -661,7 +691,7 @@ export async function getServices(): Promise<Service[]> {
     
     const populatedServices = baseServices.map(service => {
         // If variations are already embedded in the service document, use them.
-        if (service.variations && service.variations.length > 0) {
+        if (service.variations && service.variations.length > 0 && service.category !== 'Education') {
              console.log(`✅ Using ${service.variations.length} embedded variations for '${service.name}'.`);
             return service;
         }
