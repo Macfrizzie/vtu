@@ -61,14 +61,13 @@ type GeneratedPin = {
 };
 
 export default function EducationPinPurchasePage({ params }: { params: { serviceId: string } }) {
-  const { serviceId: examBody } = params;
+  const { serviceId: examBodyId } = params;
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [generatedPin, setGeneratedPin] = useState<GeneratedPin[] | null>(null);
   const [isCopied, setIsCopied] = useState<'pin' | 'serial' | null>(null);
-  const [educationService, setEducationService] = useState<Service | null>(null);
-  const [examBodyVariation, setExamBodyVariation] = useState<ServiceVariation | null>(null);
+  const [examBodyService, setExamBodyService] = useState<Service | null>(null);
   const [servicesLoading, setServicesLoading] = useState(true);
 
   const form = useForm<FormData>({
@@ -81,35 +80,29 @@ export default function EducationPinPurchasePage({ params }: { params: { service
   
   useEffect(() => {
     async function fetchServiceData() {
-        if (!examBody) return;
+        if (!examBodyId) return;
         setServicesLoading(true);
         try {
             const allServices = await getServices();
-            const mainEducationService = allServices.find(s => s.category === 'Education');
+            const relevantService = allServices.find(s => s.id === examBodyId && s.category === 'Education');
             
-            if (!mainEducationService) {
-                throw new Error("Main education service not configured.");
-            }
-            setEducationService(mainEducationService);
-
-            const relevantVariation = mainEducationService.variations?.find(v => v.id === examBody);
-            setExamBodyVariation(relevantVariation || null);
+            setExamBodyService(relevantService || null);
 
         } catch (error) {
-            console.error(`Failed to fetch data for ${examBody}:`, error);
-            toast({ variant: 'destructive', title: 'Error', description: `Could not load details for ${examBody}.` });
+            console.error(`Failed to fetch data for ${examBodyId}:`, error);
+            toast({ variant: 'destructive', title: 'Error', description: `Could not load details for ${examBodyId}.` });
         } finally {
             setServicesLoading(false);
         }
     }
     fetchServiceData();
-  }, [examBody, toast]);
+  }, [examBodyId, toast]);
 
 
   const selectedVariationId = form.watch('variationId');
   const quantity = form.watch('quantity');
   
-  const pinTypes = useMemo(() => examBodyVariation?.plans || [], [examBodyVariation]);
+  const pinTypes = useMemo(() => examBodyService?.variations || [], [examBodyService]);
 
   const selectedPin = useMemo(() => 
       pinTypes.find(p => p.id === selectedVariationId)
@@ -125,7 +118,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
   const totalCost = selectedPin && userData ? (selectedPin.price + (selectedPin.fees?.[userData.role] || 0)) * quantity : 0;
 
   async function onSubmit(values: FormData) {
-    if (!user || !userData || !educationService) {
+    if (!user || !userData || !examBodyService) {
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
@@ -149,10 +142,10 @@ export default function EducationPinPurchasePage({ params }: { params: { service
     try {
       const purchaseInputs = { 
         quantity: values.quantity,
-        examBody: examBody,
       };
       
-      const result = await purchaseService(user.uid, educationService.id, values.variationId, purchaseInputs, user.email!);
+      // The service ID is now the exam body name (e.g., 'WAEC')
+      const result = await purchaseService(user.uid, examBodyService.id, values.variationId, purchaseInputs, user.email!);
 
       if (typeof result !== 'string' && result.pins && Array.isArray(result.pins) && result.pins.length > 0) {
         setGeneratedPin(result.pins);
@@ -186,7 +179,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
     );
   }
 
-  if (!educationService || !examBodyVariation) {
+  if (!examBodyService) {
       return (
         <div className="mx-auto max-w-2xl space-y-8">
              <div>
@@ -196,7 +189,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Service Unavailable</AlertTitle>
               <AlertDescription>
-                The requested education service '{examBody}' is inactive or could not be found.
+                The requested education service '{examBodyId}' is inactive or could not be found.
               </AlertDescription>
             </Alert>
         </div>
@@ -208,8 +201,8 @@ export default function EducationPinPurchasePage({ params }: { params: { service
     <>
       <div className="mx-auto max-w-2xl space-y-8">
         <div>
-          <h1 className="text-3xl font-bold">{examBodyVariation.name} E-Pin</h1>
-          <p className="text-muted-foreground">Purchase pins for {examBodyVariation.name}.</p>
+          <h1 className="text-3xl font-bold">{examBodyService.name} E-Pin</h1>
+          <p className="text-muted-foreground">Purchase pins for {examBodyService.name}.</p>
         </div>
 
         <Card>
@@ -234,7 +227,7 @@ export default function EducationPinPurchasePage({ params }: { params: { service
                       <Select onValueChange={field.onChange} value={field.value} disabled={pinTypes.length === 0}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder={pinTypes.length === 0 ? `No pins available for ${examBodyVariation.name}` : "Select a pin type"} />
+                            <SelectValue placeholder={pinTypes.length === 0 ? `No pins available for ${examBodyService.name}` : "Select a pin type"} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>

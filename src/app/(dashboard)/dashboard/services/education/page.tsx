@@ -13,7 +13,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 export default function EducationServicesHubPage() {
-    const [educationService, setEducationService] = useState<Service | null>(null);
+    const [educationServices, setEducationServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -21,10 +21,10 @@ export default function EducationServicesHubPage() {
             setLoading(true);
             try {
                 const allServices = await getServices();
-                const mainEducationService = allServices.find(
+                const filteredServices = allServices.filter(
                     service => service.category === 'Education' && service.status === 'Active'
                 );
-                setEducationService(mainEducationService || null);
+                setEducationServices(filteredServices);
             } catch (error) {
                 console.error("Failed to fetch education services:", error);
             } finally {
@@ -45,15 +45,15 @@ export default function EducationServicesHubPage() {
                 <div className="flex justify-center items-center h-40">
                     <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
-            ) : educationService && educationService.variations && educationService.variations.length > 0 ? (
+            ) : educationServices.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {educationService.variations.map((variation) => {
+                    {educationServices.map((service) => {
                         return (
-                            <Link href={`/dashboard/services/education/${variation.id}`} key={variation.id}>
+                            <Link href={`/dashboard/services/education/${service.id}`} key={service.id}>
                                 <Card className="hover:bg-secondary transition-colors h-full">
                                     <CardContent className="flex flex-col items-center justify-center p-6 gap-4 text-center">
-                                        <ServiceIcon serviceName={variation.name} />
-                                        <span className="text-center font-medium">{variation.name}</span>
+                                        <ServiceIcon serviceName={service.name} />
+                                        <span className="text-center font-medium">{service.name}</span>
                                     </CardContent>
                                 </Card>
                             </Link>
