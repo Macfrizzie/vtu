@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Loader2, Trash2 } from 'lucide-react';
+import { PlusCircle, Loader2, Trash2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { 
     addDataPlan, getDataPlans, deleteDataPlan, updateDataPlanStatus, updateDataPlansStatusByType,
@@ -27,6 +27,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { BulkUploadDialog } from './bulk-upload-dialog';
 
 // --- Fixed Network Data ---
 const networks = [
@@ -60,6 +61,7 @@ export function DataPricingTab() {
     const [dataPlans, setDataPlans] = useState<DataPlan[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
     const form = useForm<z.infer<typeof dataPlanSchema>>({
         resolver: zodResolver(dataPlanSchema),
@@ -192,10 +194,19 @@ export function DataPricingTab() {
     const validities = ['1 day', '2 days', '3 days', '7 days', '14 days', '30 days', '30 days/1 month', '60 days', '1 year'];
 
     return (
+        <>
         <Card>
             <CardHeader>
-                <CardTitle>Data Plan Base Prices</CardTitle>
-                <CardDescription>Manually input data plans and their prices. This is where you define the products available to users.</CardDescription>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle>Data Plan Base Prices</CardTitle>
+                        <CardDescription>Manually input data plans and their prices, or use the bulk upload feature.</CardDescription>
+                    </div>
+                    <Button variant="outline" onClick={() => setIsBulkUploadOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Bulk Upload
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -299,6 +310,12 @@ export function DataPricingTab() {
                 )}
             </CardContent>
         </Card>
+        <BulkUploadDialog 
+            isOpen={isBulkUploadOpen}
+            onClose={() => setIsBulkUploadOpen(false)}
+            onSuccess={fetchData}
+        />
+        </>
     );
 }
 
@@ -840,3 +857,5 @@ export function EducationPricingTab() {
         </Card>
     );
 }
+
+    

@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -738,7 +737,8 @@ export async function getServices(): Promise<Service[]> {
                 service.variations = examBodies.map(examBody => ({
                     id: examBody,
                     name: examBody,
-                    price: 0
+                    price: 0,
+                    plans: allEducationPinTypes.filter(p => p.examBody === examBody)
                 }));
                 break;
             case 'Airtime':
@@ -855,6 +855,18 @@ export async function deleteApiProvider(id: string) {
 }
 
 // --- Data Plan Pricing Functions ---
+export async function bulkAddDataPlans(plans: Omit<DataPlan, 'id'>[]) {
+    const batch = writeBatch(db);
+    const plansCollection = collection(db, 'dataPlans');
+    
+    plans.forEach(plan => {
+        const docRef = doc(plansCollection);
+        batch.set(docRef, { ...plan, status: 'Active' });
+    });
+
+    await batch.commit();
+}
+
 export async function addDataPlan(plan: Omit<DataPlan, 'id'>) {
     await addDoc(collection(db, 'dataPlans'), plan);
 }
@@ -1037,9 +1049,5 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
-
-
-
-
 
     
