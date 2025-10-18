@@ -524,7 +524,8 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 };
             } else if (service.category === 'Recharge Card') {
                 const networkVariation = service.variations?.find(v => v.id === inputs.networkId);
-                const selectedDenomination = networkVariation?.plans?.find(p => p.id === variationId);
+                
+                const selectedDenomination = networkVariation?.variations?.find(p => p.id === variationId);
 
                  if (!selectedDenomination || !networkVariation) {
                     throw new Error("Could not find the selected recharge card denomination.");
@@ -723,7 +724,7 @@ export async function getServices(): Promise<Service[]> {
                      id: networkName,
                      name: networkName,
                      price: 0, 
-                     plans: allRechargeDenominations.filter(p => p.networkName === networkName && p.status === 'Active').map(d => ({
+                     variations: allRechargeDenominations.filter(p => p.networkName === networkName && p.status === 'Active').map(d => ({
                          id: d.id, 
                          planId: d.denominationId,
                          name: d.name,

@@ -107,9 +107,8 @@ export default function RechargeCardPage() {
   const quantity = form.watch('quantity');
   
   const availableDenominations = useMemo(() => {
-    const selectedNetwork = rechargeCardService?.variations?.find(v => v.id === selectedNetworkId);
-    console.log('💳 RECHARGE CARD PAGE: Selected network in useMemo:', selectedNetwork?.name);
-    console.log('💳 RECHARGE CARD PAGE: Denominations for selected network:', selectedNetwork?.variations);
+    if (!selectedNetworkId || !rechargeCardService?.variations) return [];
+    const selectedNetwork = rechargeCardService.variations.find(v => v.id === selectedNetworkId);
     return selectedNetwork?.variations || [];
   }, [selectedNetworkId, rechargeCardService]);
   
@@ -152,6 +151,7 @@ export default function RechargeCardPage() {
       const purchaseInputs = { 
         quantity: values.quantity,
         name_on_card: userData.fullName,
+        networkId: values.networkId,
       };
       
       const result = await purchaseService(user.uid, rechargeCardService.id, values.variationId, purchaseInputs, user.email!);
