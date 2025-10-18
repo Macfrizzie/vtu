@@ -14,7 +14,6 @@ const navItems = [
     { href: '/admin/pricing', title: 'Pricing', icon: <DollarSign /> },
     { href: '/admin/transactions', title: 'Transactions', icon: <History /> },
     { href: '/admin/system-health', title: 'Health', icon: <HeartPulse /> },
-    { href: '/admin/initialize-data', title: 'Initialize', icon: <GanttChartSquare /> },
 ];
 
 export function AdminBottomNav() {

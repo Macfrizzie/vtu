@@ -42,8 +42,7 @@ export default function SystemHealthPage() {
             const result = await testFn();
             toast({ title: `${testName} Complete`, description: 'Check console for detailed logs.' });
             console.log(`[${testName} Result]`, result);
-            // Refetch health after running a test that might change state
-            if (['Initialize/Seed Missing Data', 'Verify Database Structure'].includes(testName)) {
+            if (['Verify Database Structure'].includes(testName)) {
                 await fetchHealth();
             }
         } catch (error: any) {
@@ -142,10 +141,6 @@ export default function SystemHealthPage() {
                         {runningTest === 'Verify Database Structure' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
                         Verify DB Structure
                     </Button>
-                     <Button onClick={() => handleRunTest('Initialize/Seed Missing Data', initializeServices)} disabled={!!runningTest}>
-                        {runningTest === 'Initialize/Seed Missing Data' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <HardDrive className="mr-2 h-4 w-4" />}
-                        Seed Missing Data
-                    </Button>
                 </CardContent>
             </Card>
 
@@ -237,4 +232,3 @@ export default function SystemHealthPage() {
         </div>
     );
 }
-

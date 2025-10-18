@@ -17,12 +17,10 @@ const navItems: NavItem[] = [
     { href: '/admin/pricing', title: 'Pricing', icon: <DollarSign className="h-4 w-4" /> },
     { href: '/admin/transactions', title: 'Transactions', icon: <History className="h-4 w-4" /> },
     { href: '/admin/api-providers', title: 'API Providers', icon: <Plug className="h-4 w-4" /> },
-    { href: '/admin/api-connector', title: 'AI Connector', icon: <Cog className="h-4 w-4" /> },
     { href: '/admin/system-health', title: 'System Health', icon: <HeartPulse className="h-4 w-4" /> },
-    { href: '/admin/initialize-data', title: 'Initialize Data', icon: <GanttChartSquare className="h-4 w-4" /> },
 ];
 
-const protectedAdminRoutes = ['/admin/dashboard', '/admin/users', '/admin/services', '/admin/transactions', '/admin/api-providers', '/admin/api-connector', '/admin/pricing', '/admin/seed-data', '/admin/initialize-data', '/admin/system-health'];
+const protectedAdminRoutes = ['/admin/dashboard', '/admin/users', '/admin/services', '/admin/transactions', '/admin/api-providers', '/admin/pricing', '/admin/system-health'];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
