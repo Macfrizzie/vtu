@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -200,9 +199,26 @@ export async function initializeServices(): Promise<string[]> {
         const rechargeCardSnapshot = await getDocs(rechargeCardDenominationsCollection);
         if (rechargeCardSnapshot.empty) {
             const denominations = [
+                // MTN
                 { networkName: 'MTN', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
                 { networkName: 'MTN', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                // GLO
+                { networkName: 'GLO', denominationId: 'glo-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                // AIRTEL
                 { networkName: 'AIRTEL', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                 // 9MOBILE
+                { networkName: '9MOBILE', denominationId: '9mobile-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
             ];
             denominations.forEach(denom => {
                 const denomDocRef = doc(rechargeCardDenominationsCollection);
@@ -263,8 +279,8 @@ export async function getUserData(uid: string): Promise<UserData | null> {
         const userData = {
             ...data,
             uid: userSnap.id,
-            createdAt: createdAt,
-            lastLogin: lastLogin
+            createdAt: createdAt.toISOString(),
+            lastLogin: lastLogin.toISOString()
         } as UserData;
         console.log(`[UserProvider] Data fetch complete for ${uid}`);
         return userData;
@@ -503,7 +519,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 
                 requestBody = {
                     exam_name: selectedPin.examBody,
-                    variation_code: selectedPin.name,
+                    variation_code: selectedPin.pinTypeId,
                     quantity: inputs.quantity || 1,
                 };
             } else if (service.category === 'Recharge Card') {
@@ -672,7 +688,6 @@ export async function getServices(): Promise<Service[]> {
     const finalServices: Service[] = [];
     
     for (const service of baseServices) {
-        let processed = false;
         
         switch(service.category) {
             case 'Data':
@@ -1024,3 +1039,6 @@ export async function verifyDatabaseSetup() {
 
 
 
+
+
+    
