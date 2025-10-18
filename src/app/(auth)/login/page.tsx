@@ -64,11 +64,11 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
+    <Card className="w-full max-w-sm border-border/40">
+      <CardHeader className="space-y-1 text-center">
+        <CardTitle className="text-2xl">Welcome Back</CardTitle>
         <CardDescription>
-          Enter your email and password to access your account
+          Sign in to access your dashboard and services.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -81,7 +81,7 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="m@example.com" {...field} />
+                    <Input type="email" placeholder="you@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,7 +125,7 @@ export default function LoginPage() {
             </Button>
             <div className="text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
-              <Link href="/signup" className="text-primary hover:underline">
+              <Link href="/signup" className="font-semibold text-primary hover:underline">
                 Sign up
               </Link>
             </div>

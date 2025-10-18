@@ -68,11 +68,11 @@ export default function SignupPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl">Create an account</CardTitle>
+    <Card className="w-full max-w-sm border-border/40">
+      <CardHeader className="space-y-1 text-center">
+        <CardTitle className="text-2xl">Create an Account</CardTitle>
         <CardDescription>
-          Enter your details below to create your account
+          Enter your details below to start your journey with VTU Boss.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -98,7 +98,7 @@ export default function SignupPage() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="m@example.com" {...field} />
+                    <Input type="email" placeholder="you@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -121,17 +121,14 @@ export default function SignupPage() {
               control={form.control}
               name="terms"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-2 space-y-0 pt-2">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-2">
                   <FormControl>
                     <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>
-                      Accept terms and conditions
+                      I agree to the terms and conditions
                     </FormLabel>
-                    <FormDescription>
-                      You agree to our Terms of Service and Privacy Policy.
-                    </FormDescription>
                      <FormMessage />
                   </div>
                 </FormItem>
@@ -145,7 +142,7 @@ export default function SignupPage() {
             </Button>
             <div className="text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/login" className="text-primary hover:underline">
+              <Link href="/login" className="font-semibold text-primary hover:underline">
                 Login
               </Link>
             </div>

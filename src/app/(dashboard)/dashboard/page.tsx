@@ -12,7 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -78,22 +78,22 @@ export default function DashboardPage() {
                 setServices(filteredServices);
                 
                 const activeServices = filteredServices.filter(s => s.status === 'Active');
-                const links = activeServices.slice(0, 3).map(service => (
-                    <Link href={getServiceUrl(service)} key={service.id}>
-                        <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                            <ServiceIcon serviceName={service.name} className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-xs font-medium">{service.name.split(' ')[0]}</span>
+                const links = activeServices.slice(0, 7).map(service => (
+                    <Link href={getServiceUrl(service)} key={service.id} className="flex flex-col items-center justify-center text-center gap-2 group">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary transition-colors group-hover:bg-primary">
+                            <ServiceIcon serviceName={service.name} className="h-6 w-6 text-primary transition-colors group-hover:text-primary-foreground" />
                         </div>
+                        <span className="text-xs font-medium text-muted-foreground">{service.name.split(' ')[0]}</span>
                     </Link>
                 ));
 
-                if (allServices.length > 3) {
+                if (allServices.length > 7) {
                     links.push(
-                        <Link href="/dashboard/services" key="more">
-                            <div className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                                <MoreHorizontal size={24} className="text-muted-foreground" />
-                                <span className="text-xs font-medium">More</span>
+                         <Link href="/dashboard/services" key="more" className="flex flex-col items-center justify-center text-center gap-2 group">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary transition-colors group-hover:bg-primary">
+                                <MoreHorizontal className="h-6 w-6 text-primary transition-colors group-hover:text-primary-foreground" />
                             </div>
+                            <span className="text-xs font-medium text-muted-foreground">More</span>
                         </Link>
                     );
                 }
@@ -129,49 +129,56 @@ export default function DashboardPage() {
   return (
     <div className="p-0">
       <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-12 w-12">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-12 w-12 border-2 border-primary/20">
             <AvatarImage src={user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`} />
             <AvatarFallback>{userData?.fullName?.[0] || user?.email?.[0] || 'U'}</AvatarFallback>
           </Avatar>
-          <h1 className="text-xl font-semibold text-foreground">
-             Welcome, {loading ? '...' : userData?.fullName?.split(' ')[0] || 'User'}
-          </h1>
+          <div>
+            <p className="text-sm text-muted-foreground">Good morning,</p>
+            <h1 className="text-xl font-bold text-foreground">
+                {loading ? '...' : userData?.fullName?.split(' ')[0] || 'User'}
+            </h1>
+          </div>
         </div>
         <Button variant="ghost" size="icon" className="text-muted-foreground">
           <Bell size={24} />
         </Button>
       </header>
+      
+      <Card className="w-full bg-primary text-primary-foreground overflow-hidden relative mb-8">
+        <CardContent className="p-6 relative z-10">
+            <p className="text-sm opacity-80">Available Balance</p>
+            <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-2">
+                    {loading ? (
+                         <Loader2 className="h-8 w-8 animate-spin" />
+                    ) : (
+                        <p className="text-4xl font-bold">₦{userData?.walletBalance?.toLocaleString() || '0.00'}</p>
+                    )}
+                    <Button variant="ghost" size="icon" className="text-primary-foreground/80 hover:text-primary-foreground hover:bg-white/20">
+                    <Eye size={24} />
+                    </Button>
+                </div>
+                <Button variant="secondary" asChild className="rounded-full bg-primary-foreground text-primary hover:bg-primary-foreground/90">
+                    <Link href="/dashboard/wallet">
+                    <Plus size={16} />
+                    Fund Wallet
+                    </Link>
+                </Button>
+            </div>
+        </CardContent>
+         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/az-subtle.png')] opacity-10 z-0"></div>
+      </Card>
+
 
       <section className="mb-8">
-        <p className="mb-2 text-sm text-muted-foreground">Available Balance</p>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {loading ? (
-                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            ) : (
-                <p className="text-4xl font-bold">₦{userData?.walletBalance?.toLocaleString() || '0.00'}</p>
-            )}
-            <Button variant="ghost" size="icon">
-              <Eye size={24} className="text-muted-foreground" />
-            </Button>
-          </div>
-          <Button asChild className="rounded-full">
-            <Link href="/dashboard/wallet">
-              <Plus size={16} />
-              Fund Wallet
-            </Link>
-          </Button>
-        </div>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-4 font-semibold text-foreground">Quick Links</h2>
-        <div className="grid grid-cols-4 gap-3">
+        <h2 className="mb-4 font-semibold text-foreground">Quick Services</h2>
+        <div className="grid grid-cols-4 gap-4">
             {dataLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2 rounded-xl border bg-card p-3 text-center">
-                        <Skeleton className="h-6 w-6 rounded-md" />
+                Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                        <Skeleton className="h-12 w-12 rounded-full" />
                         <Skeleton className="h-3 w-10" />
                     </div>
                 ))
@@ -186,35 +193,25 @@ export default function DashboardPage() {
             <CarouselContent>
                 <CarouselItem>
                     <Link href="/dashboard/wallet">
-                        <Card className="relative overflow-hidden rounded-xl bg-secondary/50 p-6 shadow-none">
+                        <Card className="relative overflow-hidden rounded-xl bg-blue-500/10 p-6 shadow-none border-blue-500/20">
                         <CardContent className="p-0">
                             <div className="relative z-10">
-                            <h3 className="text-lg font-semibold">Fund Wallet with Card</h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Add money to your wallet using your credit or debit card.
+                            <h3 className="text-lg font-semibold text-blue-900">Easy Wallet Top-up</h3>
+                            <p className="mt-1 text-sm text-blue-800/80">
+                                Fund your wallet using Card or Bank Transfer.
                             </p>
                             </div>
-                            {PlaceHolderImages.find(img => img.id === 'feature-wallet') && (
-                            <Image
-                                src={PlaceHolderImages.find(img => img.id === 'feature-wallet')!.imageUrl}
-                                alt={PlaceHolderImages.find(img => img.id === 'feature-wallet')!.description}
-                                width={150}
-                                height={100}
-                                className="absolute -right-8 -top-4 z-0"
-                                data-ai-hint={PlaceHolderImages.find(img => img.id === 'feature-wallet')!.imageHint}
-                            />
-                            )}
                         </CardContent>
                         </Card>
                     </Link>
                 </CarouselItem>
                 <CarouselItem>
                    <Link href="#">
-                        <Card className="relative overflow-hidden rounded-xl bg-blue-500/10 p-6 shadow-none">
+                        <Card className="relative overflow-hidden rounded-xl bg-green-500/10 p-6 shadow-none border-green-500/20">
                         <CardContent className="p-0">
                             <div className="relative z-10">
-                            <h3 className="text-lg font-semibold text-blue-800">Refer & Earn</h3>
-                            <p className="mt-1 text-sm text-blue-700/80">
+                            <h3 className="text-lg font-semibold text-green-900">Refer & Earn Big</h3>
+                            <p className="mt-1 text-sm text-green-800/80">
                                 Invite your friends and earn rewards when they transact.
                             </p>
                             </div>
@@ -228,7 +225,7 @@ export default function DashboardPage() {
 
       <section>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold text-foreground">Transactions</h2>
+          <h2 className="font-semibold text-foreground">Recent Transactions</h2>
           <Link
             href="/dashboard/history"
             className="flex items-center text-sm font-medium text-primary"
@@ -237,49 +234,48 @@ export default function DashboardPage() {
           </Link>
         </div>
         {dataLoading ? (
-            <div className="space-y-4">
+            <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
-                    <Card key={i} className="rounded-xl p-4 shadow-none">
-                        <CardContent className="flex items-center justify-between p-0">
-                            <div className="flex items-center gap-4">
-                                <Skeleton className="h-10 w-10 rounded-full" />
-                                <div className="space-y-2">
-                                    <Skeleton className="h-4 w-32" />
-                                    <Skeleton className="h-3 w-24" />
-                                </div>
+                    <div key={i} className="flex items-center justify-between p-4 rounded-lg bg-secondary/50">
+                        <div className="flex items-center gap-4">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-2">
+                                <Skeleton className="h-4 w-32" />
+                                <Skeleton className="h-3 w-24" />
                             </div>
-                            <Skeleton className="h-5 w-16" />
-                        </CardContent>
-                    </Card>
+                        </div>
+                        <Skeleton className="h-5 w-16" />
+                    </div>
                 ))}
             </div>
         ) : transactions.length === 0 ? (
-            <div className="text-center text-muted-foreground py-10">
-                <p>No transactions yet.</p>
+            <div className="text-center text-muted-foreground py-10 bg-secondary/50 rounded-lg">
+                <p className="font-semibold">No transactions yet</p>
                 <p className="text-sm">Make a purchase or fund your wallet to see activity.</p>
             </div>
         ) : (
-            <div className="space-y-4">
+            <div className="space-y-2">
             {transactions.map((tx) => {
                 const serviceName = getTransactionServiceName(tx.description);
                 return (
-                    <Card key={tx.id} className="rounded-xl p-4 shadow-none">
+                    <Card key={tx.id} className="rounded-xl p-4 shadow-none bg-secondary/50">
                     <CardContent className="flex items-center justify-between p-0">
                         <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background">
                             {tx.description.toLowerCase().includes('wallet funding') ? (
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                                    <Plus size={20} className="text-blue-600" />
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+                                    <Plus size={20} className="text-green-600 dark:text-green-400" />
                                 </div>
                             ) : (
-                                <ServiceIcon serviceName={serviceName} className="h-8 w-8" />
+                                <ServiceIcon serviceName={serviceName} className="h-6 w-6" />
                             )}
                         </div>
                         <div>
                             <p className="font-semibold">{tx.description}</p>
                             <p className="text-xs text-muted-foreground">
-                                {new Date(tx.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} {' '}
-                                {new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                {new Date(tx.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                {' at '}
+                                {new Date(tx.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                         </div>
                         </div>
@@ -302,3 +298,4 @@ export default function DashboardPage() {
   );
 
     
+
