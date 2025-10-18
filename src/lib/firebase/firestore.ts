@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -491,8 +492,8 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                      amount: inputs.amount,
                  };
             } else if (service.category === 'Education') {
-                const examBodyService = servicesWithData.find(s => s.id === service.id);
-                const selectedPin = examBodyService?.variations?.find(p => p.id === variationId);
+                const allPins = await getEducationPinTypes();
+                const selectedPin = allPins.find(p => p.id === variationId);
 
                 if (!selectedPin) {
                     throw new Error("Could not find the selected E-Pin type.");
@@ -501,7 +502,7 @@ export async function purchaseService(uid: string, serviceId: string, variationI
                 description = `${inputs.quantity} x ${selectedPin.name} Purchase`;
                 
                 requestBody = {
-                    exam_name: examBodyService?.name,
+                    exam_name: selectedPin.examBody,
                     variation_code: selectedPin.name,
                     quantity: inputs.quantity || 1,
                 };
@@ -670,92 +671,74 @@ export async function getServices(): Promise<Service[]> {
 
     const finalServices: Service[] = [];
     
-    baseServices.forEach(service => {
-        if (service.category === 'Education') {
-            const examBodies = [...new Set(allEducationPinTypes.map(p => p.examBody))];
-            
-            examBodies.forEach(examBody => {
-                const plans = allEducationPinTypes
-                    .filter(p => p.examBody === examBody && p.status === 'Active')
-                    .map(p => ({
-                        id: p.id,
-                        planId: p.pinTypeId,
-                        name: p.name,
-                        price: p.price,
-                        fees: p.fees,
-                        examBody: p.examBody,
-                    }));
-
-                if (plans.length > 0) {
-                     finalServices.push({
-                        ...service, // copy properties from the main "Education" service
-                        id: examBody, // Use examBody as a unique identifier for the hub page
-                        name: examBody,
-                        variations: plans, // The actual pin types are now the variations
-                     });
+    for (const service of baseServices) {
+        let processed = false;
+        
+        switch(service.category) {
+            case 'Data':
+                const networks = [...new Set(allDataPlans.map(p => p.networkName))];
+                service.variations = networks.map(networkName => ({
+                    id: networkName,
+                    name: networkName,
+                    price: 0,
+                    plans: allDataPlans.filter(p => p.networkName === networkName && p.status === 'Active'),
+                }));
+                break;
+            case 'Cable':
+                service.variations = allCablePlans.map(p => ({
+                    id: p.planId,
+                    name: p.planName,
+                    price: p.basePrice,
+                    providerName: p.providerName,
+                    status: p.status || 'Active',
+                }));
+                break;
+            case 'Electricity':
+                service.variations = allDiscos.map(d => ({
+                    id: d.discoId,
+                    name: d.discoName,
+                    price: 0,
+                    fees: { Customer: 100, Vendor: 100, Admin: 0 },
+                    status: d.status || 'Active',
+                }));
+                break;
+            case 'Recharge Card':
+                 const rcNetworks = [...new Set(allRechargeDenominations.map(p => p.networkName))];
+                 service.variations = rcNetworks.map(networkName => ({
+                     id: networkName,
+                     name: networkName,
+                     price: 0, 
+                     plans: allRechargeDenominations.filter(p => p.networkName === networkName && p.status === 'Active').map(d => ({
+                         id: d.id, 
+                         planId: d.denominationId,
+                         name: d.name,
+                         price: d.price,
+                         fees: d.fees
+                     })),
+                 }));
+                break;
+            case 'Education':
+                const examBodies = [...new Set(allEducationPinTypes.map(p => p.examBody))];
+                service.variations = examBodies.map(examBody => ({
+                    id: examBody,
+                    name: examBody,
+                    price: 0
+                }));
+                break;
+            case 'Airtime':
+                if (!service.variations) {
+                  service.variations = [];
                 }
-            });
-
-        } else {
-             // If variations are already embedded for Airtime, use them.
-            if (service.category === 'Airtime' && service.variations && service.variations.length > 0) {
-                finalServices.push(service);
-                return;
-            }
-
-            switch(service.category) {
-                case 'Data':
-                    const networks = [...new Set(allDataPlans.map(p => p.networkName))];
-                    service.variations = networks.map(networkName => ({
-                        id: networkName,
-                        name: networkName,
-                        price: 0,
-                        plans: allDataPlans.filter(p => p.networkName === networkName && p.status === 'Active'),
-                    }));
-                    break;
-                case 'Cable':
-                    service.variations = allCablePlans.map(p => ({
-                        id: p.planId,
-                        name: p.planName,
-                        price: p.basePrice,
-                        providerName: p.providerName,
-                        status: p.status || 'Active',
-                    }));
-                    break;
-                case 'Electricity':
-                    service.variations = allDiscos.map(d => ({
-                        id: d.discoId,
-                        name: d.discoName,
-                        price: 0,
-                        fees: { Customer: 100, Vendor: 100, Admin: 0 },
-                        status: d.status || 'Active',
-                    }));
-                    break;
-                case 'Recharge Card':
-                    const rcNetworks = [...new Set(allRechargeDenominations.map(p => p.networkName))];
-                    service.variations = rcNetworks.map(networkName => ({
-                        id: networkName,
-                        name: networkName,
-                        price: 0, // This is a network group, not a specific plan
-                        // The actual plans are nested inside
-                        plans: allRechargeDenominations.filter(p => p.networkName === networkName && p.status === 'Active').map(d => ({
-                            id: d.id, // Use Firestore doc ID as the unique key
-                            planId: d.denominationId, // The provider-specific ID
-                            name: d.name,
-                            price: d.price,
-                            fees: d.fees
-                        })),
-                    }));
-                    break;
-                default:
-                    if (!service.variations) {
-                        service.variations = [];
-                    }
-                    break;
-            }
-             finalServices.push(service);
+                break;
+            default:
+                if (!service.variations) {
+                    service.variations = [];
+                }
+                break;
         }
-    });
+
+        finalServices.push(service);
+    }
 
     return finalServices;
 }
@@ -956,8 +939,12 @@ export async function addEducationPinType(pinType: Omit<EducationPinType, 'id'>)
     await addDoc(collection(db, 'educationPinTypes'), { ...pinType, status: 'Active' });
 }
 
-export async function getEducationPinTypes(): Promise<EducationPinType[]> {
-    const snapshot = await getDocs(query(collection(db, 'educationPinTypes')));
+export async function getEducationPinTypes(examBody?: string): Promise<EducationPinType[]> {
+    let q = query(collection(db, 'educationPinTypes'));
+    if (examBody) {
+        q = query(q, where('examBody', '==', examBody));
+    }
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EducationPinType));
 }
 
@@ -1034,5 +1021,6 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
+
 
 
