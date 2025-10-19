@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -44,9 +43,10 @@ import { useState, useMemo, useEffect } from 'react';
 import { Loader2, Copy, Check, AlertCircle } from 'lucide-react';
 import { purchaseService, getEducationPinTypes, getServices } from '@/lib/firebase/firestore';
 import { Label } from '@/components/ui/label';
-import type { EducationPinType } from '@/lib/types';
+import type { EducationPinType, Service } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const formSchema = z.object({
   variationId: z.string().min(1, 'Please select a pin type.'),
@@ -65,11 +65,11 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
   const { user, userData, loading, forceRefetch } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const [generatedPin, setGeneratedPin] = useState<GeneratedPin[] | null>(null);
-  const [isCopied, setIsCopied] = useState<'pin' | 'serial' | null>(null);
+  const [generatedPins, setGeneratedPins] = useState<GeneratedPin[] | null>(null);
+  const [isCopied, setIsCopied] = useState<string | null>(null);
   const [pinTypes, setPinTypes] = useState<EducationPinType[]>([]);
   const [servicesLoading, setServicesLoading] = useState(true);
-  const [educationServiceId, setEducationServiceId] = useState<string | null>(null);
+  const [educationService, setEducationService] = useState<Service | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -92,7 +92,7 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
             const relevantService = allServices.find(s => s.category === 'Education');
             
             setPinTypes(allPins.filter(p => p.status === 'Active'));
-            setEducationServiceId(relevantService?.id || null);
+            setEducationService(relevantService || null);
 
         } catch (error) {
             console.error(`Failed to fetch data for ${examBody}:`, error);
@@ -112,17 +112,17 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
       pinTypes.find(p => p.id === selectedVariationId)
   , [pinTypes, selectedVariationId]);
 
-  const copyToClipboard = (text: string, type: 'pin' | 'serial') => {
+  const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text).then(() => {
-      setIsCopied(type);
+      setIsCopied(id);
       setTimeout(() => setIsCopied(null), 2000);
     });
   };
   
-  const totalCost = selectedPin && userData ? (selectedPin.price + (selectedPin.fees?.[userData.role] || 0)) * quantity : 0;
+  const totalCost = selectedPin && userData ? (selectedPin.price + (selectedPin.fees?.[userData.role || 'Customer'] || 0)) * quantity : 0;
 
   async function onSubmit(values: FormData) {
-    if (!user || !userData || !educationServiceId) {
+    if (!user || !userData || !educationService) {
       toast({ variant: 'destructive', title: 'Authentication Error', description: 'You must be logged in to make a purchase.' });
       return;
     }
@@ -142,16 +142,16 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
     }
 
     setIsPurchasing(true);
-    setGeneratedPin(null);
+    setGeneratedPins(null);
     try {
       const purchaseInputs = { 
         quantity: values.quantity,
       };
       
-      const result = await purchaseService(user.uid, educationServiceId, values.variationId, purchaseInputs, user.email!);
+      const result = await purchaseService(user.uid, educationService.id, values.variationId, purchaseInputs, user.email!);
 
       if (typeof result !== 'string' && result.pins && Array.isArray(result.pins) && result.pins.length > 0) {
-        setGeneratedPin(result.pins);
+        setGeneratedPins(result.pins);
         forceRefetch();
         toast({
           title: 'Purchase Successful!',
@@ -182,7 +182,7 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
     );
   }
 
-  if (!educationServiceId) {
+  if (!educationService) {
       return (
         <div className="mx-auto max-w-2xl space-y-8">
              <div>
@@ -204,8 +204,8 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
     <>
       <div className="mx-auto max-w-2xl space-y-8">
         <div>
-          <h1 className="text-3xl font-bold">{examBody} E-Pin</h1>
-          <p className="text-muted-foreground">Purchase pins for {examBody}.</p>
+          <h1 className="text-3xl font-bold">{decodeURIComponent(examBody)} E-Pin</h1>
+          <p className="text-muted-foreground">Purchase pins for {decodeURIComponent(examBody)}.</p>
         </div>
 
         <Card>
@@ -274,44 +274,47 @@ export default function EducationPinPurchasePage({ params }: { params: { examBod
         </Card>
       </div>
 
-      <AlertDialog open={!!generatedPin} onOpenChange={() => setGeneratedPin(null)}>
-        <AlertDialogContent>
+      <AlertDialog open={!!generatedPins} onOpenChange={() => setGeneratedPins(null)}>
+        <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Your Pin Has Been Generated!</AlertDialogTitle>
             <AlertDialogDescription>
               Here are the details of your purchase. Please copy and save them securely.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="space-y-4 py-4">
-            {generatedPin?.map((pinData, index) => (
-              <div key={index} className="space-y-2 border-b pb-4 last:border-b-0 last:pb-0">
-                <div className="space-y-2">
-                    <Label htmlFor={`pin-${index}`}>PIN</Label>
-                    <div className="flex items-center gap-2">
-                        <p id={`pin-${index}`} className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-lg font-semibold">
-                        {pinData.pin}
-                        </p>
-                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(pinData.pin, 'pin')}>
-                        {isCopied === 'pin' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
+          <ScrollArea className="max-h-[50vh] pr-4">
+            <div className="space-y-4 py-4">
+                {generatedPins?.map((pinData, index) => (
+                <div key={index} className="space-y-3 rounded-lg border p-4">
+                    <h3 className="font-semibold">Pin #{index + 1}</h3>
+                    <div className="space-y-1">
+                        <Label htmlFor={`pin-${index}`}>PIN</Label>
+                        <div className="flex items-center gap-2">
+                            <p id={`pin-${index}`} className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-base font-semibold">
+                            {pinData.pin}
+                            </p>
+                            <Button variant="outline" size="icon" onClick={() => copyToClipboard(pinData.pin, `pin-${index}`)}>
+                            {isCopied === `pin-${index}` ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor={`serial-${index}`}>Serial Number</Label>
+                        <div className="flex items-center gap-2">
+                            <p id={`serial-${index}`} className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-sm">
+                            {pinData.serial}
+                            </p>
+                            <Button variant="outline" size="icon" onClick={() => copyToClipboard(pinData.serial, `serial-${index}`)}>
+                            {isCopied === `serial-${index}` ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                            </Button>
+                        </div>
                     </div>
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor={`serial-${index}`}>Serial Number</Label>
-                    <div className="flex items-center gap-2">
-                        <p id={`serial-${index}`} className="w-full rounded-md border bg-muted px-3 py-2 font-mono text-lg font-semibold">
-                        {pinData.serial}
-                        </p>
-                        <Button variant="outline" size="icon" onClick={() => copyToClipboard(pinData.serial, 'serial')}>
-                        {isCopied === 'serial' ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                    </div>
-                </div>
-              </div>
-            ))}
-          </div>
+                ))}
+            </div>
+           </ScrollArea>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setGeneratedPin(null)}>Close</AlertDialogAction>
+            <AlertDialogAction onClick={() => setGeneratedPins(null)}>Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

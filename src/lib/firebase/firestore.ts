@@ -737,8 +737,7 @@ export async function getServices(): Promise<Service[]> {
                 service.variations = examBodies.map(examBody => ({
                     id: examBody,
                     name: examBody,
-                    price: 0,
-                    plans: allEducationPinTypes.filter(p => p.examBody === examBody)
+                    price: 0
                 }));
                 break;
             case 'Airtime':
@@ -1049,5 +1048,3 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
-
-    
