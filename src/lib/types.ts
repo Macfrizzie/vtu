@@ -74,13 +74,12 @@ export type Service = {
 export type ApiProvider = {
   id: string;
   name:string;
+  providerType: 'Service API' | 'Payment Gateway';
   description?: string;
   baseUrl: string;
-  auth_type: 'None' | 'Token' | 'API Key' | 'Monnify';
+  auth_type: 'None' | 'Token' | 'API Key' | 'Basic Auth';
   apiKey?: string; 
   apiSecret?: string;
-  contractCode?: string;
-  accountReference?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';

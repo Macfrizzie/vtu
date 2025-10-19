@@ -36,13 +36,12 @@ import { testHusmoDataConnection } from '@/services/husmodata';
 
 const providerFormSchema = z.object({
   name: z.string().min(2, 'Provider name must be at least 2 characters.'),
+  providerType: z.enum(['Service API', 'Payment Gateway']),
   description: z.string().optional(),
   baseUrl: z.string().url('Please enter a valid URL.'),
-  auth_type: z.enum(['None', 'Token', 'API Key', 'Monnify']),
+  auth_type: z.enum(['None', 'Token', 'API Key', 'Basic Auth']),
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
-  contractCode: z.string().optional(),
-  accountReference: z.string().optional(),
   requestHeaders: z.string().refine(val => {
     if (!val) return true; // Allow empty string
     try {
@@ -72,21 +71,18 @@ export default function AdminApiProvidersPage() {
     resolver: zodResolver(providerFormSchema),
     defaultValues: {
       name: '',
+      providerType: 'Service API',
       description: '',
       baseUrl: '',
       auth_type: 'Token',
       apiKey: '',
       apiSecret: '',
-      contractCode: '',
-      accountReference: '',
       requestHeaders: '{}',
       transactionCharge: 0,
       status: 'Active',
       priority: 'Primary',
     },
   });
-
-  const watchedAuthType = form.watch('auth_type');
 
   async function fetchProviders() {
     setLoading(true);
@@ -110,24 +106,22 @@ export default function AdminApiProvidersPage() {
     if (provider) {
         form.reset({
             ...provider,
+            providerType: provider.providerType || 'Service API',
             description: provider.description || '',
             apiKey: provider.apiKey || '',
             apiSecret: provider.apiSecret || '',
-            contractCode: provider.contractCode || '',
-            accountReference: provider.accountReference || '',
             requestHeaders: provider.requestHeaders || '{}',
             transactionCharge: provider.transactionCharge || 0,
         });
     } else {
         form.reset({
           name: '',
+          providerType: 'Service API',
           description: '',
           baseUrl: '',
           auth_type: 'Token',
           apiKey: '',
           apiSecret: '',
-          contractCode: '',
-          accountReference: '',
           requestHeaders: '{}',
           transactionCharge: 0,
           status: 'Active',
@@ -144,16 +138,14 @@ export default function AdminApiProvidersPage() {
 
   async function onSubmit(values: ProviderFormData) {
     setIsSubmitting(true);
-    const dataToSubmit = {
+    const dataToSubmit: Omit<ApiProvider, 'id'> = {
       ...values,
       description: values.description || '',
       apiKey: values.apiKey || '',
       apiSecret: values.apiSecret || '',
-      contractCode: values.contractCode || '',
-      accountReference: values.accountReference || '',
       requestHeaders: values.requestHeaders || '{}',
       transactionCharge: values.transactionCharge || 0,
-    }
+    };
 
     try {
       if (editingProvider) {
@@ -224,6 +216,7 @@ export default function AdminApiProvidersPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Provider Name</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Auth Type</TableHead>
                   <TableHead>Charge (₦)</TableHead>
                   <TableHead>Priority</TableHead>
@@ -235,6 +228,11 @@ export default function AdminApiProvidersPage() {
                 {providers.map((provider) => (
                   <TableRow key={provider.id}>
                     <TableCell className="font-medium">{provider.name}</TableCell>
+                    <TableCell>
+                      <Badge variant={provider.providerType === 'Payment Gateway' ? 'default' : 'outline'}>
+                        {provider.providerType || 'Service API'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{provider.auth_type}</Badge>
                     </TableCell>
@@ -323,6 +321,25 @@ export default function AdminApiProvidersPage() {
                 />
                  <FormField
                     control={form.control}
+                    name="providerType"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Provider Type</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="Service API">Service API (VTU, etc.)</SelectItem>
+                                <SelectItem value="Payment Gateway">Payment Gateway</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
+              </div>
+
+               <FormField
+                    control={form.control}
                     name="baseUrl"
                     render={({ field }) => (
                     <FormItem>
@@ -334,7 +351,6 @@ export default function AdminApiProvidersPage() {
                     </FormItem>
                     )}
                 />
-              </div>
 
               <FormField
                 control={form.control}
@@ -363,101 +379,41 @@ export default function AdminApiProvidersPage() {
                           <SelectItem value="None">None</SelectItem>
                           <SelectItem value="Token">Authorization: Token</SelectItem>
                           <SelectItem value="API Key">Authorization: API Key</SelectItem>
-                          <SelectItem value="Monnify">Monnify</SelectItem>
+                          <SelectItem value="Basic Auth">Basic Auth</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                {watchedAuthType !== 'Monnify' && (
-                    <FormField
-                        control={form.control}
-                        name="apiKey"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>API Key / Token</FormLabel>
-                            <FormControl>
-                                <Input type="password" placeholder="Enter API Key or Token" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                )}
-              </div>
-              
-              {watchedAuthType === 'Monnify' ? (
-                <>
-                    <FormField
-                        control={form.control}
-                        name="apiKey"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Monnify API Key</FormLabel>
-                            <FormControl>
-                                <Input type="password" placeholder="Enter Monnify API Key" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="apiSecret"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Monnify Secret Key</FormLabel>
-                            <FormControl>
-                                <Input type="password" placeholder="Enter Monnify Secret Key" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="contractCode"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Monnify Contract Code</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Enter Monnify Contract Code" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                     <FormField
-                        control={form.control}
-                        name="accountReference"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Account Reference (Unique)</FormLabel>
-                            <FormControl>
-                                <Input placeholder="Unique identifier for the reserved account" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </>
-              ) : (
-                <FormField
+                 <FormField
                     control={form.control}
-                    name="apiSecret"
+                    name="apiKey"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>API Secret / Private Key</FormLabel>
+                        <FormLabel>API Key / Username / Token</FormLabel>
                         <FormControl>
-                            <Input type="password" placeholder="Enter API Secret" {...field} />
+                            <Input type="password" placeholder="Enter API Key or Username" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
-              )}
-
+              </div>
+              
+              <FormField
+                    control={form.control}
+                    name="apiSecret"
+                    render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>API Secret / Password</FormLabel>
+                        <FormControl>
+                            <Input type="password" placeholder="Enter API Secret or Password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}
+                />
 
                <FormField
                 control={form.control}
@@ -537,5 +493,3 @@ export default function AdminApiProvidersPage() {
     </div>
   );
 }
-
-    

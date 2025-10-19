@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -6,8 +7,6 @@ import { app } from './client-app';
 import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType, SystemHealth, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
-
-const db = getFirestore(app);
 
 // --- Helper function to build request body based on service category ---
 function buildRequestBody(service: Service, variationId: string, inputs: Record<string, any>, userData: UserData): Record<string, any> {
@@ -802,6 +801,7 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
     if (snapshot.empty) {
         const initialProvider: Omit<ApiProvider, 'id'> = { 
             name: 'HusmoData', 
+            providerType: 'Service API',
             description: 'Primary provider for VTU services.', 
             baseUrl: 'https://husmodata.com/api', 
             status: 'Active', 
