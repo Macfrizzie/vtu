@@ -13,7 +13,7 @@ export default function AdminPricingPage() {
       </div>
 
       <Tabs defaultValue="data" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="flex flex-wrap h-auto justify-start md:grid md:w-full md:grid-cols-5">
           <TabsTrigger value="data">Data Plans</TabsTrigger>
           <TabsTrigger value="cable">Cable TV</TabsTrigger>
           <TabsTrigger value="electricity">Electricity</TabsTrigger>
