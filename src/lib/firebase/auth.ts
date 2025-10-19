@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -20,11 +21,16 @@ async function createUserDocument(uid: string, email: string, fullName: string) 
     uid,
     email,
     fullName,
-    role: 'User',
+    role: 'Customer',
     createdAt: new Date(),
     walletBalance: 0,
     status: 'Active',
     lastLogin: new Date(),
+    reservedAccount: {
+        bankName: 'Monnify',
+        accountNumber: '9876543210',
+        accountName: 'VTUBOSS - ' + fullName.toUpperCase(),
+    }
   };
   await setDoc(userRef, data);
 }

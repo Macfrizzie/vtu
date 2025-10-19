@@ -21,6 +21,11 @@ export type UserData = {
     walletBalance: number;
     status: 'Active' | 'Pending' | 'Blocked';
     lastLogin: Date;
+    reservedAccount?: {
+        bankName: string;
+        accountNumber: string;
+        accountName: string;
+    }
 };
 
 
@@ -50,6 +55,7 @@ export type ServiceVariation = {
   status?: 'Active' | 'Inactive';
   networkName?: string;
   examBody?: string;
+  variations?: ServiceVariation[];
 };
 
 export type Service = {
@@ -70,9 +76,11 @@ export type ApiProvider = {
   name:string;
   description?: string;
   baseUrl: string;
-  auth_type: 'None' | 'Token' | 'API Key';
+  auth_type: 'None' | 'Token' | 'API Key' | 'Monnify';
   apiKey?: string; 
   apiSecret?: string;
+  contractCode?: string;
+  accountReference?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';

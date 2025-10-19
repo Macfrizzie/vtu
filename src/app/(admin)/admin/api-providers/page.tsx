@@ -38,9 +38,11 @@ const providerFormSchema = z.object({
   name: z.string().min(2, 'Provider name must be at least 2 characters.'),
   description: z.string().optional(),
   baseUrl: z.string().url('Please enter a valid URL.'),
-  auth_type: z.enum(['None', 'Token', 'API Key']),
+  auth_type: z.enum(['None', 'Token', 'API Key', 'Monnify']),
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
+  contractCode: z.string().optional(),
+  accountReference: z.string().optional(),
   requestHeaders: z.string().refine(val => {
     if (!val) return true; // Allow empty string
     try {
@@ -75,12 +77,16 @@ export default function AdminApiProvidersPage() {
       auth_type: 'Token',
       apiKey: '',
       apiSecret: '',
+      contractCode: '',
+      accountReference: '',
       requestHeaders: '{}',
       transactionCharge: 0,
       status: 'Active',
       priority: 'Primary',
     },
   });
+
+  const watchedAuthType = form.watch('auth_type');
 
   async function fetchProviders() {
     setLoading(true);
@@ -107,6 +113,8 @@ export default function AdminApiProvidersPage() {
             description: provider.description || '',
             apiKey: provider.apiKey || '',
             apiSecret: provider.apiSecret || '',
+            contractCode: provider.contractCode || '',
+            accountReference: provider.accountReference || '',
             requestHeaders: provider.requestHeaders || '{}',
             transactionCharge: provider.transactionCharge || 0,
         });
@@ -118,6 +126,8 @@ export default function AdminApiProvidersPage() {
           auth_type: 'Token',
           apiKey: '',
           apiSecret: '',
+          contractCode: '',
+          accountReference: '',
           requestHeaders: '{}',
           transactionCharge: 0,
           status: 'Active',
@@ -139,6 +149,8 @@ export default function AdminApiProvidersPage() {
       description: values.description || '',
       apiKey: values.apiKey || '',
       apiSecret: values.apiSecret || '',
+      contractCode: values.contractCode || '',
+      accountReference: values.accountReference || '',
       requestHeaders: values.requestHeaders || '{}',
       transactionCharge: values.transactionCharge || 0,
     }
@@ -351,39 +363,101 @@ export default function AdminApiProvidersPage() {
                           <SelectItem value="None">None</SelectItem>
                           <SelectItem value="Token">Authorization: Token</SelectItem>
                           <SelectItem value="API Key">Authorization: API Key</SelectItem>
+                          <SelectItem value="Monnify">Monnify</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                {watchedAuthType !== 'Monnify' && (
+                    <FormField
+                        control={form.control}
+                        name="apiKey"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>API Key / Token</FormLabel>
+                            <FormControl>
+                                <Input type="password" placeholder="Enter API Key or Token" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                )}
+              </div>
+              
+              {watchedAuthType === 'Monnify' ? (
+                <>
+                    <FormField
+                        control={form.control}
+                        name="apiKey"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Monnify API Key</FormLabel>
+                            <FormControl>
+                                <Input type="password" placeholder="Enter Monnify API Key" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="apiSecret"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Monnify Secret Key</FormLabel>
+                            <FormControl>
+                                <Input type="password" placeholder="Enter Monnify Secret Key" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="contractCode"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Monnify Contract Code</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Enter Monnify Contract Code" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="accountReference"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Account Reference (Unique)</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Unique identifier for the reserved account" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                </>
+              ) : (
                 <FormField
                     control={form.control}
-                    name="apiKey"
+                    name="apiSecret"
                     render={({ field }) => (
                     <FormItem>
-                        <FormLabel>API Key / Token</FormLabel>
+                        <FormLabel>API Secret / Private Key</FormLabel>
                         <FormControl>
-                            <Input type="password" placeholder="Enter API Key or Token" {...field} />
+                            <Input type="password" placeholder="Enter API Secret" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}
                 />
-              </div>
-              <FormField
-                control={form.control}
-                name="apiSecret"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>API Secret / Private Key</FormLabel>
-                    <FormControl>
-                        <Input type="password" placeholder="Enter API Secret" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-              />
+              )}
+
 
                <FormField
                 control={form.control}
@@ -462,10 +536,4 @@ export default function AdminApiProvidersPage() {
       </Dialog>
     </div>
   );
-    
-
-    
-
-    
-
-    
+}

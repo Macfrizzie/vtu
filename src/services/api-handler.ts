@@ -2,6 +2,8 @@
 'use server';
 
 import type { ApiProvider } from '@/lib/types';
+import { Buffer } from 'buffer';
+
 
 /**
  * Universal API Caller for VTU providers.
@@ -29,6 +31,9 @@ export async function callProviderAPI(
     headers['Authorization'] = `Token ${provider.apiKey}`;
   } else if (provider.auth_type === 'API Key' && provider.apiKey) {
     headers['Authorization'] = provider.apiKey;
+  } else if (provider.auth_type === 'Monnify' && provider.apiKey && provider.apiSecret) {
+    const authString = Buffer.from(`${provider.apiKey}:${provider.apiSecret}`).toString('base64');
+    headers['Authorization'] = `Basic ${authString}`;
   }
   // 'None' auth_type requires no special header.
 

@@ -40,6 +40,11 @@ export default function WalletPage() {
         }
     }, [user]);
 
+    const copyToClipboard = (text: string | undefined) => {
+        if (!text) return;
+        navigator.clipboard.writeText(text);
+        toast({ title: 'Copied!', description: `${text} has been copied to your clipboard.` });
+    };
 
     const handleFundWallet = async () => {
         if (!user) {
@@ -91,25 +96,33 @@ export default function WalletPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border bg-secondary p-4">
-              <p className="text-sm font-medium text-muted-foreground">Bank Name</p>
-              <p className="text-lg font-semibold">Wema Bank</p>
-            </div>
-             <div className="rounded-lg border bg-secondary p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                    <p className="text-sm font-medium text-muted-foreground">Account Number</p>
-                    <p className="text-lg font-semibold">9876543210</p>
-                </div>
-                <Button variant="ghost" size="icon">
-                    <Copy className="h-5 w-5"/>
-                </Button>
-              </div>
-            </div>
-             <div className="rounded-lg border bg-secondary p-4">
-              <p className="text-sm font-medium text-muted-foreground">Account Name</p>
-              <p className="text-lg font-semibold">VTUBOSS - {userData?.fullName?.toUpperCase() || user?.displayName?.toUpperCase() || '...'}</p>
-            </div>
+            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : userData?.reservedAccount ? (
+                <>
+                    <div className="rounded-lg border bg-secondary p-4">
+                        <p className="text-sm font-medium text-muted-foreground">Bank Name</p>
+                        <p className="text-lg font-semibold">{userData.reservedAccount.bankName}</p>
+                    </div>
+                    <div className="rounded-lg border bg-secondary p-4">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Account Number</p>
+                                <p className="text-lg font-semibold">{userData.reservedAccount.accountNumber}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => copyToClipboard(userData.reservedAccount?.accountNumber)}>
+                                <Copy className="h-5 w-5"/>
+                            </Button>
+                        </div>
+                    </div>
+                    <div className="rounded-lg border bg-secondary p-4">
+                        <p className="text-sm font-medium text-muted-foreground">Account Name</p>
+                        <p className="text-lg font-semibold">{userData.reservedAccount.accountName}</p>
+                    </div>
+                </>
+            ) : (
+                 <div className="rounded-lg border bg-secondary p-4 text-center">
+                    <p className="text-muted-foreground">No reserved account found. Please contact support.</p>
+                 </div>
+            )}
             <div className="flex flex-col gap-2">
               <Button className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" onClick={handleFundWallet} disabled={isFunding}>
                   {isFunding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
