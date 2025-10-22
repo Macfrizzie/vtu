@@ -8,6 +8,8 @@ import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, 
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 
+const db = getFirestore(app);
+
 // --- Helper function to build request body based on service category ---
 function buildRequestBody(service: Service, variationId: string, inputs: Record<string, any>, userData: UserData): Record<string, any> {
     switch (service.category) {
