@@ -77,9 +77,11 @@ export type ApiProvider = {
   providerType: 'Service API' | 'Payment Gateway';
   description?: string;
   baseUrl: string;
-  auth_type: 'None' | 'Token' | 'API Key' | 'Basic Auth';
+  auth_type: 'None' | 'Token' | 'API Key' | 'Basic Auth' | 'VPay';
   apiKey?: string; 
   apiSecret?: string;
+  vpay_publicKey?: string;
+  vpay_username?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';

@@ -39,9 +39,11 @@ const providerFormSchema = z.object({
   providerType: z.enum(['Service API', 'Payment Gateway']),
   description: z.string().optional(),
   baseUrl: z.string().url('Please enter a valid URL.'),
-  auth_type: z.enum(['None', 'Token', 'API Key', 'Basic Auth']),
+  auth_type: z.enum(['None', 'Token', 'API Key', 'Basic Auth', 'VPay']),
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
+  vpay_publicKey: z.string().optional(),
+  vpay_username: z.string().optional(),
   requestHeaders: z.string().refine(val => {
     if (!val) return true; // Allow empty string
     try {
@@ -77,12 +79,16 @@ export default function AdminApiProvidersPage() {
       auth_type: 'Token',
       apiKey: '',
       apiSecret: '',
+      vpay_publicKey: '',
+      vpay_username: '',
       requestHeaders: '{}',
       transactionCharge: 0,
       status: 'Active',
       priority: 'Primary',
     },
   });
+
+  const authType = form.watch('auth_type');
 
   async function fetchProviders() {
     setLoading(true);
@@ -110,6 +116,8 @@ export default function AdminApiProvidersPage() {
             description: provider.description || '',
             apiKey: provider.apiKey || '',
             apiSecret: provider.apiSecret || '',
+            vpay_publicKey: provider.vpay_publicKey || '',
+            vpay_username: provider.vpay_username || '',
             requestHeaders: provider.requestHeaders || '{}',
             transactionCharge: provider.transactionCharge || 0,
         });
@@ -122,6 +130,8 @@ export default function AdminApiProvidersPage() {
           auth_type: 'Token',
           apiKey: '',
           apiSecret: '',
+          vpay_publicKey: '',
+          vpay_username: '',
           requestHeaders: '{}',
           transactionCharge: 0,
           status: 'Active',
@@ -138,11 +148,9 @@ export default function AdminApiProvidersPage() {
 
   async function onSubmit(values: ProviderFormData) {
     setIsSubmitting(true);
-    const dataToSubmit: Omit<ApiProvider, 'id'> = {
+    const dataToSubmit: Partial<ApiProvider> = {
       ...values,
       description: values.description || '',
-      apiKey: values.apiKey || '',
-      apiSecret: values.apiSecret || '',
       requestHeaders: values.requestHeaders || '{}',
       transactionCharge: values.transactionCharge || 0,
     };
@@ -152,7 +160,7 @@ export default function AdminApiProvidersPage() {
         await updateApiProvider(editingProvider.id, dataToSubmit);
         toast({ title: 'Success!', description: 'API Provider has been updated successfully.' });
       } else {
-        await addApiProvider(dataToSubmit);
+        await addApiProvider(dataToSubmit as Omit<ApiProvider, 'id'>);
         toast({ title: 'Success!', description: 'API Provider has been added successfully.' });
       }
       handleFormClose();
@@ -257,10 +265,12 @@ export default function AdminApiProvidersPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleFormOpen(provider)}>Edit</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleTestConnection(provider)} disabled={isTesting === provider.id}>
-                            {isTesting === provider.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Test Connection
-                          </DropdownMenuItem>
+                          {provider.providerType === 'Service API' && (
+                            <DropdownMenuItem onClick={() => handleTestConnection(provider)} disabled={isTesting === provider.id}>
+                                {isTesting === provider.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Test Connection
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                            <AlertDialog>
                                 <AlertDialogTrigger asChild>
@@ -380,40 +390,36 @@ export default function AdminApiProvidersPage() {
                           <SelectItem value="Token">Authorization: Token</SelectItem>
                           <SelectItem value="API Key">Authorization: API Key</SelectItem>
                           <SelectItem value="Basic Auth">Basic Auth</SelectItem>
+                          <SelectItem value="VPay">VPay</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                 <FormField
-                    control={form.control}
-                    name="apiKey"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>API Key / Username / Token</FormLabel>
-                        <FormControl>
-                            <Input type="password" placeholder="Enter API Key or Username" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
+
+                {authType === 'VPay' ? (
+                  <>
+                    <FormField control={form.control} name="vpay_publicKey" render={({ field }) => (
+                        <FormItem><FormLabel>VPay Public Key</FormLabel><FormControl><Input type="password" placeholder="Enter VPay Public Key" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="vpay_username" render={({ field }) => (
+                        <FormItem><FormLabel>VPay Username</FormLabel><FormControl><Input placeholder="Enter VPay Username" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                  </>
+                ) : authType !== 'None' ? (
+                    <>
+                        <FormField control={form.control} name="apiKey" render={({ field }) => (
+                            <FormItem><FormLabel>API Key / Username / Token</FormLabel><FormControl><Input type="password" placeholder="Enter API Key or Username" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        {authType === 'Basic Auth' && (
+                            <FormField control={form.control} name="apiSecret" render={({ field }) => (
+                                <FormItem><FormLabel>API Secret / Password</FormLabel><FormControl><Input type="password" placeholder="Enter API Secret or Password" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        )}
+                    </>
+                ) : null}
               </div>
-              
-              <FormField
-                    control={form.control}
-                    name="apiSecret"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>API Secret / Password</FormLabel>
-                        <FormControl>
-                            <Input type="password" placeholder="Enter API Secret or Password" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
 
                <FormField
                 control={form.control}
