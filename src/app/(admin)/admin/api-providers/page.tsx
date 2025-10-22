@@ -43,6 +43,7 @@ const providerFormSchema = z.object({
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
   vpay_publicKey: z.string().optional(),
+  vpay_privateKey: z.string().optional(),
   vpay_username: z.string().optional(),
   requestHeaders: z.string().refine(val => {
     if (!val) return true; // Allow empty string
@@ -80,6 +81,7 @@ export default function AdminApiProvidersPage() {
       apiKey: '',
       apiSecret: '',
       vpay_publicKey: '',
+      vpay_privateKey: '',
       vpay_username: '',
       requestHeaders: '{}',
       transactionCharge: 0,
@@ -117,6 +119,7 @@ export default function AdminApiProvidersPage() {
             apiKey: provider.apiKey || '',
             apiSecret: provider.apiSecret || '',
             vpay_publicKey: provider.vpay_publicKey || '',
+            vpay_privateKey: provider.vpay_privateKey || '',
             vpay_username: provider.vpay_username || '',
             requestHeaders: provider.requestHeaders || '{}',
             transactionCharge: provider.transactionCharge || 0,
@@ -131,6 +134,7 @@ export default function AdminApiProvidersPage() {
           apiKey: '',
           apiSecret: '',
           vpay_publicKey: '',
+          vpay_privateKey: '',
           vpay_username: '',
           requestHeaders: '{}',
           transactionCharge: 0,
@@ -401,7 +405,10 @@ export default function AdminApiProvidersPage() {
                 {authType === 'VPay' ? (
                   <>
                     <FormField control={form.control} name="vpay_publicKey" render={({ field }) => (
-                        <FormItem><FormLabel>VPay Public Key</FormLabel><FormControl><Input type="password" placeholder="Enter VPay Public Key" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>VPay Public Key</FormLabel><FormControl><Input placeholder="Enter VPay Public Key" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <FormField control={form.control} name="vpay_privateKey" render={({ field }) => (
+                        <FormItem><FormLabel>VPay Private Key</FormLabel><FormControl><Input type="password" placeholder="Enter VPay Private Key" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="vpay_username" render={({ field }) => (
                         <FormItem><FormLabel>VPay Username</FormLabel><FormControl><Input placeholder="Enter VPay Username" {...field} /></FormControl><FormMessage /></FormItem>

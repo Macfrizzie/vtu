@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -8,38 +9,67 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  type User,
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
+import { createVPayVirtualAccount } from '@/services/vpay';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-async function createUserDocument(uid: string, email: string, fullName: string) {
-  const userRef = doc(db, 'users', uid);
-  const data = {
-    uid,
-    email,
-    fullName,
+async function createUserDocument(user: User) {
+  if (!user.email || !user.displayName) {
+    throw new Error('User email or display name is missing.');
+  }
+
+  const userRef = doc(db, 'users', user.uid);
+  
+  // Create a placeholder document first
+  const initialData = {
+    uid: user.uid,
+    email: user.email,
+    fullName: user.displayName,
     role: 'Customer',
     createdAt: new Date(),
     walletBalance: 0,
     status: 'Active',
     lastLogin: new Date(),
-    reservedAccount: {
-        bankName: 'Monnify',
-        accountNumber: '9876543210',
-        accountName: 'VTUBOSS - ' + fullName.toUpperCase(),
-    }
+    reservedAccount: null, // Placeholder
   };
-  await setDoc(userRef, data);
+  await setDoc(userRef, initialData);
+  console.log(`[Auth] User document created for ${user.uid}. Now creating virtual account.`);
+
+  // Now, create the virtual account
+  try {
+    const vpayAccount = await createVPayVirtualAccount({
+      email: user.email,
+      phone: user.phoneNumber || '', // VPay requires a phone number, might need to collect this at signup
+      contactfirstname: user.displayName.split(' ')[0],
+      contactlastname: user.displayName.split(' ').slice(1).join(' ') || user.displayName.split(' ')[0], // Handle single names
+    });
+    
+    // Update the user document with the new account details
+    await setDoc(userRef, {
+      reservedAccount: {
+        provider: 'VPay',
+        ...vpayAccount,
+      },
+    }, { merge: true });
+     console.log(`[Auth] VPay virtual account created and saved for ${user.uid}.`);
+
+  } catch (error) {
+    console.error(`[Auth] Failed to create VPay virtual account for ${user.uid}:`, error);
+    // Continue even if VPay fails, so user creation doesn't completely fail.
+    // The account can be created later or manually.
+  }
 }
 
 export async function signUpWithEmailAndPassword(email: string, password: string, fullName: string) {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const { user } = userCredential;
   await updateProfile(user, { displayName: fullName });
-  await createUserDocument(user.uid, user.email!, fullName);
+  await createUserDocument(user);
   return userCredential;
 }
 

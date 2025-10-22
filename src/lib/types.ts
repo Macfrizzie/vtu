@@ -1,5 +1,6 @@
 
 
+
 export type User = {
   id: string;
   uid: string;
@@ -22,10 +23,12 @@ export type UserData = {
     status: 'Active' | 'Pending' | 'Blocked';
     lastLogin: Date;
     reservedAccount?: {
+        provider?: 'VPay' | 'Monnify';
         bankName: string;
         accountNumber: string;
         accountName: string;
-    }
+        vpayReference?: string;
+    } | null;
 };
 
 
@@ -81,6 +84,7 @@ export type ApiProvider = {
   apiKey?: string; 
   apiSecret?: string;
   vpay_publicKey?: string;
+  vpay_privateKey?: string;
   vpay_username?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
