@@ -7,6 +7,7 @@ import { app } from './client-app';
 import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType, SystemHealth, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
+import { createVPayVirtualAccount } from '@/services/vpay';
 
 const db = getFirestore(app);
 
@@ -767,17 +768,56 @@ export async function deleteService(id: string) {
 await deleteDoc(serviceRef);
 }
 
+export async function generateVirtualAccountForUser(userId: string): Promise<void> {
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
 
-export async function addUser(data: Omit<UserData, 'uid' | 'createdAt' | 'lastLogin' | 'walletBalance'>) {
+    if (!userSnap.exists()) {
+        throw new Error('User not found.');
+    }
+
+    const userData = userSnap.data() as UserData;
+    if (userData.reservedAccount) {
+        throw new Error('User already has a virtual account.');
+    }
+
+    if (!userData.email || !userData.fullName) {
+        throw new Error('User email or full name is missing, cannot generate account.');
+    }
+    
+    try {
+        const vpayAccount = await createVPayVirtualAccount({
+            email: userData.email,
+            phone: '', // Phone number is not mandatory on user doc, so pass empty
+            contactfirstname: userData.fullName.split(' ')[0],
+            contactlastname: userData.fullName.split(' ').slice(1).join(' ') || userData.fullName.split(' ')[0],
+        });
+
+        await updateDoc(userRef, {
+            reservedAccount: {
+                provider: 'VPay',
+                ...vpayAccount,
+            },
+        });
+    } catch (error) {
+        console.error(`[generateVirtualAccount] Failed for user ${userId}:`, error);
+        throw new Error(`Failed to create VPay virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+}
+
+
+export async function addUser(data: Partial<UserData>) {
     const usersRef = collection(db, 'users');
     
     // This is a simplified version. In a real app, you'd create a user in Firebase Auth first.
     // For now, we'll just add to Firestore.
     const newUser = {
-        ...data,
+        role: 'Customer',
+        status: 'Active',
         walletBalance: 0,
         createdAt: new Date(),
         lastLogin: new Date(),
+        ...data
     };
     
     await addDoc(usersRef, newUser);

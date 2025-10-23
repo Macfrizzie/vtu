@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, use } from 'react';
@@ -9,9 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getUserData, getUserTransactions, manualFundWallet, manualDeductFromWallet, updateUser } from '@/lib/firebase/firestore';
+import { getUserData, getUserTransactions, manualFundWallet, manualDeductFromWallet, updateUser, generateVirtualAccountForUser } from '@/lib/firebase/firestore';
 import type { UserData, Transaction } from '@/lib/types';
-import { Loader2, ArrowLeft, PiggyBank, Landmark, PlusCircle, MinusCircle, Edit } from 'lucide-react';
+import { Loader2, ArrowLeft, PiggyBank, Landmark, PlusCircle, MinusCircle, Edit, Banknote } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -40,6 +41,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
   const [loading, setLoading] = useState(true);
   const [isWalletDialogOpen, setIsWalletDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  const [isGeneratingAccount, setIsGeneratingAccount] = useState(false);
   const [dialogAction, setDialogAction] = useState<'fund' | 'deduct' | null>(null);
   const { toast } = useToast();
 
@@ -115,6 +117,21 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
       toast({ variant: 'destructive', title: 'Update Failed', description: 'Could not update user profile.' });
     }
   }
+
+  const handleGenerateAccount = async () => {
+    if (!user) return;
+    setIsGeneratingAccount(true);
+    try {
+      await generateVirtualAccountForUser(user.uid);
+      toast({ title: 'Success!', description: "Virtual account has been generated and linked." });
+      await fetchData();
+    } catch (error: any) {
+      console.error(error);
+      toast({ variant: 'destructive', title: 'Generation Failed', description: error.message || 'Could not generate virtual account.' });
+    } finally {
+      setIsGeneratingAccount(false);
+    }
+  };
 
 
   const getInitials = (name: string | undefined | null) => {
@@ -245,57 +262,76 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
         <InfoCard label="Member Since" value={new Date(user.createdAt).toLocaleDateString()} />
       </div>
 
-      <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Wallet Actions</CardTitle>
-            <CardDescription>Manually fund or deduct from this user's wallet.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex gap-4">
-            <DialogTrigger asChild>
-              <Button onClick={() => setDialogAction('fund')}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Fund Wallet
-              </Button>
-            </DialogTrigger>
-            <DialogTrigger asChild>
-              <Button variant="destructive" onClick={() => setDialogAction('deduct')}>
-                <MinusCircle className="mr-2 h-4 w-4" /> Deduct Funds
-              </Button>
-            </DialogTrigger>
-          </CardContent>
-        </Card>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{dialogAction === 'fund' ? 'Fund User Wallet' : 'Deduct From User Wallet'}</DialogTitle>
-            <DialogDescription>
-              Enter the amount to {dialogAction}. This action will be logged.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...walletForm}>
-            <form onSubmit={walletForm.handleSubmit(handleWalletAction)} className="space-y-4 py-4">
-              <FormField
-                control={walletForm.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount (₦)</FormLabel>
-                    <FormControl>
-                      <Input type="number" placeholder="e.g., 5000" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button type="submit" disabled={walletForm.formState.isSubmitting}>
-                  {walletForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {dialogAction === 'fund' ? 'Fund Wallet' : 'Deduct Funds'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <Card>
+        <CardHeader>
+            <CardTitle>Account Details</CardTitle>
+            <CardDescription>View funding details and perform wallet actions.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {user.reservedAccount ? (
+                <div className="space-y-2">
+                    <p className="font-semibold">{user.reservedAccount.bankName}</p>
+                    <p>{user.reservedAccount.accountNumber}</p>
+                    <p className="text-muted-foreground">{user.reservedAccount.accountName}</p>
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center gap-4 text-center p-4 border-2 border-dashed rounded-lg">
+                    <p className="text-muted-foreground">This user does not have a virtual account.</p>
+                    <Button onClick={handleGenerateAccount} disabled={isGeneratingAccount}>
+                        {isGeneratingAccount && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Banknote className="mr-2 h-4 w-4" />
+                        Generate Virtual Account
+                    </Button>
+                </div>
+            )}
+             <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
+                <div className="flex gap-4 mt-6">
+                    <DialogTrigger asChild>
+                    <Button onClick={() => setDialogAction('fund')} className="flex-1">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Fund Wallet
+                    </Button>
+                    </DialogTrigger>
+                    <DialogTrigger asChild>
+                    <Button variant="destructive" onClick={() => setDialogAction('deduct')} className="flex-1">
+                        <MinusCircle className="mr-2 h-4 w-4" /> Deduct Funds
+                    </Button>
+                    </DialogTrigger>
+                </div>
+                <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{dialogAction === 'fund' ? 'Fund User Wallet' : 'Deduct From User Wallet'}</DialogTitle>
+                    <DialogDescription>
+                    Enter the amount to {dialogAction}. This action will be logged.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...walletForm}>
+                    <form onSubmit={walletForm.handleSubmit(handleWalletAction)} className="space-y-4 py-4">
+                    <FormField
+                        control={walletForm.control}
+                        name="amount"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Amount (₦)</FormLabel>
+                            <FormControl>
+                            <Input type="number" placeholder="e.g., 5000" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    <DialogFooter>
+                        <Button type="submit" disabled={walletForm.formState.isSubmitting}>
+                        {walletForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {dialogAction === 'fund' ? 'Fund Wallet' : 'Deduct Funds'}
+                        </Button>
+                    </DialogFooter>
+                    </form>
+                </Form>
+                </DialogContent>
+            </Dialog>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
