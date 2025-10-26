@@ -1,10 +1,11 @@
 
 'use server';
 
+import type { ApiProvider } from "@/lib/types";
 import { getApiProviders } from "@/lib/firebase/firestore";
 
 type VPayLoginResponse = {
-  'b-access-token': string;
+  "b-access-token": string;
 };
 
 type VPayCreateCustomerResponse = {
@@ -15,7 +16,7 @@ type VPayCreateCustomerResponse = {
     // other fields as needed
 };
 
-async function getVPayProvider() {
+async function getVPayProvider(): Promise<ApiProvider> {
     const providers = await getApiProviders();
     const vpayProvider = providers.find(p => p.auth_type === 'VPay' && p.status === 'Active');
     if (!vpayProvider) {
@@ -24,16 +25,16 @@ async function getVPayProvider() {
     return vpayProvider;
 }
 
-async function getVPayAccessToken(provider: Awaited<ReturnType<typeof getVPayProvider>>) {
-    if (!provider.vpay_username || !provider.vpay_privateKey) {
-        throw new Error("VPay username or private key is missing in configuration.");
+async function getVPayAccessToken(provider: Awaited<ReturnType<typeof getVPayProvider>>): Promise<string> {
+    if (!provider.vpay_username || !provider.vpay_privateKey || !provider.vpay_publicKey) {
+        throw new Error("VPay username, private key, or public key is missing in configuration.");
     }
     
     const response = await fetch(`${provider.baseUrl}/api/service/v1/query/merchant/login`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'publicKey': provider.vpay_publicKey || ''
+            'publicKey': provider.vpay_publicKey
         },
         body: JSON.stringify({
             username: provider.vpay_username,
@@ -41,13 +42,20 @@ async function getVPayAccessToken(provider: Awaited<ReturnType<typeof getVPayPro
         }),
     });
     
-    const data = await response.json();
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("VPay Login API Error Response:", errorText);
+        throw new Error(`VPay login failed with status: ${response.status}.`);
+    }
+
+    const data: VPayLoginResponse = await response.json();
     
-    if (!response.ok || !data['b-access-token']) {
-        throw new Error('VPay login failed. Could not retrieve access token.');
+    if (!data['b-access-token']) {
+        console.error("VPay Login Response did not contain access token:", data);
+        throw new Error('VPay login failed. Could not retrieve access token from response.');
     }
     
-    return data['b-access-token'] as string;
+    return data['b-access-token'];
 }
 
 export async function createVPayVirtualAccount(customer: {
@@ -68,9 +76,16 @@ export async function createVPayVirtualAccount(customer: {
         },
         body: JSON.stringify(customer),
     });
-
-    const data = await response.json();
     
+    const responseText = await response.text();
+    let data;
+    try {
+        data = JSON.parse(responseText);
+    } catch (e) {
+        console.error('VPay account creation response was not valid JSON:', responseText);
+        throw new Error(`Failed to create VPay virtual account: Server returned invalid data.`);
+    }
+
     if (!response.ok || (data.status && data.status !== 'success')) {
         console.error('VPay account creation failed:', data);
         throw new Error(data.message || 'Failed to create VPay virtual account.');
@@ -78,6 +93,11 @@ export async function createVPayVirtualAccount(customer: {
     
     const accountDetails = data.data; // The actual data is nested here
     
+    if (!accountDetails || !accountDetails.accountNumber) {
+        console.error('VPay response missing account details:', data);
+        throw new Error('VPay account creation response did not contain the expected account details.');
+    }
+
     return {
         accountNumber: accountDetails.accountNumber,
         accountName: accountDetails.accountName,
