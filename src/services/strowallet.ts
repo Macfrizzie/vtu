@@ -30,7 +30,10 @@ export async function createStrowalletVirtualAccount(customer: {
         throw new Error("Strowallet Public Key is missing in the provider configuration.");
     }
 
-    const response = await fetch(provider.baseUrl, {
+    // Construct the full URL
+    const url = `${provider.baseUrl}/virtual-bank/new-customer/`;
+
+    const response = await fetch(url, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -65,5 +68,3 @@ export async function createStrowalletVirtualAccount(customer: {
         bank: accountDetails.bank,
     };
 }
-
-    
