@@ -7,7 +7,7 @@ import { app } from './client-app';
 import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType, SystemHealth, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
-import { createVPayVirtualAccount } from '@/services/vpay';
+import { createStrowalletVirtualAccount } from '@/services/strowallet';
 
 const db = getFirestore(app);
 
@@ -641,6 +641,24 @@ export async function getAllUsers(): Promise<User[]> {
     });
 }
 
+export async function addUser(data: Partial<UserData>) {
+    // This function has been simplified. It no longer creates an Auth user.
+    // It only adds a document to Firestore, which might be incomplete.
+    const usersRef = collection(db, 'users');
+    
+    const newUser = {
+        role: 'Customer',
+        status: 'Active',
+        walletBalance: 0,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        ...data
+    };
+    
+    await addDoc(usersRef, newUser);
+}
+
+
 export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor' | 'Admin'; status: 'Active' | 'Pending' | 'Blocked' }) {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, data);
@@ -786,41 +804,24 @@ export async function generateVirtualAccountForUser(userId: string): Promise<voi
     }
     
     try {
-        const vpayAccount = await createVPayVirtualAccount({
+        const strowalletAccount = await createStrowalletVirtualAccount({
             email: userData.email,
             phone: '', // Phone number is not mandatory on user doc, so pass empty
-            contactfirstname: userData.fullName.split(' ')[0],
-            contactlastname: userData.fullName.split(' ').slice(1).join(' ') || userData.fullName.split(' ')[0],
+            account_name: userData.fullName,
         });
 
         await updateDoc(userRef, {
             reservedAccount: {
-                provider: 'VPay',
-                ...vpayAccount,
+                provider: 'Strowallet',
+                accountNumber: strowalletAccount.account_number,
+                accountName: strowalletAccount.account_name,
+                bankName: strowalletAccount.bank,
             },
         });
     } catch (error) {
         console.error(`[generateVirtualAccount] Failed for user ${userId}:`, error);
-        throw new Error(`Failed to create VPay virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Failed to create Strowallet virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-}
-
-
-export async function addUser(data: Partial<UserData>) {
-    const usersRef = collection(db, 'users');
-    
-    // This is a simplified version. In a real app, you'd create a user in Firebase Auth first.
-    // For now, we'll just add to Firestore.
-    const newUser = {
-        role: 'Customer',
-        status: 'Active',
-        walletBalance: 0,
-        createdAt: new Date(),
-        lastLogin: new Date(),
-        ...data
-    };
-    
-    await addDoc(usersRef, newUser);
 }
 
 
@@ -1074,3 +1075,5 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
+
+    

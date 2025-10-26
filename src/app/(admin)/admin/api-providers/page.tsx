@@ -39,12 +39,13 @@ const providerFormSchema = z.object({
   providerType: z.enum(['Service API', 'Payment Gateway']),
   description: z.string().optional(),
   baseUrl: z.string().url('Please enter a valid URL.'),
-  auth_type: z.enum(['None', 'Token', 'API Key', 'Basic Auth', 'VPay']),
+  auth_type: z.enum(['None', 'Token', 'API Key', 'Basic Auth', 'VPay', 'Strowallet']),
   apiKey: z.string().optional(),
   apiSecret: z.string().optional(),
   vpay_publicKey: z.string().optional(),
   vpay_privateKey: z.string().optional(),
   vpay_username: z.string().optional(),
+  strowallet_publicKey: z.string().optional(),
   requestHeaders: z.string().refine(val => {
     if (!val) return true; // Allow empty string
     try {
@@ -83,6 +84,7 @@ export default function AdminApiProvidersPage() {
       vpay_publicKey: '',
       vpay_privateKey: '',
       vpay_username: '',
+      strowallet_publicKey: '',
       requestHeaders: '{}',
       transactionCharge: 0,
       status: 'Active',
@@ -121,6 +123,7 @@ export default function AdminApiProvidersPage() {
             vpay_publicKey: provider.vpay_publicKey || '',
             vpay_privateKey: provider.vpay_privateKey || '',
             vpay_username: provider.vpay_username || '',
+            strowallet_publicKey: provider.strowallet_publicKey || '',
             requestHeaders: provider.requestHeaders || '{}',
             transactionCharge: provider.transactionCharge || 0,
         });
@@ -136,6 +139,7 @@ export default function AdminApiProvidersPage() {
           vpay_publicKey: '',
           vpay_privateKey: '',
           vpay_username: '',
+          strowallet_publicKey: '',
           requestHeaders: '{}',
           transactionCharge: 0,
           status: 'Active',
@@ -395,6 +399,7 @@ export default function AdminApiProvidersPage() {
                           <SelectItem value="API Key">Authorization: API Key</SelectItem>
                           <SelectItem value="Basic Auth">Basic Auth</SelectItem>
                           <SelectItem value="VPay">VPay</SelectItem>
+                          <SelectItem value="Strowallet">Strowallet</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -414,6 +419,10 @@ export default function AdminApiProvidersPage() {
                         <FormItem><FormLabel>VPay Username</FormLabel><FormControl><Input placeholder="Enter VPay Username" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                   </>
+                ) : authType === 'Strowallet' ? (
+                    <FormField control={form.control} name="strowallet_publicKey" render={({ field }) => (
+                        <FormItem><FormLabel>Strowallet Public Key</FormLabel><FormControl><Input placeholder="Enter Strowallet Public Key" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                 ) : authType !== 'None' ? (
                     <>
                         <FormField control={form.control} name="apiKey" render={({ field }) => (
@@ -506,3 +515,5 @@ export default function AdminApiProvidersPage() {
     </div>
   );
 }
+
+    

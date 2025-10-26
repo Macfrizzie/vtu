@@ -13,7 +13,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import { createVPayVirtualAccount } from '@/services/vpay';
+import { createStrowalletVirtualAccount } from '@/services/strowallet';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -42,26 +42,26 @@ async function createUserDocument(user: User) {
 
   // Now, create the virtual account
   try {
-    const vpayAccount = await createVPayVirtualAccount({
+    const strowalletAccount = await createStrowalletVirtualAccount({
       email: user.email,
-      phone: user.phoneNumber || '', // VPay requires a phone number, might need to collect this at signup
-      contactfirstname: user.displayName.split(' ')[0],
-      contactlastname: user.displayName.split(' ').slice(1).join(' ') || user.displayName.split(' ')[0], // Handle single names
+      phone: user.phoneNumber || '', 
+      account_name: user.displayName,
     });
     
     // Update the user document with the new account details
     await setDoc(userRef, {
       reservedAccount: {
-        provider: 'VPay',
-        ...vpayAccount,
+        provider: 'Strowallet',
+        accountNumber: strowalletAccount.account_number,
+        accountName: strowalletAccount.account_name,
+        bankName: strowalletAccount.bank,
       },
     }, { merge: true });
-     console.log(`[Auth] VPay virtual account created and saved for ${user.uid}.`);
+     console.log(`[Auth] Strowallet virtual account created and saved for ${user.uid}.`);
 
   } catch (error) {
-    console.error(`[Auth] Failed to create VPay virtual account for ${user.uid}:`, error);
-    // Continue even if VPay fails, so user creation doesn't completely fail.
-    // The account can be created later or manually.
+    console.error(`[Auth] Failed to create Strowallet virtual account for ${user.uid}:`, error);
+    // Continue even if it fails, so user creation doesn't completely fail.
   }
 }
 
@@ -84,3 +84,5 @@ export function onAuthStateChangedHelper(callback: (user: any) => void) {
 export function sendPasswordResetEmail(email: string) {
   return firebaseSendPasswordResetEmail(auth, email);
 }
+
+    
