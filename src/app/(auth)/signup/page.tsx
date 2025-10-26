@@ -25,6 +25,7 @@ import { useState } from 'react';
 const formSchema = z.object({
   fullName: z.string().min(3, { message: 'Full name must be at least 3 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
+  phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number (e.g., 08012345678).'),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
   terms: z.boolean().refine((val) => val === true, {
     message: 'You must accept the terms and conditions.',
@@ -41,6 +42,7 @@ export default function SignupPage() {
     defaultValues: {
       fullName: '',
       email: '',
+      phone: '',
       password: '',
       terms: false,
     },
@@ -49,7 +51,7 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await signUpWithEmailAndPassword(values.email, values.password, values.fullName);
+      await signUpWithEmailAndPassword(values.email, values.password, values.fullName, values.phone);
       toast({
         title: 'Account Created!',
         description: "We've created your account for you.",
@@ -99,6 +101,19 @@ export default function SignupPage() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="you@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number</FormLabel>
+                  <FormControl>
+                    <Input type="tel" placeholder="08012345678" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

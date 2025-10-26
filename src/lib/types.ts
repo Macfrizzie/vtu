@@ -1,5 +1,3 @@
-
-
 export type User = {
   id: string;
   uid: string;
@@ -16,6 +14,7 @@ export type UserData = {
     uid: string;
     email: string;
     fullName: string;
+    phone: string;
     role: 'Customer' | 'Vendor' | 'Admin';
     createdAt: Date;
     walletBalance: number;
@@ -170,5 +169,3 @@ export interface SystemHealth {
     };
   };
 }
-
-    

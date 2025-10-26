@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -642,8 +640,6 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 export async function addUser(data: Partial<UserData>) {
-    // This function has been simplified. It no longer creates an Auth user.
-    // It only adds a document to Firestore, which might be incomplete.
     const usersRef = collection(db, 'users');
     
     const newUser = {
@@ -799,14 +795,14 @@ export async function generateVirtualAccountForUser(userId: string): Promise<voi
         throw new Error('User already has a virtual account.');
     }
 
-    if (!userData.email || !userData.fullName) {
-        throw new Error('User email or full name is missing, cannot generate account.');
+    if (!userData.email || !userData.fullName || !userData.phone) {
+        throw new Error('User email, full name, or phone number is missing, cannot generate account.');
     }
     
     try {
         const strowalletAccount = await createStrowalletVirtualAccount({
             email: userData.email,
-            phone: '', // Phone number is not mandatory on user doc, so pass empty
+            phone: userData.phone,
             account_name: userData.fullName,
         });
 
@@ -1075,5 +1071,3 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
-
-    

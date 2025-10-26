@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import {
@@ -18,37 +16,35 @@ import { createStrowalletVirtualAccount } from '@/services/strowallet';
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-async function createUserDocument(user: User) {
+async function createUserDocument(user: User, phone: string) {
   if (!user.email || !user.displayName) {
     throw new Error('User email or display name is missing.');
   }
 
   const userRef = doc(db, 'users', user.uid);
   
-  // Create a placeholder document first
   const initialData = {
     uid: user.uid,
     email: user.email,
     fullName: user.displayName,
+    phone: phone,
     role: 'Customer',
     createdAt: new Date(),
     walletBalance: 0,
     status: 'Active',
     lastLogin: new Date(),
-    reservedAccount: null, // Placeholder
+    reservedAccount: null,
   };
   await setDoc(userRef, initialData);
   console.log(`[Auth] User document created for ${user.uid}. Now creating virtual account.`);
 
-  // Now, create the virtual account
   try {
     const strowalletAccount = await createStrowalletVirtualAccount({
       email: user.email,
-      phone: user.phoneNumber || '', 
+      phone: phone, 
       account_name: user.displayName,
     });
     
-    // Update the user document with the new account details
     await setDoc(userRef, {
       reservedAccount: {
         provider: 'Strowallet',
@@ -61,15 +57,14 @@ async function createUserDocument(user: User) {
 
   } catch (error) {
     console.error(`[Auth] Failed to create Strowallet virtual account for ${user.uid}:`, error);
-    // Continue even if it fails, so user creation doesn't completely fail.
   }
 }
 
-export async function signUpWithEmailAndPassword(email: string, password: string, fullName: string) {
+export async function signUpWithEmailAndPassword(email: string, password: string, fullName: string, phone: string) {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const { user } = userCredential;
   await updateProfile(user, { displayName: fullName });
-  await createUserDocument(user);
+  await createUserDocument(user, phone);
   return userCredential;
 }
 
@@ -84,5 +79,3 @@ export function onAuthStateChangedHelper(callback: (user: any) => void) {
 export function sendPasswordResetEmail(email: string) {
   return firebaseSendPasswordResetEmail(auth, email);
 }
-
-    
