@@ -52,7 +52,11 @@ export async function createStrowalletVirtualAccount(customer: {
 
     if (!response.ok || responseData.success === false) {
         console.error('Strowallet account creation failed:', responseData);
-        throw new Error(responseData.message || 'Failed to create Strowallet virtual account.');
+        let errorMessage = responseData.message || 'Failed to create Strowallet virtual account.';
+        if (typeof errorMessage === 'object') {
+            errorMessage = JSON.stringify(errorMessage);
+        }
+        throw new Error(errorMessage);
     }
     
     const accountDetails = responseData.data;
