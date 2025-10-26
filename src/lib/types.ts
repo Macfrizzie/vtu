@@ -86,6 +86,7 @@ export type ApiProvider = {
   vpay_privateKey?: string;
   vpay_username?: string;
   strowallet_publicKey?: string;
+  strowallet_secretKey?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';

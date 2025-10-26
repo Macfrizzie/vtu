@@ -46,6 +46,7 @@ const providerFormSchema = z.object({
   vpay_privateKey: z.string().optional(),
   vpay_username: z.string().optional(),
   strowallet_publicKey: z.string().optional(),
+  strowallet_secretKey: z.string().optional(),
   requestHeaders: z.string().refine(val => {
     if (!val) return true; // Allow empty string
     try {
@@ -85,6 +86,7 @@ export default function AdminApiProvidersPage() {
       vpay_privateKey: '',
       vpay_username: '',
       strowallet_publicKey: '',
+      strowallet_secretKey: '',
       requestHeaders: '{}',
       transactionCharge: 0,
       status: 'Active',
@@ -124,6 +126,7 @@ export default function AdminApiProvidersPage() {
             vpay_privateKey: provider.vpay_privateKey || '',
             vpay_username: provider.vpay_username || '',
             strowallet_publicKey: provider.strowallet_publicKey || '',
+            strowallet_secretKey: provider.strowallet_secretKey || '',
             requestHeaders: provider.requestHeaders || '{}',
             transactionCharge: provider.transactionCharge || 0,
         });
@@ -140,6 +143,7 @@ export default function AdminApiProvidersPage() {
           vpay_privateKey: '',
           vpay_username: '',
           strowallet_publicKey: '',
+          strowallet_secretKey: '',
           requestHeaders: '{}',
           transactionCharge: 0,
           status: 'Active',
@@ -420,9 +424,14 @@ export default function AdminApiProvidersPage() {
                     )} />
                   </>
                 ) : authType === 'Strowallet' ? (
+                    <>
                     <FormField control={form.control} name="strowallet_publicKey" render={({ field }) => (
                         <FormItem><FormLabel>Strowallet Public Key</FormLabel><FormControl><Input placeholder="Enter Strowallet Public Key" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
+                    <FormField control={form.control} name="strowallet_secretKey" render={({ field }) => (
+                        <FormItem><FormLabel>Strowallet Secret Key</FormLabel><FormControl><Input type="password" placeholder="Enter Strowallet Secret Key" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    </>
                 ) : authType !== 'None' ? (
                     <>
                         <FormField control={form.control} name="apiKey" render={({ field }) => (
