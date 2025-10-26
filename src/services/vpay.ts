@@ -29,8 +29,13 @@ async function getVPayAccessToken(provider: Awaited<ReturnType<typeof getVPayPro
     if (!provider.vpay_username || !provider.vpay_privateKey || !provider.vpay_publicKey) {
         throw new Error("VPay username, private key, or public key is missing in configuration.");
     }
-    
-    const response = await fetch(`${provider.baseUrl}/api/service/v1/query/merchant/login`, {
+
+    // Correct the URL to remove the duplicate /api
+    const loginUrl = provider.baseUrl.endsWith('/api')
+        ? `${provider.baseUrl}/service/v1/query/merchant/login`
+        : `${provider.baseUrl}/api/service/v1/query/merchant/login`;
+
+    const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -67,7 +72,12 @@ export async function createVPayVirtualAccount(customer: {
     const provider = await getVPayProvider();
     const accessToken = await getVPayAccessToken(provider);
 
-    const response = await fetch(`${provider.baseUrl}/api/service/v1/query/customer/add`, {
+    // Correct the URL to remove the duplicate /api
+    const createCustomerUrl = provider.baseUrl.endsWith('/api')
+        ? `${provider.baseUrl}/service/v1/query/customer/add`
+        : `${provider.baseUrl}/api/service/v1/query/customer/add`;
+
+    const response = await fetch(createCustomerUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
