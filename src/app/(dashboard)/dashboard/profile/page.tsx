@@ -5,7 +5,7 @@ import { useUser } from '@/context/user-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, Mail, Wallet, Calendar } from 'lucide-react';
+import { Loader2, User, Mail, Wallet, Calendar, Phone } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProfilePage() {
@@ -53,6 +53,7 @@ export default function ProfilePage() {
             <div className="grid gap-4 md:grid-cols-2">
                 <InfoItem icon={<User className="h-5 w-5 text-muted-foreground" />} label="Full Name" value={userData?.fullName} />
                 <InfoItem icon={<Mail className="h-5 w-5 text-muted-foreground" />} label="Email Address" value={userData?.email} />
+                <InfoItem icon={<Phone className="h-5 w-5 text-muted-foreground" />} label="Phone Number" value={userData?.phone} />
                 <InfoItem icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Wallet Balance" value={`₦${userData?.walletBalance.toLocaleString()}`} />
                 <InfoItem icon={<Calendar className="h-5 w-5 text-muted-foreground" />} label="Member Since" value={joinDate} />
             </div>

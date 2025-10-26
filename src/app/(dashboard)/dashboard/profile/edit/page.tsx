@@ -31,6 +31,7 @@ import Link from 'next/link';
 
 const formSchema = z.object({
   fullName: z.string().min(3, 'Full name must be at least 3 characters.'),
+  phone: z.string().regex(/^0[789][01]\d{8}$/, 'Please enter a valid Nigerian phone number (e.g., 08012345678).'),
 });
 
 export default function EditProfilePage() {
@@ -43,12 +44,14 @@ export default function EditProfilePage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       fullName: '',
+      phone: '',
     },
   });
 
   useEffect(() => {
     if (userData) {
-      form.setValue('fullName', userData.fullName);
+      form.setValue('fullName', userData.fullName || '');
+      form.setValue('phone', userData.phone || '');
     }
   }, [userData, form]);
 
@@ -64,7 +67,7 @@ export default function EditProfilePage() {
       forceRefetch();
       toast({
         title: 'Profile Updated',
-        description: 'Your full name has been updated successfully.',
+        description: 'Your profile has been updated successfully.',
       });
       router.push('/dashboard/profile');
     } catch (error) {
@@ -114,6 +117,19 @@ export default function EditProfilePage() {
                     <FormLabel>Full Name</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="08012345678" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

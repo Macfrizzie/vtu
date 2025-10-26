@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -353,7 +354,7 @@ export async function getUserData(uid: string): Promise<UserData | null> {
     }
 }
 
-export async function updateUserData(uid: string, data: { fullName: string }) {
+export async function updateUserData(uid: string, data: { fullName: string; phone: string; }) {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, data);
 }
@@ -634,24 +635,10 @@ export async function getAllUsers(): Promise<User[]> {
             status: data.status,
             lastLogin: lastLoginDate,
             walletBalance: data.walletBalance,
-            createdAt: createdAt
+            createdAt: createdAt,
+            phone: data.phone,
         } as User;
     });
-}
-
-export async function addUser(data: Partial<UserData>) {
-    const usersRef = collection(db, 'users');
-    
-    const newUser = {
-        role: 'Customer',
-        status: 'Active',
-        walletBalance: 0,
-        createdAt: new Date(),
-        lastLogin: new Date(),
-        ...data
-    };
-    
-    await addDoc(usersRef, newUser);
 }
 
 
