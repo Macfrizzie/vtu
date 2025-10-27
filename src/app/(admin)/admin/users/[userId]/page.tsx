@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState, use } from 'react';
@@ -28,7 +29,7 @@ const walletFormSchema = z.object({
 });
 
 const editUserFormSchema = z.object({
-  role: z.enum(['Customer', 'Vendor', 'Admin']),
+  role: z.enum(['Customer', 'Vendor', 'Admin', 'Super Admin']),
   status: z.enum(['Active', 'Pending', 'Blocked']),
 });
 
@@ -210,6 +211,7 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
                                         <SelectItem value="Customer">Customer</SelectItem>
                                         <SelectItem value="Vendor">Vendor</SelectItem>
                                         <SelectItem value="Admin">Admin</SelectItem>
+                                        <SelectItem value="Super Admin">Super Admin</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />

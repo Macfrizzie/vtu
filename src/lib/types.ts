@@ -3,7 +3,7 @@ export type User = {
   uid: string;
   name: string;
   email: string;
-  role: 'Customer' | 'Vendor' | 'Admin';
+  role: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin';
   status: 'Active' | 'Pending' | 'Blocked';
   lastLogin: Date;
   walletBalance: number;
@@ -15,7 +15,7 @@ export type UserData = {
     email: string;
     fullName: string;
     phone: string;
-    role: 'Customer' | 'Vendor' | 'Admin';
+    role: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin';
     createdAt: Date;
     walletBalance: number;
     status: 'Active' | 'Pending' | 'Blocked';
@@ -169,3 +169,5 @@ export interface SystemHealth {
     };
   };
 }
+
+    

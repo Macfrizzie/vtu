@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -618,9 +619,14 @@ export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     return transactionList;
 }
 
-export async function getAllUsers(): Promise<User[]> {
+export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<User[]> {
     const usersCol = collection(db, 'users');
-    const q = query(usersCol, orderBy('createdAt', 'desc'));
+    let q = query(usersCol, orderBy('createdAt', 'desc'));
+
+    if (roles && roles.length > 0) {
+        q = query(usersCol, where('role', 'in', roles), orderBy('createdAt', 'desc'));
+    }
+
     const userSnapshot = await getDocs(q);
     return userSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -642,7 +648,7 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 
-export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor' | 'Admin'; status: 'Active' | 'Pending' | 'Blocked' }) {
+export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin'; status: 'Active' | 'Pending' | 'Blocked' }) {
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, data);
 }
@@ -691,7 +697,7 @@ export async function getServices(): Promise<Service[]> {
                     id: d.discoId,
                     name: d.discoName,
                     price: 0,
-                    fees: { Customer: 100, Vendor: 100, Admin: 0 },
+                    fees: { Customer: 100, Vendor: 100, Admin: 0, "Super Admin": 0 },
                     status: d.status || 'Active',
                 }));
                 break;
@@ -1058,3 +1064,5 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
+
+    
