@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getUserData, getUserTransactions, manualFundWallet, manualDeductFromWallet, updateUser, generateVirtualAccountForUser } from '@/lib/firebase/firestore';
 import type { UserData, Transaction } from '@/lib/types';
 import { Loader2, ArrowLeft, PiggyBank, Landmark, PlusCircle, MinusCircle, Edit, Banknote } from 'lucide-react';
@@ -174,7 +174,6 @@ export default function AdminUserDetailPage({ params }: { params: Promise<{ user
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="h-20 w-20">
-                  <AvatarImage src={`https://i.pravatar.cc/150?u=${user.uid}`} />
                   <AvatarFallback className="text-2xl">{getInitials(user.fullName)}</AvatarFallback>
               </Avatar>
               <div>
@@ -395,3 +394,5 @@ function InfoCard({ label, value, badgeVariant }: { label: string, value: string
         </Card>
     );
 }
+
+    

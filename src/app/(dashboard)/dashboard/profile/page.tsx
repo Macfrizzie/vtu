@@ -3,7 +3,7 @@
 
 import { useUser } from '@/context/user-context';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Loader2, User, Mail, Wallet, Calendar, Phone } from 'lucide-react';
 import Link from 'next/link';
@@ -35,7 +35,6 @@ export default function ProfilePage() {
         <CardHeader>
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`} />
               <AvatarFallback className="text-2xl">{getInitials(userData?.fullName)}</AvatarFallback>
             </Avatar>
             <div>
@@ -82,3 +81,5 @@ function InfoItem({ icon, label, value }: { icon: React.ReactNode, label: string
         </div>
     )
 }
+
+    

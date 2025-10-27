@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useUser } from '@/context/user-context';
@@ -131,7 +131,6 @@ export default function DashboardPage() {
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 border-2 border-primary/20">
-            <AvatarImage src={user?.photoURL || `https://i.pravatar.cc/150?u=${user?.uid}`} />
             <AvatarFallback>{userData?.fullName?.[0] || user?.email?.[0] || 'U'}</AvatarFallback>
           </Avatar>
           <div>
@@ -299,3 +298,6 @@ export default function DashboardPage() {
 
     
 
+
+
+    
