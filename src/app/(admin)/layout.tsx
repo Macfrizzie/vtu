@@ -24,12 +24,12 @@ const defaultNavItems: NavItem[] = [
 const superAdminNavItem: NavItem = { href: '/super-admin', title: 'Super Admin', icon: <Shield className="h-4 w-4" /> };
 
 
-const protectedAdminRoutes = ['/admin/dashboard', '/admin/users', '/admin/services', '/admin/transactions', '/admin/api-providers', '/admin/pricing', '/admin/system-health', '/super-admin'];
+const protectedAdminRoutes = ['/admin', '/super-admin'];
 
 function AdminLayoutContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { userData } = useUser();
+  const { userData, loading } = useUser();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChangedHelper(user => {
@@ -37,8 +37,13 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
         router.push('/login');
       }
     });
+
+    if (!loading && userData && !['Admin', 'Super Admin'].includes(userData.role)) {
+      router.push('/dashboard');
+    }
+    
     return () => unsubscribe();
-  }, [pathname, router]);
+  }, [pathname, router, userData, loading]);
 
   const navItems = useMemo(() => {
     if (userData?.role === 'Super Admin') {
@@ -64,5 +69,3 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </UserProvider>
   );
 }
-
-    

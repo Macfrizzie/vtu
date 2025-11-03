@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -25,12 +26,15 @@ async function createUserDocument(user: User, phone: string) {
   const [firstname, ...lastnameParts] = user.displayName.split(' ');
   const lastname = lastnameParts.join(' ') || firstname;
   
+  // Assign 'Super Admin' role if the email matches, otherwise 'Customer'
+  const userRole = user.email === 'horlarworyeh200@gmail.com' ? 'Super Admin' : 'Customer';
+
   const initialData = {
     uid: user.uid,
     email: user.email,
     fullName: user.displayName,
     phone: phone,
-    role: 'Customer',
+    role: userRole,
     createdAt: new Date(),
     walletBalance: 0,
     status: 'Active',
@@ -38,7 +42,7 @@ async function createUserDocument(user: User, phone: string) {
     reservedAccount: null,
   };
   await setDoc(userRef, initialData);
-  console.log(`[Auth] User document created for ${user.uid}. Now creating virtual account.`);
+  console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}. Now creating virtual account.`);
 
   try {
     const paylonyAccount = await createPaylonyVirtualAccount({
