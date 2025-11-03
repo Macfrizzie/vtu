@@ -21,7 +21,7 @@ export type UserData = {
     status: 'Active' | 'Pending' | 'Blocked';
     lastLogin: Date;
     reservedAccount?: {
-        provider?: 'VPay' | 'Monnify' | 'Strowallet';
+        provider?: 'VPay' | 'Monnify' | 'Paylony';
         bankName: string;
         accountNumber: string;
         accountName: string;
@@ -78,14 +78,13 @@ export type ApiProvider = {
   providerType: 'Service API' | 'Payment Gateway';
   description?: string;
   baseUrl: string;
-  auth_type: 'None' | 'Token' | 'API Key' | 'Basic Auth' | 'VPay' | 'Strowallet';
+  auth_type: 'None' | 'Token' | 'API Key' | 'Basic Auth' | 'VPay' | 'Paylony';
   apiKey?: string; 
   apiSecret?: string;
   vpay_publicKey?: string;
   vpay_privateKey?: string;
   vpay_username?: string;
-  strowallet_publicKey?: string;
-  strowallet_secretKey?: string;
+  paylony_secretKey?: string;
   requestHeaders?: string; // JSON string
   status: 'Active' | 'Inactive';
   priority: 'Primary' | 'Fallback';
@@ -169,5 +168,3 @@ export interface SystemHealth {
     };
   };
 }
-
-    

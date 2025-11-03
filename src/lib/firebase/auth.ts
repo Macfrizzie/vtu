@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
-import { createStrowalletVirtualAccount } from '@/services/strowallet';
+import { createPaylonyVirtualAccount } from '@/services/paylony';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -22,6 +22,8 @@ async function createUserDocument(user: User, phone: string) {
   }
 
   const userRef = doc(db, 'users', user.uid);
+  const [firstname, ...lastnameParts] = user.displayName.split(' ');
+  const lastname = lastnameParts.join(' ') || firstname;
   
   const initialData = {
     uid: user.uid,
@@ -39,24 +41,28 @@ async function createUserDocument(user: User, phone: string) {
   console.log(`[Auth] User document created for ${user.uid}. Now creating virtual account.`);
 
   try {
-    const strowalletAccount = await createStrowalletVirtualAccount({
+    const paylonyAccount = await createPaylonyVirtualAccount({
+      firstname: firstname,
+      lastname: lastname,
       email: user.email,
       phone: phone, 
-      account_name: user.displayName,
+      dob: '1990-01-01', // Placeholder
+      address: '123 VTU Boss Street', // Placeholder
+      gender: 'Male', // Placeholder
     });
     
     await setDoc(userRef, {
       reservedAccount: {
-        provider: 'Strowallet',
-        accountNumber: strowalletAccount.account_number,
-        accountName: strowalletAccount.account_name,
-        bankName: strowalletAccount.bank,
+        provider: 'Paylony',
+        accountNumber: paylonyAccount.account_number,
+        accountName: paylonyAccount.account_name,
+        bankName: paylonyAccount.bank_name,
       },
     }, { merge: true });
-     console.log(`[Auth] Strowallet virtual account created and saved for ${user.uid}.`);
+     console.log(`[Auth] Paylony virtual account created and saved for ${user.uid}.`);
 
   } catch (error) {
-    console.error(`[Auth] Failed to create Strowallet virtual account for ${user.uid}:`, error);
+    console.error(`[Auth] Failed to create Paylony virtual account for ${user.uid}:`, error);
   }
 }
 

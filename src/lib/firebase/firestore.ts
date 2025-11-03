@@ -7,7 +7,7 @@ import { app } from './client-app';
 import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, ApiProvider, RechargeCardDenomination, EducationPinType, SystemHealth, ServiceVariation } from '../types';
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
-import { createStrowalletVirtualAccount } from '@/services/strowallet';
+import { createPaylonyVirtualAccount } from '@/services/paylony';
 
 const db = getFirestore(app);
 
@@ -791,25 +791,32 @@ export async function generateVirtualAccountForUser(userId: string): Promise<voi
     if (!userData.email || !userData.fullName || !userData.phone) {
         throw new Error('User email, full name, or phone number is missing, cannot generate account.');
     }
+
+    const [firstname, ...lastnameParts] = userData.fullName.split(' ');
+    const lastname = lastnameParts.join(' ') || firstname;
     
     try {
-        const strowalletAccount = await createStrowalletVirtualAccount({
+        const paylonyAccount = await createPaylonyVirtualAccount({
+            firstname: firstname,
+            lastname: lastname,
             email: userData.email,
             phone: userData.phone,
-            account_name: userData.fullName,
+            dob: '1990-01-01', // Placeholder
+            address: '123 VTU Boss Street', // Placeholder
+            gender: 'Male', // Placeholder
         });
 
         await updateDoc(userRef, {
             reservedAccount: {
-                provider: 'Strowallet',
-                accountNumber: strowalletAccount.account_number,
-                accountName: strowalletAccount.account_name,
-                bankName: strowalletAccount.bank,
+                provider: 'Paylony',
+                accountNumber: paylonyAccount.account_number,
+                accountName: paylonyAccount.account_name,
+                bankName: paylonyAccount.bank_name,
             },
         });
     } catch (error) {
         console.error(`[generateVirtualAccount] Failed for user ${userId}:`, error);
-        throw new Error(`Failed to create Strowallet virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`Failed to create Paylony virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
 
@@ -1064,5 +1071,3 @@ export async function verifyDatabaseSetup() {
     
     return results;
 }
-
-    
