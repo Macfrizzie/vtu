@@ -12,15 +12,25 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Super Admin'];
+      // Check if the user's role is Admin or Super Admin by reading their own user document.
+      // This requires that users have read access to their own document.
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['Admin', 'Super Admin'];
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      // Admins can read any user document.
+      // Any signed-in user can read their own document.
+      allow read: if isAdmin() || isOwner(userId);
+      
+      // Any signed in user can create their own user document upon signup.
       allow create: if isSignedIn();
-      allow write: if isOwner(userId) || isAdmin();
+
+      // Admins can write to any user document.
+      // Any signed-in user can write to their own document.
+      allow write: if isAdmin() || isOwner(userId);
     }
 
+    // Admins have blanket access to all other collections (transactions, services, etc.)
     match /{document=**} {
       allow read, write: if isAdmin();
     }
