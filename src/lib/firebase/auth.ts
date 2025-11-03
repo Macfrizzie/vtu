@@ -13,6 +13,7 @@ import {
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
 import { createPaylonyVirtualAccount } from '@/services/paylony';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -27,7 +28,8 @@ async function createUserDocument(user: User, phone: string) {
   const lastname = lastnameParts.join(' ') || firstname;
   
   // Assign 'Super Admin' role if the email matches, otherwise 'Customer'
-  const userRole = user.email === 'horlarworyeh200@gmail.com' ? 'Super Admin' : 'Customer';
+  const isSuperAdmin = user.email === 'horlarworyeh200@gmail.com';
+  const userRole = isSuperAdmin ? 'Super Admin' : 'Customer';
 
   const initialData = {
     uid: user.uid,
@@ -42,7 +44,29 @@ async function createUserDocument(user: User, phone: string) {
     reservedAccount: null,
   };
   await setDoc(userRef, initialData);
-  console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}. Now creating virtual account.`);
+  console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}.`);
+
+  if (isSuperAdmin) {
+      try {
+        // This is a server-side call now. We need an API route for this.
+        // For now, we assume a function exists that calls a serverless function/API route
+        // to set the custom claim. Let's create a placeholder for that.
+        // The actual implementation will require a new API route.
+        const response = await fetch('/api/set-admin-claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: user.uid }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to set admin claim.');
+        }
+        console.log(`[Auth] Custom admin claim set for ${user.uid}.`);
+      } catch (error) {
+        console.error(`[Auth] Failed to set custom admin claim for ${user.uid}:`, error);
+        // Don't block user creation if claim fails, but log it.
+      }
+  }
 
   try {
     const paylonyAccount = await createPaylonyVirtualAccount({
@@ -83,7 +107,13 @@ export function signInWithEmailAndPassword(email: string, password: string) {
 }
 
 export function onAuthStateChangedHelper(callback: (user: any) => void) {
-  return onAuthStateChanged(auth, callback);
+  return onAuthStateChanged(auth, async (user) => {
+      if (user) {
+          // Force refresh the token to get custom claims
+          await user.getIdToken(true);
+      }
+      callback(user);
+  });
 }
 
 export function sendPasswordResetEmail(email: string) {
