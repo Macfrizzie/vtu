@@ -13,7 +13,6 @@ import {
 import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { app } from './client-app';
 import { createPaylonyVirtualAccount } from '@/services/paylony';
-import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -48,6 +47,7 @@ async function createUserDocument(user: User, phone: string) {
 
   if (isSuperAdmin) {
       try {
+        console.log(`[Auth] User ${user.uid} is Super Admin. Attempting to set custom claim...`);
         const response = await fetch('/api/set-admin-claim', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -55,12 +55,13 @@ async function createUserDocument(user: User, phone: string) {
         });
         if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to set admin claim.');
+            throw new Error(errorData.message || 'Failed to set admin claim via API route.');
         }
         await user.getIdToken(true); // Force refresh token to get custom claims
-        console.log(`[Auth] Custom admin claim set for ${user.uid}.`);
+        console.log(`[Auth] Custom admin claim successfully set for ${user.uid}. Token refreshed.`);
       } catch (error) {
-        console.error(`[Auth] Failed to set custom admin claim for ${user.uid}:`, error);
+        console.error(`[Auth] FATAL: Failed to set custom admin claim for ${user.uid}:`, error);
+        // This is a critical failure for the admin user, so we should be loud about it.
       }
   }
 
@@ -102,10 +103,11 @@ export function signInWithEmailAndPassword(email: string, password: string) {
   return firebaseSignIn(auth, email, password);
 }
 
-export function onAuthStateChangedHelper(callback: (user: any) => void) {
+export function onAuthStateChangedHelper(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, async (user) => {
       if (user) {
           // Force refresh the token to get custom claims on every auth state change for logged in user.
+          // This is crucial for the app to recognize role changes immediately.
           await user.getIdToken(true);
       }
       callback(user);
