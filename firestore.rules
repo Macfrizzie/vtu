@@ -4,23 +4,30 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Use custom claims for role checks. This is much more secure and performant.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // A user is an admin if they have the `admin` custom claim.
     function isAdmin() {
       return isSignedIn() && request.auth.token.admin == true;
     }
 
-    // Allow users to read and write their own data.
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
-    }
-    
-    // Admins can read and write all documents in the database.
+    // Admins have full read/write access to all documents in the database.
+    // This rule is checked first and provides broad access for admin users.
     match /{document=**} {
       allow read, write: if isAdmin();
+    }
+
+    // Users can read and write their own user document.
+    // This is necessary for profile management and for the client to read its own role.
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
