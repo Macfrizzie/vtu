@@ -48,10 +48,6 @@ async function createUserDocument(user: User, phone: string) {
 
   if (isSuperAdmin) {
       try {
-        // This is a server-side call now. We need an API route for this.
-        // For now, we assume a function exists that calls a serverless function/API route
-        // to set the custom claim. Let's create a placeholder for that.
-        // The actual implementation will require a new API route.
         const response = await fetch('/api/set-admin-claim', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,10 +57,10 @@ async function createUserDocument(user: User, phone: string) {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Failed to set admin claim.');
         }
+        await user.getIdToken(true); // Force refresh token to get custom claims
         console.log(`[Auth] Custom admin claim set for ${user.uid}.`);
       } catch (error) {
         console.error(`[Auth] Failed to set custom admin claim for ${user.uid}:`, error);
-        // Don't block user creation if claim fails, but log it.
       }
   }
 
@@ -109,7 +105,7 @@ export function signInWithEmailAndPassword(email: string, password: string) {
 export function onAuthStateChangedHelper(callback: (user: any) => void) {
   return onAuthStateChanged(auth, async (user) => {
       if (user) {
-          // Force refresh the token to get custom claims
+          // Force refresh the token to get custom claims on every auth state change for logged in user.
           await user.getIdToken(true);
       }
       callback(user);
