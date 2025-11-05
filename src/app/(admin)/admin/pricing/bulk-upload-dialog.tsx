@@ -76,6 +76,7 @@ export function BulkUploadDialog({ isOpen, onClose, onSuccess }: BulkUploadDialo
                         Customer: parseFloat(rowData.fee) || 0,
                         Vendor: parseFloat(rowData.fee) || 0,
                         Admin: 0,
+                        "Super Admin": 0
                     },
                 };
                 
@@ -189,7 +190,7 @@ export function BulkUploadDialog({ isOpen, onClose, onSuccess }: BulkUploadDialo
                                             <TableRow key={index} className={cn(item.errors.length > 0 && 'bg-red-500/10')}>
                                                 <TableCell>
                                                     {item.errors.length > 0 ? 
-                                                        <XCircle className="h-5 w-5 text-red-500" title={item.errors.join(' ')} /> : 
+                                                        <span title={item.errors.join(' ')}><XCircle className="h-5 w-5 text-red-500" /></span> : 
                                                         <CheckCircle className="h-5 w-5 text-green-500" />
                                                     }
                                                 </TableCell>

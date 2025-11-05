@@ -123,7 +123,8 @@ export default function RechargeCardPage() {
     });
   };
   
-  const totalCost = selectedDenomination && userData ? (selectedDenomination.price + (selectedDenomination.fees?.[userData.role] || 0)) * quantity : 0;
+  const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+  const totalCost = selectedDenomination && userData ? (selectedDenomination.price + (selectedDenomination.fees?.[userRoleForFee] || 0)) * quantity : 0;
 
   async function onSubmit(values: FormData) {
     if (!user || !userData || !rechargeCardService) {
@@ -250,7 +251,8 @@ export default function RechargeCardPage() {
                         </FormControl>
                         <SelectContent>
                           {availableDenominations.map(p => {
-                             const fee = p.fees?.[userData?.role || 'Customer'] || 0;
+                             const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+                             const fee = p.fees?.[userRoleForFee] || 0;
                              const finalPrice = p.price + fee;
                             return (
                                 <SelectItem key={p.id} value={p.id}>

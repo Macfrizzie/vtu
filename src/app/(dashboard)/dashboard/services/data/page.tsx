@@ -110,7 +110,7 @@ export default function DataPage() {
     const activePlans = (selectedNetwork.plans || []).filter(p => p.status === 'Active');
     
     // Then, get unique plan types from the active plans
-    const planTypes = [...new Set(activePlans.map(p => p.planType).filter(Boolean)) as string[]];
+    const planTypes = Array.from(new Set(activePlans.map(p => p.planType).filter((pt): pt is string => Boolean(pt))));
 
     return { allPlansForNetwork: activePlans, availablePlanTypes: planTypes };
   }, [selectedNetworkId, dataService]);
@@ -136,7 +136,7 @@ export default function DataPage() {
       return;
     }
     
-    const userRole = userData.role || 'Customer';
+    const userRole: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData.role || 'Customer';
     const fee = selectedVariation.fees?.[userRole] ?? 0;
     const totalCost = selectedVariation.price + fee;
 
@@ -177,7 +177,8 @@ export default function DataPage() {
 
   const selectedVariationId = form.watch('variationId');
   const selectedVariation = availablePlans.find(p => p.planId === selectedVariationId);
-  const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userData.role || 'Customer'] || 0) : 0;
+  const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+  const totalCost = selectedVariation && userData ? selectedVariation.price + (selectedVariation.fees?.[userRoleForFee] || 0) : 0;
   const basePrice = selectedVariation?.price || 0;
   const convenienceFee = totalCost - basePrice;
 
@@ -298,10 +299,11 @@ export default function DataPage() {
                       </FormControl>
                       <SelectContent>
                         {availablePlans.map(plan => {
-                            const fee = plan.fees?.[userData?.role || 'Customer'] || 0;
+                            const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+                            const fee = plan.fees?.[userRoleForFee] || 0;
                             const finalPrice = plan.price + fee;
                             return (
-                                <SelectItem key={plan.planId} value={plan.planId}>
+                                <SelectItem key={plan.planId} value={plan.planId || ''}>
                                     {plan.name} ({plan.validity}) - ₦{finalPrice.toLocaleString()}
                                 </SelectItem>
                             )

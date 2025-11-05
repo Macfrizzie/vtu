@@ -54,7 +54,7 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
 
 
   return (
-      <DashboardShell navItems={navItems} userRole={userData?.role || 'Admin'}>
+      <DashboardShell navItems={navItems} userRole={(userData?.role || 'Admin') as any}>
           {children}
       </DashboardShell>
   );

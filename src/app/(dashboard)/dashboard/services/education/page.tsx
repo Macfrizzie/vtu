@@ -129,7 +129,8 @@ export default function EducationPinPurchasePage() {
     });
   };
   
-  const totalCost = selectedPin && userData ? (selectedPin.price + (selectedPin.fees?.[userData.role || 'Customer'] || 0)) * quantity : 0;
+  const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+  const totalCost = selectedPin && userData ? (selectedPin.price + (selectedPin.fees?.[userRoleForFee] || 0)) * quantity : 0;
 
   async function onSubmit(values: FormData) {
     if (!user || !userData || !educationService) {
@@ -275,7 +276,8 @@ export default function EducationPinPurchasePage() {
                         </FormControl>
                         <SelectContent>
                           {availablePinTypes.map(p => {
-                             const fee = p.fees?.[userData?.role || 'Customer'] || 0;
+                             const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+                             const fee = p.fees?.[userRoleForFee] || 0;
                              const finalPrice = p.price + fee;
                             return (
                                 <SelectItem key={p.id} value={p.id}>

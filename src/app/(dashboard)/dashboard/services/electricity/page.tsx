@@ -124,7 +124,8 @@ export default function ElectricityPage() {
         return;
     }
     
-    const serviceFee = selectedDisco.fees?.[userData.role] || 100; // Fallback to 100
+    const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData.role || 'Customer';
+    const serviceFee = selectedDisco.fees?.[userRoleForFee] || 100; // Fallback to 100
     const totalCost = values.amount + serviceFee;
 
     if (userData.walletBalance < totalCost) {
@@ -162,7 +163,8 @@ export default function ElectricityPage() {
     }
   }
 
-  const serviceFee = selectedDisco ? (selectedDisco.fees?.[userData?.role || 'Customer'] ?? 100) : 100;
+  const userRoleForFee: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin' = userData?.role || 'Customer';
+  const serviceFee = selectedDisco ? (selectedDisco.fees?.[userRoleForFee] ?? 100) : 100;
   const amount = form.watch('amount');
   const totalCost = amount + serviceFee;
 

@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 import { VtuBossLogo } from '@/components/icons';
 import { UserNav } from '@/components/user-nav';
 import { LanguageSwitcher } from '@/components/language-switcher';
-import { Button } from './ui/button';
+import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
 import {
   Sheet,

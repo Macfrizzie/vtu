@@ -4,7 +4,7 @@
 
 import type { ReactNode } from 'react';
 import { DashboardShell, type NavItem } from '@/components/dashboard-shell';
-import { LayoutDashboard, Users, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Loader2 } from 'lucide-react';
 import { UserProvider, useUser } from '@/context/user-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
@@ -45,7 +45,7 @@ function SuperAdminLayoutContent({ children }: { children: ReactNode }) {
 
 
   return (
-      <DashboardShell navItems={navItems} userRole="Super Admin">
+      <DashboardShell navItems={navItems} userRole={"Super Admin" as any}>
           {children}
       </DashboardShell>
   );

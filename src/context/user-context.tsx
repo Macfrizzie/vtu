@@ -4,7 +4,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import type { User } from 'firebase/auth';
 import { onAuthStateChangedHelper } from '@/lib/firebase/auth';
-import { getUserData, type UserData } from '@/lib/firebase/firestore';
+import { getUserData } from '@/lib/firebase/firestore';
+import type { UserData } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 
 type UserContextType = {

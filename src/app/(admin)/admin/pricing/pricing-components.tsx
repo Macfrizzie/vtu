@@ -122,7 +122,8 @@ export function DataPricingTab() {
                 fees: {
                     Customer: values.fee || 0,
                     Vendor: values.fee || 0,
-                    Admin: 0, 
+                    Admin: 0,
+                    "Super Admin": 0
                 },
                 status: 'Active',
             };
@@ -643,7 +644,7 @@ export function RechargeCardPricingTab() {
         try {
             await addRechargeCardDenomination({ 
                 ...values,
-                fees: { Customer: values.fee || 0, Vendor: values.fee || 0, Admin: 0 }
+                fees: { Customer: values.fee || 0, Vendor: values.fee || 0, Admin: 0, "Super Admin": 0 }
             });
             toast({ title: "Denomination Added" });
             await fetchData();
@@ -771,7 +772,7 @@ export function EducationPricingTab() {
         try {
             await addEducationPinType({ 
                 ...values,
-                fees: { Customer: values.fee || 0, Vendor: values.fee || 0, Admin: 0 }
+                fees: { Customer: values.fee || 0, Vendor: values.fee || 0, Admin: 0, "Super Admin": 0 }
             });
             toast({ title: "E-Pin Added" });
             await fetchData();

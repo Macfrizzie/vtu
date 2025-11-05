@@ -143,7 +143,7 @@ export default function AdminServicesPage() {
     setIsSubmitting(true);
     
     try {
-        await updateService(editingService.id, values);
+        await updateService(editingService.id, values as Partial<Service>);
         toast({ title: 'Success!', description: `${editingService.name} service has been updated.` });
         handleFormClose();
         await fetchData();
