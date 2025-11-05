@@ -26,7 +26,6 @@ async function createUserDocument(user: User, phone: string) {
   const [firstname, ...lastnameParts] = user.displayName.split(' ');
   const lastname = lastnameParts.join(' ') || firstname;
   
-  // Assign 'Super Admin' role if the email matches, otherwise 'Customer'
   const isSuperAdmin = user.email === 'horlarworyeh200@gmail.com';
   const userRole = isSuperAdmin ? 'Super Admin' : 'Customer';
 
@@ -47,7 +46,7 @@ async function createUserDocument(user: User, phone: string) {
 
   if (isSuperAdmin) {
       try {
-        console.log(`[Auth] User ${user.uid} is Super Admin. Attempting to set custom claim...`);
+        console.log(`[Auth] User ${user.uid} is Super Admin. Setting custom claim...`);
         const response = await fetch('/api/set-admin-claim', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,7 +60,6 @@ async function createUserDocument(user: User, phone: string) {
         console.log(`[Auth] Custom admin claim successfully set for ${user.uid}. Token refreshed.`);
       } catch (error) {
         console.error(`[Auth] FATAL: Failed to set custom admin claim for ${user.uid}:`, error);
-        // This is a critical failure for the admin user, so we should be loud about it.
       }
   }
 
@@ -107,7 +105,6 @@ export function onAuthStateChangedHelper(callback: (user: User | null) => void) 
   return onAuthStateChanged(auth, async (user) => {
       if (user) {
           // Force refresh the token to get custom claims on every auth state change for logged in user.
-          // This is crucial for the app to recognize role changes immediately.
           await user.getIdToken(true);
       }
       callback(user);
