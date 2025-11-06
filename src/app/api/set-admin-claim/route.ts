@@ -2,35 +2,40 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import admin from 'firebase-admin';
 
-// Initialize Firebase Admin SDK
-try {
-    if (!admin.apps.length) {
-        const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-        if (!serviceAccountString) {
-            throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
-        }
-        
-        // Sanity check if the key is still a placeholder
-        if (serviceAccountString.includes('"..."')) {
-             throw new Error('The FIREBASE_SERVICE_ACCOUNT_KEY is still a placeholder. Please replace it with your actual service account key in .env.local.');
-        }
+// Helper function to initialize Firebase Admin SDK
+// This ensures it's only initialized once.
+function initializeFirebaseAdmin() {
+    if (admin.apps.length > 0) {
+        return admin.app();
+    }
 
+    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (!serviceAccountString) {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set. Please add it to your .env.local file.');
+    }
+    
+    // Sanity check if the key is still a placeholder
+    if (serviceAccountString.includes('"..."')) {
+            throw new Error('The FIREBASE_SERVICE_ACCOUNT_KEY is still a placeholder. Please replace it with your actual service account key in .env.local.');
+    }
+
+    try {
         const serviceAccount = JSON.parse(serviceAccountString);
-        
-        admin.initializeApp({
+        return admin.initializeApp({
             credential: admin.credential.cert(serviceAccount)
         });
+    } catch (error: any) {
+        throw new Error(`Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY. Make sure it's a valid JSON. Error: ${error.message}`);
     }
-} catch (error) {
-    console.error('Firebase Admin SDK Initialization Error:', error);
-    // We will let the POST handler deal with the response, but log the init error.
 }
 
 
 export async function POST(req: NextRequest) {
-    // Check if the Admin SDK was initialized correctly
-    if (!admin.apps.length) {
-        return NextResponse.json({ message: 'Internal Server Error: Firebase Admin SDK not initialized. Check server logs for details.' }, { status: 500 });
+    try {
+        initializeFirebaseAdmin();
+    } catch (error: any) {
+        console.error('Firebase Admin SDK Initialization Error:', error);
+        return NextResponse.json({ message: `Internal Server Error: ${error.message}` }, { status: 500 });
     }
 
     try {
