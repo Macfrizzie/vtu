@@ -10,12 +10,27 @@ import {
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   type User,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { app } from './client-app';
 import { createPaylonyVirtualAccount } from '@/services/paylony';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+async function setAdminClaim(uid: string) {
+    console.log(`[Auth] Setting custom admin claim for ${uid}...`);
+    const response = await fetch('/api/set-admin-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to set admin claim via API route.');
+    }
+    console.log(`[Auth] Custom admin claim API call successful for ${uid}.`);
+}
+
 
 async function createUserDocument(user: User, phone: string) {
   if (!user.email || !user.displayName) {
@@ -46,19 +61,10 @@ async function createUserDocument(user: User, phone: string) {
 
   if (isSuperAdmin) {
       try {
-        console.log(`[Auth] User ${user.uid} is Super Admin. Setting custom claim via API...`);
-        const response = await fetch('/api/set-admin-claim', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uid: user.uid }),
-        });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to set admin claim via API route.');
-        }
+        await setAdminClaim(user.uid);
         // Force refresh the token on the client to get the new custom claim
         await user.getIdToken(true);
-        console.log(`[Auth] Custom admin claim successfully set for ${user.uid} and token refreshed.`);
+        console.log(`[Auth] Token refreshed for ${user.uid} after claim set.`);
       } catch (error) {
         console.error(`[Auth] FATAL: Failed to set custom admin claim for ${user.uid}:`, error);
       }
@@ -98,9 +104,31 @@ export async function signUpWithEmailAndPassword(email: string, password: string
   return userCredential;
 }
 
-export function signInWithEmailAndPassword(email: string, password: string) {
-  return firebaseSignIn(auth, email, password);
+export async function signInWithEmailAndPassword(email: string, password: string) {
+    const userCredential = await firebaseSignIn(auth, email, password);
+    const { user } = userCredential;
+
+    // After successful sign-in, update lastLogin
+    const userRef = doc(db, 'users', user.uid);
+    await updateDoc(userRef, { lastLogin: new Date() });
+
+    // Check if the user is the designated super admin and set the claim if needed.
+    if (user.email === 'horlarworyeh200@gmail.com') {
+        try {
+            console.log(`[Auth] Admin user ${user.email} logged in. Verifying/setting custom claim.`);
+            await setAdminClaim(user.uid);
+            // Force refresh of the token to get the new claims immediately
+            await user.getIdToken(true);
+            console.log(`[Auth] Token refreshed for admin user ${user.uid}.`);
+        } catch (error) {
+            console.error(`[Auth] Failed to set custom admin claim on login for ${user.uid}:`, error);
+            // We don't throw here, as login itself was successful. The user might just not have admin powers.
+        }
+    }
+    
+    return userCredential;
 }
+
 
 export function onAuthStateChangedHelper(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
