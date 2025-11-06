@@ -46,7 +46,7 @@ async function createUserDocument(user: User, phone: string) {
 
   if (isSuperAdmin) {
       try {
-        console.log(`[Auth] User ${user.uid} is Super Admin. Setting custom claim...`);
+        console.log(`[Auth] User ${user.uid} is Super Admin. Setting custom claim via API...`);
         const response = await fetch('/api/set-admin-claim', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,8 +56,9 @@ async function createUserDocument(user: User, phone: string) {
             const errorData = await response.json();
             throw new Error(errorData.message || 'Failed to set admin claim via API route.');
         }
-        await user.getIdToken(true); // Force refresh token to get custom claims
-        console.log(`[Auth] Custom admin claim successfully set for ${user.uid}. Token refreshed.`);
+        // Force refresh the token on the client to get the new custom claim
+        await user.getIdToken(true);
+        console.log(`[Auth] Custom admin claim successfully set for ${user.uid} and token refreshed.`);
       } catch (error) {
         console.error(`[Auth] FATAL: Failed to set custom admin claim for ${user.uid}:`, error);
       }
@@ -102,13 +103,7 @@ export function signInWithEmailAndPassword(email: string, password: string) {
 }
 
 export function onAuthStateChangedHelper(callback: (user: User | null) => void) {
-  return onAuthStateChanged(auth, async (user) => {
-      if (user) {
-          // Force refresh the token to get custom claims on every auth state change for logged in user.
-          await user.getIdToken(true);
-      }
-      callback(user);
-  });
+  return onAuthStateChanged(auth, callback);
 }
 
 export function sendPasswordResetEmail(email: string) {
