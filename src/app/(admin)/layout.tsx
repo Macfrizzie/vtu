@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -10,6 +9,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { onAuthStateChangedHelper } from '@/lib/firebase/auth';
 import { AdminBottomNav } from '@/components/admin-bottom-nav';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 const defaultNavItems: NavItem[] = [
     { href: '/admin/dashboard', title: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
@@ -64,6 +64,7 @@ function AdminLayoutContent({ children }: { children: ReactNode }) {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <UserProvider>
+      <FirebaseErrorListener />
       <AdminLayoutContent>{children}</AdminLayoutContent>
       <AdminBottomNav />
     </UserProvider>

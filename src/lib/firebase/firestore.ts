@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -8,8 +7,29 @@ import type { Transaction, Service, User, UserData, DataPlan, CablePlan, Disco, 
 import { getAuth } from 'firebase-admin/auth';
 import { callProviderAPI } from '@/services/api-handler';
 import { createPaylonyVirtualAccount } from '@/services/paylony';
+import { errorEmitter } from './error-emitter';
+import { FirestorePermissionError } from './errors';
 
 const db = getFirestore(app);
+
+// Helper function to handle getDocs with contextual errors
+async function getDocsWithContext<T>(q: any, operation: 'list' = 'list'): Promise<T[]> {
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
+  } catch (serverError: any) {
+    if (serverError.code === 'permission-denied') {
+        const permissionError = new FirestorePermissionError({
+            path: q.path,
+            operation: operation,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+    // Re-throw the original error to be handled by the caller
+    throw serverError;
+  }
+}
+
 
 // --- Helper function to build request body based on service category ---
 function buildRequestBody(service: Service, variationId: string, inputs: Record<string, any>, userData: UserData): Record<string, any> {
@@ -394,7 +414,7 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
     }
     
     // Log the transaction
-    await addDoc(collection(db, 'transactions'), {
+    addDoc(collection(db, 'transactions'), {
         userId: uid,
         userEmail: userEmail,
         description: 'Wallet Funding',
@@ -402,6 +422,13 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
         type: 'Credit',
         status: 'Successful',
         date: new Date(),
+    }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'transactions',
+            operation: 'create',
+            requestResourceData: { amount, type: 'Credit' }
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
 }
 
@@ -413,10 +440,19 @@ export async function manualFundWallet(uid: string, amount: number, adminId: str
     if (!userSnap.exists()) {
         throw new Error("User not found");
     }
+    
+    const userData = { walletBalance: increment(amount) };
+    updateDoc(userRef, userData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: userData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw serverError; // rethrow to be caught by the UI
+    });
 
-    await updateDoc(userRef, { walletBalance: increment(amount) });
-
-    await addDoc(collection(db, 'transactions'), {
+    const transactionData = {
         userId: uid,
         userEmail: userSnap.data().email,
         description: `Manual Wallet Fund by Admin (${adminId})`,
@@ -424,6 +460,14 @@ export async function manualFundWallet(uid: string, amount: number, adminId: str
         type: 'Credit',
         status: 'Successful',
         date: new Date(),
+    };
+    addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'transactions',
+            operation: 'create',
+            requestResourceData: transactionData
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
 }
 
@@ -438,10 +482,19 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
      if (userSnap.data().walletBalance < amount) {
         throw new Error("Insufficient funds for deduction.");
     }
+    
+    const userData = { walletBalance: increment(-amount) };
+    updateDoc(userRef, userData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: userData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw serverError;
+    });
 
-    await updateDoc(userRef, { walletBalance: increment(-amount) });
-
-    await addDoc(collection(db, 'transactions'), {
+    const transactionData = {
         userId: uid,
         userEmail: userSnap.data().email,
         description: `Manual Wallet Deduction by Admin (${adminId})`,
@@ -449,6 +502,14 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
         type: 'Debit',
         status: 'Successful',
         date: new Date(),
+    };
+    addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'transactions',
+            operation: 'create',
+            requestResourceData: transactionData
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
 }
 
@@ -546,9 +607,16 @@ export async function purchaseService(uid: string, serviceId: string, variationI
         throw lastError || new Error("All API providers failed or were unavailable for this service.");
     }
     
-    await updateDoc(userRef, { walletBalance: increment(-totalCost) });
+    updateDoc(userRef, { walletBalance: increment(-totalCost) }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: { walletBalance: increment(-totalCost) }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
     
-    await addDoc(collection(db, 'transactions'), {
+    const transactionData = {
         userId: uid,
         userEmail,
         description,
@@ -558,6 +626,14 @@ export async function purchaseService(uid: string, serviceId: string, variationI
         date: new Date(),
         apiResponse: JSON.stringify(apiResponse),
         apiProvider: successfulProvider.name,
+    };
+    addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'transactions',
+            operation: 'create',
+            requestResourceData: transactionData
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
 
     return apiResponse;
@@ -567,56 +643,55 @@ export async function purchaseService(uid: string, serviceId: string, variationI
 export async function getTransactions(): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
     const q = query(transactionsCol, orderBy('date', 'desc'));
-    const transactionSnapshot = await getDocs(q);
-    const transactionList = transactionSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-            date: data.date.toDate(),
-        } as Transaction;
-    });
-    return transactionList;
+    const transactionList = await getDocsWithContext<Transaction>(q);
+    return transactionList.map(tx => ({ ...tx, date: new Date(tx.date)}));
 }
 
 export async function getTransactionById(id: string): Promise<Transaction | null> {
     const transactionRef = doc(db, 'transactions', id);
-    const transactionSnap = await getDoc(transactionRef);
-
-    if (transactionSnap.exists()) {
-        const data = transactionSnap.data();
-        return {
-            id: transactionSnap.id,
-            ...data,
-            date: data.date.toDate(),
-        } as Transaction;
-    } else {
-        return null;
+    try {
+        const transactionSnap = await getDoc(transactionRef);
+        if (transactionSnap.exists()) {
+            const data = transactionSnap.data();
+            return {
+                id: transactionSnap.id,
+                ...data,
+                date: data.date.toDate(),
+            } as Transaction;
+        } else {
+            return null;
+        }
+    } catch (serverError: any) {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: transactionRef.path,
+                operation: 'get',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+        throw serverError;
     }
 }
 
 export async function updateTransactionStatus(id: string, status: 'Successful' | 'Failed') {
     const transactionRef = doc(db, 'transactions', id);
-    await updateDoc(transactionRef, { status: status });
+    const updateData = { status: status };
+    updateDoc(transactionRef, updateData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: transactionRef.path,
+            operation: 'update',
+            requestResourceData: updateData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function getUserTransactions(uid: string): Promise<Transaction[]> {
     const transactionsCol = collection(db, 'transactions');
     const q = query(transactionsCol, where('userId', '==', uid));
-    const transactionSnapshot = await getDocs(q);
-    let transactionList = transactionSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            ...data,
-            date: data.date.toDate(),
-        } as Transaction;
-    });
-    
-    // Sort by date in descending order (newest first)
-    transactionList.sort((a, b) => b.date.getTime() - a.date.getTime());
-    
-    return transactionList;
+    const transactionList = await getDocsWithContext<Transaction>(q);
+    transactionList.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return transactionList.map(tx => ({ ...tx, date: new Date(tx.date)}));
 }
 
 export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<User[]> {
@@ -626,23 +701,21 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
     if (roles && roles.length > 0) {
         q = query(usersCol, where('role', 'in', roles), orderBy('createdAt', 'desc'));
     }
-
-    const userSnapshot = await getDocs(q);
-    return userSnapshot.docs.map(doc => {
-        const data = doc.data();
-        const lastLoginDate = data.lastLogin?.toDate ? data.lastLogin.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date());
-        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+    const userList = await getDocsWithContext<any>(q);
+    return userList.map(doc => {
+        const lastLoginDate = doc.lastLogin?.toDate ? doc.lastLogin.toDate() : (doc.createdAt?.toDate ? doc.createdAt.toDate() : new Date());
+        const createdAt = doc.createdAt?.toDate ? doc.createdAt.toDate() : new Date();
         return {
             id: doc.id,
-            uid: data.uid,
-            name: data.fullName,
-            email: data.email,
-            role: data.role,
-            status: data.status,
+            uid: doc.uid,
+            name: doc.fullName,
+            email: doc.email,
+            role: doc.role,
+            status: doc.status,
             lastLogin: lastLoginDate,
-            walletBalance: data.walletBalance,
+            walletBalance: doc.walletBalance,
             createdAt: createdAt,
-            phone: data.phone,
+            phone: doc.phone,
         } as User;
     });
 }
@@ -650,15 +723,23 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
 
 export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin'; status: 'Active' | 'Pending' | 'Blocked' }) {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, data);
+    updateDoc(userRef, data).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: data
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw serverError;
+    });
 }
 
 export async function getServices(): Promise<Service[]> {
     const servicesCol = collection(db, "services");
-    const serviceSnapshot = await getDocs(query(servicesCol));
+    const serviceSnapshot = await getDocsWithContext<any>(query(servicesCol));
     
-    const baseServices = serviceSnapshot.docs.map(doc => {
-        return { id: doc.id, ...doc.data(), apiProviderIds: doc.data().apiProviderIds || [] } as Service;
+    const baseServices = serviceSnapshot.map(doc => {
+        return { id: doc.id, ...doc, apiProviderIds: doc.apiProviderIds || [] } as Service;
     });
     
     const [allDataPlans, allCablePlans, allDiscos, allRechargeDenominations, allEducationPinTypes] = await Promise.all([
@@ -754,25 +835,46 @@ export async function getServices(): Promise<Service[]> {
 
 export async function addService(data: { name: string; category: string }) {
     const servicesCol = collection(db, 'services');
-    await addDoc(servicesCol, {
+    const serviceData = {
         ...data,
         status: 'Active',
         markupType: 'none',
         markupValue: 0,
         apiProviderIds: [],
         endpoint: '',
+    };
+    addDoc(servicesCol, serviceData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'services',
+            operation: 'create',
+            requestResourceData: serviceData
+        });
+        errorEmitter.emit('permission-error', permissionError);
     });
 }
 
 
 export async function updateService(id: string, data: Partial<Service>) {
     const serviceRef = doc(db, 'services', id);
-    await updateDoc(serviceRef, data);
+    updateDoc(serviceRef, data).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: serviceRef.path,
+            operation: 'update',
+            requestResourceData: data
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function deleteService(id: string) {
     const serviceRef = doc(db, 'services', id);
-await deleteDoc(serviceRef);
+    deleteDoc(serviceRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: serviceRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function generateVirtualAccountForUser(userId: string): Promise<void> {
@@ -806,13 +908,22 @@ export async function generateVirtualAccountForUser(userId: string): Promise<voi
             gender: 'Male', // Placeholder
         });
 
-        await updateDoc(userRef, {
+        const updateData = {
             reservedAccount: {
                 provider: 'Paylony',
                 accountNumber: paylonyAccount.account_number,
                 accountName: paylonyAccount.account_name,
                 bankName: paylonyAccount.bank_name,
             },
+        };
+        updateDoc(userRef, updateData).catch(async (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            throw new Error(`Failed to create Paylony virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
         });
     } catch (error) {
         console.error(`[generateVirtualAccount] Failed for user ${userId}:`, error);
@@ -823,11 +934,8 @@ export async function generateVirtualAccountForUser(userId: string): Promise<voi
 
 export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id' | 'name'>[]> {
     const providersCol = collection(db, 'apiProviders');
-    const snapshot = await getDocs(query(providersCol, where('status', '==', 'Active')));
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name as string,
-    }));
+    const q = query(providersCol, where('status', '==', 'Active'));
+    return await getDocsWithContext<Pick<ApiProvider, 'id' | 'name'>>(q);
 }
 
 
@@ -835,9 +943,9 @@ export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id'
 
 export async function getApiProviders(): Promise<ApiProvider[]> {
     const providersCol = collection(db, 'apiProviders');
-    const snapshot = await getDocs(query(providersCol));
+    const snapshot = await getDocsWithContext<ApiProvider>(query(providersCol));
     
-    if (snapshot.empty) {
+    if (snapshot.length === 0) {
         const initialProvider: Omit<ApiProvider, 'id'> = { 
             name: 'HusmoData', 
             providerType: 'Service API',
@@ -852,28 +960,48 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
             transactionCharge: 0 
         };
         
-        const docRef = await addDoc(providersCol, initialProvider);
+        await addApiProvider(initialProvider);
         
-        const newSnapshot = await getDocs(providersCol);
-        return newSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
+        const newSnapshot = await getDocsWithContext<ApiProvider>(query(providersCol));
+        return newSnapshot;
     }
     
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ApiProvider));
+    return snapshot;
 }
 
 export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
     const providersCol = collection(db, 'apiProviders');
-    await addDoc(providersCol, provider);
+    addDoc(providersCol, provider).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'apiProviders',
+            operation: 'create',
+            requestResourceData: provider
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function updateApiProvider(id: string, data: Partial<Omit<ApiProvider, 'id'>>) {
     const providerRef = doc(db, 'apiProviders', id);
-    await updateDoc(providerRef, data);
+    updateDoc(providerRef, data).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: providerRef.path,
+            operation: 'update',
+            requestResourceData: data
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
-    await deleteDoc(providerRef);
+    deleteDoc(providerRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: providerRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 // --- Data Plan Pricing Functions ---
@@ -886,21 +1014,42 @@ export async function bulkAddDataPlans(plans: Omit<DataPlan, 'id'>[]) {
         batch.set(docRef, { ...plan, status: 'Active' });
     });
 
-    await batch.commit();
+    batch.commit().catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'dataPlans',
+            operation: 'create',
+            requestResourceData: { note: `${plans.length} plans in a batch write` }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function addDataPlan(plan: Omit<DataPlan, 'id'>) {
-    await addDoc(collection(db, 'dataPlans'), plan);
+    addDoc(collection(db, 'dataPlans'), plan).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'dataPlans',
+            operation: 'create',
+            requestResourceData: plan
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function getDataPlans(): Promise<DataPlan[]> {
-    const snapshot = await getDocs(query(collection(db, 'dataPlans')));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DataPlan));
+    const snapshot = await getDocsWithContext<DataPlan>(query(collection(db, 'dataPlans')));
+    return snapshot;
 }
 
 export async function updateDataPlanStatus(id: string, status: 'Active' | 'Inactive') {
     const planRef = doc(db, 'dataPlans', id);
-await updateDoc(planRef, { status });
+    updateDoc(planRef, { status }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: planRef.path,
+            operation: 'update',
+            requestResourceData: { status }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function updateDataPlansStatusByType(networkName: string, planType: string, status: 'Active' | 'Inactive') {
@@ -918,75 +1067,160 @@ export async function updateDataPlansStatusByType(networkName: string, planType:
         batch.update(doc.ref, { status: status });
     });
 
-    await batch.commit();
+    batch.commit().catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: `dataPlans (query: ${networkName}/${planType})`,
+            operation: 'update',
+            requestResourceData: { status }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function deleteDataPlan(id: string) {
-    await deleteDoc(doc(db, 'dataPlans', id));
+    const planRef = doc(db, 'dataPlans', id);
+    deleteDoc(planRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: planRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 // --- Cable Plan Pricing Functions ---
 export async function addCablePlan(plan: Omit<CablePlan, 'id'>) {
-    await addDoc(collection(db, 'cablePlans'), {...plan, status: 'Active'});
+    const planData = {...plan, status: 'Active'};
+    addDoc(collection(db, 'cablePlans'), planData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'cablePlans',
+            operation: 'create',
+            requestResourceData: planData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function getCablePlans(): Promise<CablePlan[]> {
-    const snapshot = await getDocs(query(collection(db, 'cablePlans')));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CablePlan));
+    return await getDocsWithContext<CablePlan>(query(collection(db, 'cablePlans')));
 }
 
 export async function updateCablePlanStatus(id: string, status: 'Active' | 'Inactive') {
     const planRef = doc(db, 'cablePlans', id);
-    await updateDoc(planRef, { status });
+    updateDoc(planRef, { status }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: planRef.path,
+            operation: 'update',
+            requestResourceData: { status }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 
 export async function deleteCablePlan(id: string) {
-    await deleteDoc(doc(db, 'cablePlans', id));
+    const planRef = doc(db, 'cablePlans', id);
+    deleteDoc(planRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: planRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 // --- Disco Pricing Functions ---
 export async function addDisco(disco: Omit<Disco, 'id'>) {
-    await addDoc(collection(db, 'discos'), {...disco, status: 'Active'});
+    const discoData = {...disco, status: 'Active'};
+    addDoc(collection(db, 'discos'), discoData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'discos',
+            operation: 'create',
+            requestResourceData: discoData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function getDiscos(): Promise<Disco[]> {
-    const snapshot = await getDocs(query(collection(db, 'discos')));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Disco));
+    return await getDocsWithContext<Disco>(query(collection(db, 'discos')));
 }
 
 export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive') {
     const discoRef = doc(db, 'discos', id);
-    await updateDoc(discoRef, { status });
+    updateDoc(discoRef, { status }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: discoRef.path,
+            operation: 'update',
+            requestResourceData: { status }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 
 export async function deleteDisco(id: string) {
-    await deleteDoc(doc(db, 'discos', id));
+    const discoRef = doc(db, 'discos', id);
+    deleteDoc(discoRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: discoRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 // --- Recharge Card Denomination Functions ---
 export async function addRechargeCardDenomination(denomination: Omit<RechargeCardDenomination, 'id'>) {
-    await addDoc(collection(db, 'rechargeCardDenominations'), { ...denomination, status: 'Active' });
+    const denomData = { ...denomination, status: 'Active' };
+    addDoc(collection(db, 'rechargeCardDenominations'), denomData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'rechargeCardDenominations',
+            operation: 'create',
+            requestResourceData: denomData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function getRechargeCardDenominations(): Promise<RechargeCardDenomination[]> {
-    const snapshot = await getDocs(query(collection(db, 'rechargeCardDenominations')));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RechargeCardDenomination));
+    return await getDocsWithContext<RechargeCardDenomination>(query(collection(db, 'rechargeCardDenominations')));
 }
 
 export async function updateRechargeCardDenominationStatus(id: string, status: 'Active' | 'Inactive') {
     const denominationRef = doc(db, 'rechargeCardDenominations', id);
-    await updateDoc(denominationRef, { status });
+    updateDoc(denominationRef, { status }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: denominationRef.path,
+            operation: 'update',
+            requestResourceData: { status }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function deleteRechargeCardDenomination(id: string) {
-    await deleteDoc(doc(db, 'rechargeCardDenominations', id));
+    const denomRef = doc(db, 'rechargeCardDenominations', id);
+    deleteDoc(denomRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: denomRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 // --- Education Pin Type Functions ---
 export async function addEducationPinType(pinType: Omit<EducationPinType, 'id'>) {
-    await addDoc(collection(db, 'educationPinTypes'), { ...pinType, status: 'Active' });
+    const pinData = { ...pinType, status: 'Active' };
+    addDoc(collection(db, 'educationPinTypes'), pinData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'educationPinTypes',
+            operation: 'create',
+            requestResourceData: pinData
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function getEducationPinTypes(examBody?: string): Promise<EducationPinType[]> {
@@ -994,17 +1228,30 @@ export async function getEducationPinTypes(examBody?: string): Promise<Education
     if (examBody) {
         q = query(q, where('examBody', '==', examBody));
     }
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EducationPinType));
+    return await getDocsWithContext<EducationPinType>(q);
 }
 
 export async function updateEducationPinTypeStatus(id: string, status: 'Active' | 'Inactive') {
     const pinTypeRef = doc(db, 'educationPinTypes', id);
-    await updateDoc(pinTypeRef, { status });
+    updateDoc(pinTypeRef, { status }).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: pinTypeRef.path,
+            operation: 'update',
+            requestResourceData: { status }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 export async function deleteEducationPinType(id: string) {
-    await deleteDoc(doc(db, 'educationPinTypes', id));
+    const pinTypeRef = doc(db, 'educationPinTypes', id);
+    deleteDoc(pinTypeRef).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: pinTypeRef.path,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    });
 }
 
 
