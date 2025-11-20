@@ -29,7 +29,7 @@ async function setAdminClaim(uid: string): Promise<{ success: boolean; message: 
         const result = await response.json();
 
         if (!response.ok) {
-            throw new Error(result.message || 'Failed to set admin claim via API route.');
+            throw new Error(result.message || `Failed to set admin claim via API route. Status: ${response.status}`);
         }
 
         console.log(`[Auth] Custom admin claim API call successful for ${uid}.`);
