@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getFirestore, doc, getDoc, updateDoc, increment, setDoc, collection, addDoc, query, where, getDocs, orderBy, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -701,23 +702,38 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
     if (roles && roles.length > 0) {
         q = query(usersCol, where('role', 'in', roles), orderBy('createdAt', 'desc'));
     }
-    const userList = await getDocsWithContext<any>(q);
-    return userList.map(doc => {
-        const lastLoginDate = doc.lastLogin?.toDate ? doc.lastLogin.toDate() : (doc.createdAt?.toDate ? doc.createdAt.toDate() : new Date());
-        const createdAt = doc.createdAt?.toDate ? doc.createdAt.toDate() : new Date();
-        return {
-            id: doc.id,
-            uid: doc.uid,
-            name: doc.fullName,
-            email: doc.email,
-            role: doc.role,
-            status: doc.status,
-            lastLogin: lastLoginDate,
-            walletBalance: doc.walletBalance,
-            createdAt: createdAt,
-            phone: doc.phone,
-        } as User;
-    });
+
+    try {
+        const userSnapshot = await getDocs(q);
+        const userList = userSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const lastLoginDate = data.lastLogin?.toDate ? data.lastLogin.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date());
+            const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+            return {
+                id: doc.id,
+                uid: data.uid,
+                name: data.fullName,
+                email: data.email,
+                role: data.role,
+                status: data.status,
+                lastLogin: lastLoginDate,
+                walletBalance: data.walletBalance,
+                createdAt: createdAt,
+                phone: data.phone,
+            } as User;
+        });
+        return userList;
+    } catch (serverError: any) {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'users',
+                operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+        // Re-throw the error to be caught by the calling component
+        throw serverError;
+    }
 }
 
 
