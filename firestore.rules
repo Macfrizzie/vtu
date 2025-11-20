@@ -16,7 +16,6 @@ service cloud.firestore {
     }
 
     // Admins have full read/write access to all documents.
-    // The isInitialAdmin() allows the first login to succeed.
     match /{path=**} {
       allow read, write: if isAdmin() || isInitialAdmin();
     }
@@ -26,13 +25,16 @@ service cloud.firestore {
       allow read: if request.auth != null && request.auth.uid == userId;
 
       // Allow a user to UPDATE only a specific, safe list of fields on their own document.
-      // This is the key change that fixes the "lastLogin" update issue during sign-in.
       allow update: if request.auth != null && request.auth.uid == userId
                     && request.resource.data.keys().hasOnly(['lastLogin', 'status', 'fullName', 'phone', 'role', 'walletBalance', 'reservedAccount', 'createdAt', 'uid', 'email']);
 
       // Prevent users from creating or deleting their own user documents directly.
-      allow create: if false;
-      allow delete: if false;
+      allow create, delete: if false;
+    }
+
+    // Allow admins to LIST all users.
+    match /users/{userId} {
+      allow list: if isAdmin() || isInitialAdmin();
     }
   }
 }
