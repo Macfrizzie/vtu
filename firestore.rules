@@ -5,9 +5,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper function to check for admin role
-    // TEMPORARY: Check by email to allow initial admin login.
-    // This will be reverted to check for a custom claim.
     function isAdmin() {
+      // TEMPORARY: Check by email to allow initial admin login.
+      // This will be reverted to check for a custom claim.
       return request.auth != null && request.auth.token.email == 'horlarworyeh200@gmail.com';
     }
 
@@ -16,9 +16,15 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // All authenticated users can read and write their OWN user document.
+    // All authenticated users can read their OWN user document.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Allow a user to update only specific fields on their own document.
+      allow update: if request.auth != null && request.auth.uid == userId
+                    && request.resource.data.keys().hasOnly(['lastLogin', 'status', 'fullName', 'phone', 'role', 'walletBalance', 'reservedAccount', 'createdAt', 'uid', 'email']);
+      // Prevent users from creating their own user documents directly
+      allow create: if false;
+      allow delete: if false;
     }
   }
 }
