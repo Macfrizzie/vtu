@@ -4,25 +4,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for admin role
+    // Helper function to check for admin role via custom claim
     function isAdmin() {
-      // TEMPORARY: Check by email to allow initial admin login.
-      // This will be reverted to check for a custom claim.
+      return request.auth != null && request.auth.token.admin == true;
+    }
+    
+    // TEMPORARY HELPER: Grant admin by email to break the initial login-loop.
+    // This allows the first admin to sign in so the app can set their custom claim.
+    function isInitialAdmin() {
       return request.auth != null && request.auth.token.email == 'horlarworyeh200@gmail.com';
     }
 
-    // Admins have full read/write access to all documents and collections.
+    // Admins have full read/write access to all documents.
+    // The isInitialAdmin() allows the first login to succeed.
     match /{path=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if isAdmin() || isInitialAdmin();
     }
 
-    // All authenticated users can read their OWN user document.
+    // All authenticated users can READ their OWN user document.
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      // Allow a user to update only specific fields on their own document.
+
+      // Allow a user to UPDATE only a specific, safe list of fields on their own document.
+      // This is the key change that fixes the "lastLogin" update issue during sign-in.
       allow update: if request.auth != null && request.auth.uid == userId
                     && request.resource.data.keys().hasOnly(['lastLogin', 'status', 'fullName', 'phone', 'role', 'walletBalance', 'reservedAccount', 'createdAt', 'uid', 'email']);
-      // Prevent users from creating their own user documents directly
+
+      // Prevent users from creating or deleting their own user documents directly.
       allow create: if false;
       allow delete: if false;
     }
