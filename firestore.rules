@@ -9,9 +9,9 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.admin == true;
     }
 
-    // Admins have full read/write access to all documents in the database.
-    // This rule is checked first and provides broad access for admin users.
-    match /{document=**} {
+    // Admins have full read/write access to all documents and collections.
+    // This rule allows admins to perform list queries on collections.
+    match /{path=**} {
       allow read, write: if isAdmin();
     }
 
