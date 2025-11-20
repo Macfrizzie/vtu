@@ -18,9 +18,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { signInWithEmailAndPassword } from '@/lib/firebase/auth';
-import { Loader2 } from 'lucide-react';
+import { signInWithEmailAndPassword, onAuthStateChangedHelper } from '@/lib/firebase/auth';
+import { Loader2, LogOut } from 'lucide-react';
 import { useState } from 'react';
+import { getAuth, signOut } from 'firebase/auth';
+import { app } from '@/lib/firebase/client-app';
+
+const auth = getAuth(app);
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -60,6 +64,15 @@ export default function LoginPage() {
       });
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  const handleForceLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: 'Logged Out', description: 'Any active sessions have been cleared.' });
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Logout Failed', description: 'Could not clear session. Please clear your browser cache.' });
     }
   }
 
@@ -122,6 +135,10 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Login
+            </Button>
+            <Button type="button" variant="outline" className="w-full" onClick={handleForceLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Force Logout / Clear Session
             </Button>
             <div className="text-sm text-muted-foreground">
               Don&apos;t have an account?{' '}
