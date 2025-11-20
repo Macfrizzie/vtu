@@ -705,7 +705,7 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
 
     try {
         const userSnapshot = await getDocs(q);
-        const userList = userSnapshot.docs.map(doc => {
+        return userSnapshot.docs.map(doc => {
             const data = doc.data();
             const lastLoginDate = data.lastLogin?.toDate ? data.lastLogin.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date());
             const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
@@ -722,17 +722,16 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
                 phone: data.phone,
             } as User;
         });
-        return userList;
     } catch (serverError: any) {
         if (serverError.code === 'permission-denied') {
             const permissionError = new FirestorePermissionError({
-                path: 'users',
+                path: `users (query with roles: ${roles?.join(',') || 'all'})`,
                 operation: 'list',
             });
             errorEmitter.emit('permission-error', permissionError);
         }
-        // Re-throw the error to be caught by the calling component
-        throw serverError;
+        // Return an empty array or handle as needed, but don't re-throw to avoid generic error overlay
+        return [];
     }
 }
 
