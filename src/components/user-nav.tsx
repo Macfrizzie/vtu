@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -15,9 +14,29 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { CreditCard, LogOut, Settings, User as UserIcon } from 'lucide-react';
 import { useUser } from '@/context/user-context';
+import { getAuth, signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { app } from '@/lib/firebase/client-app';
+
+const auth = getAuth(app);
 
 export function UserNav() {
-    const { user, userData, loading } = useUser();
+  const { user, userData, loading } = useUser();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast({ title: 'Logged Out', description: 'You have been successfully signed out.' });
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout Error:', error);
+      toast({ variant: 'destructive', title: 'Logout Failed', description: 'Could not log you out. Please try again.' });
+    }
+  };
+
 
   return (
     <DropdownMenu>
@@ -57,15 +76,11 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-            <Link href="/login">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-            </Link>
+        <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-
-    
