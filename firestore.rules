@@ -10,7 +10,6 @@ service cloud.firestore {
     }
     
     // TEMPORARY HELPER: Grant admin by email to break the initial login-loop.
-    // This allows the first admin to sign in so the app can set their custom claim.
     function isInitialAdmin() {
       return request.auth != null && request.auth.token.email == 'horlarworyeh200@gmail.com';
     }
@@ -20,6 +19,8 @@ service cloud.firestore {
       allow read, write: if isAdmin() || isInitialAdmin();
     }
 
+    // --- Rules for All Authenticated Users ---
+
     // All authenticated users can READ their OWN user document.
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
@@ -27,14 +28,32 @@ service cloud.firestore {
       // Allow a user to UPDATE only a specific, safe list of fields on their own document.
       allow update: if request.auth != null && request.auth.uid == userId
                     && request.resource.data.keys().hasOnly(['lastLogin', 'status', 'fullName', 'phone', 'role', 'walletBalance', 'reservedAccount', 'createdAt', 'uid', 'email']);
-
-      // Prevent users from creating or deleting their own user documents directly.
-      allow create, delete: if false;
     }
-
-    // Allow admins to LIST all users.
-    match /users/{userId} {
-      allow list: if isAdmin() || isInitialAdmin();
+    
+    // Allow users to read and create their own transactions.
+    match /transactions/{transactionId} {
+        allow list, read: if request.auth != null && request.auth.uid == resource.data.userId;
+        allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Allow users to read public service and pricing information.
+    match /services/{serviceId} {
+        allow read: if request.auth != null;
+    }
+    match /dataPlans/{planId} {
+        allow read: if request.auth != null;
+    }
+    match /cablePlans/{planId} {
+        allow read: if request.auth != null;
+    }
+     match /discos/{discoId} {
+        allow read: if request.auth != null;
+    }
+    match /rechargeCardDenominations/{denomId} {
+        allow read: if request.auth != null;
+    }
+    match /educationPinTypes/{pinId} {
+        allow read: if request.auth != null;
     }
   }
 }
