@@ -2,12 +2,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { DashboardShell, type NavItem } from '@/components/dashboard-shell';
+import { DashboardShell, type NavItem } from './dashboard-shell';
 import { LayoutDashboard, Users, Zap, History, Cog, Plug, DollarSign, Database, GanttChartSquare, HeartPulse, Shield } from 'lucide-react';
 import { UserProvider, useUser } from '@/context/user-context';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
-import { onAuthStateChangedHelper } from '@/lib/firebase/auth';
 import { AdminBottomNav } from '@/components/admin-bottom-nav';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
@@ -24,26 +23,8 @@ const defaultNavItems: NavItem[] = [
 const superAdminNavItem: NavItem = { href: '/super-admin', title: 'Super Admin', icon: <Shield className="h-4 w-4" /> };
 
 
-const protectedAdminRoutes = ['/admin', '/super-admin'];
-
 function AdminLayoutContent({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { userData, loading } = useUser();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChangedHelper(user => {
-      if (!user && protectedAdminRoutes.some(route => pathname.startsWith(route))) {
-        router.push('/login');
-      }
-    });
-
-    if (!loading && userData && !['Admin', 'Super Admin'].includes(userData.role)) {
-      router.push('/dashboard');
-    }
-    
-    return () => unsubscribe();
-  }, [pathname, router, userData, loading]);
+  const { userData } = useUser();
 
   const navItems = useMemo(() => {
     if (userData?.role === 'Super Admin') {
