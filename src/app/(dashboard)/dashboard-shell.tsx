@@ -6,10 +6,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { VtuBossLogo } from '@/components/icons';
-import { UserNav } from '@/components/user-nav';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -21,6 +19,7 @@ import {
   PanelLeft
 } from "lucide-react"
 import type { UserData } from '@/lib/types';
+import { UserNav } from '@/components/user-nav';
 
 export interface NavItem {
   href: string;
@@ -101,7 +100,6 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
            <div className="flex flex-1 items-center justify-end space-x-4">
               <nav className="flex items-center space-x-2">
                 <LanguageSwitcher />
-                <UserNav />
               </nav>
             </div>
         </header>
@@ -112,5 +110,3 @@ export function DashboardShell({ navItems, children, userRole }: DashboardShellP
     </div>
   );
 }
-
-    
