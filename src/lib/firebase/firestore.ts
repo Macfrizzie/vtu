@@ -367,8 +367,14 @@ export async function getUserData(uid: string): Promise<UserData | null> {
       const lastLogin = data.lastLogin?.toDate ? data.lastLogin.toDate() : createdAt;
       
       const userData = {
-          ...data,
           uid: userSnap.id,
+          email: data.email,
+          fullName: data.fullName,
+          phone: data.phone,
+          role: data.role,
+          walletBalance: data.walletBalance,
+          status: data.status,
+          reservedAccount: data.reservedAccount || null,
           createdAt: createdAt.toISOString(),
           lastLogin: lastLogin.toISOString()
       } as UserData;
