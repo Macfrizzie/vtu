@@ -41,11 +41,11 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fullName: 'Demo User',
-      email: 'demo@email.com',
-      phone: '08012345678',
-      password: 'demo1234',
-      terms: true,
+      fullName: '',
+      email: '',
+      phone: '',
+      password: '',
+      terms: false,
     },
   });
 

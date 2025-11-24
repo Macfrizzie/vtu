@@ -8,34 +8,32 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && request.auth.token.admin == true;
     }
-    
-    // TEMPORARY HELPER: Grant admin by email to break the initial login-loop.
-    function isInitialAdmin() {
-      return request.auth != null && request.auth.token.email == 'horlarworyeh200@gmail.com';
-    }
 
     // Admins have full read/write access to all documents.
     match /{path=**} {
-      allow read, write: if isAdmin() || isInitialAdmin();
+      allow read, write: if isAdmin();
     }
 
     // --- Rules for All Authenticated Users ---
 
-    // All authenticated users can READ their OWN user document.
     match /users/{userId} {
+      // Allow a user to create their own user document
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Allow a user to read their own user document
       allow read: if request.auth != null && request.auth.uid == userId;
 
       // Allow a user to UPDATE only a specific, safe list of fields on their own document.
       allow update: if request.auth != null && request.auth.uid == userId
                     && request.resource.data.keys().hasOnly(['lastLogin', 'status', 'fullName', 'phone', 'role', 'walletBalance', 'reservedAccount', 'createdAt', 'uid', 'email']);
     }
-    
+
     // Allow users to read and create their own transactions.
     match /transactions/{transactionId} {
         allow list, read: if request.auth != null && request.auth.uid == resource.data.userId;
         allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
-    
+
     // Allow users to read public service and pricing information.
     match /services/{serviceId} {
         allow read: if request.auth != null;
