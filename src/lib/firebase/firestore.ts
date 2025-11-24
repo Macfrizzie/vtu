@@ -21,13 +21,13 @@ async function getDocsWithContext<T>(q: any, operation: 'list' = 'list'): Promis
   } catch (serverError: any) {
     if (serverError.code === 'permission-denied') {
         const permissionError = new FirestorePermissionError({
-            path: q.path,
+            path: q.path || 'unknown collection (check query)',
             operation: operation,
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-    // Re-throw the original error to be handled by the caller
-    throw serverError;
+    // Return empty array to prevent app crash and let the listener show the error.
+    return [];
   }
 }
 
@@ -286,25 +286,25 @@ export async function initializeServices(): Promise<string[]> {
         if (rechargeCardSnapshot.empty) {
             const denominations = [
                 // MTN
-                { networkName: 'MTN', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'MTN', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'MTN', denominationId: 'mtn-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
-                { networkName: 'MTN', denominationId: 'mtn-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'MTN', denominationId: 'mtn-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
                 // GLO
-                { networkName: 'GLO', denominationId: 'glo-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'GLO', denominationId: 'glo-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'GLO', denominationId: 'glo-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
-                { networkName: 'GLO', denominationId: 'glo-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'GLO', denominationId: 'glo-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
                 // AIRTEL
-                { networkName: 'AIRTEL', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'AIRTEL', denominationId: 'airtel-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: 'AIRTEL', denominationId: 'airtel-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
-                { networkName: 'AIRTEL', denominationId: 'airtel-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: 'AIRTEL', denominationId: 'airtel-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
                  // 9MOBILE
-                { networkName: '9MOBILE', denominationId: '9mobile-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: '9MOBILE', denominationId: '9mobile-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0 }, status: 'Active' },
-                { networkName: '9MOBILE', denominationId: '9mobile-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
-                { networkName: '9MOBILE', denominationId: '9mobile-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-100', name: '₦100 Pin', price: 100, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-200', name: '₦200 Pin', price: 200, fees: { Customer: 5, Vendor: 2, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-500', name: '₦500 Pin', price: 500, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { networkName: '9MOBILE', denominationId: '9mobile-1000', name: '₦1000 Pin', price: 1000, fees: { Customer: 10, Vendor: 5, Admin: 0, "Super Admin": 0 }, status: 'Active' },
             ];
             denominations.forEach(denom => {
                 const denomDocRef = doc(rechargeCardDenominationsCollection);
@@ -321,9 +321,9 @@ export async function initializeServices(): Promise<string[]> {
         const educationPinSnapshot = await getDocs(educationPinTypesCollection);
         if (educationPinSnapshot.empty) {
             const pins = [
-                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'WAEC Result Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
-                { examBody: 'JAMB', pinTypeId: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0 }, status: 'Active' },
+                { examBody: 'WAEC', pinTypeId: 'waec-result', name: 'WAEC Result Pin', price: 3500, fees: { Customer: 100, Vendor: 50, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { examBody: 'NECO', pinTypeId: 'neco-result', name: 'NECO Result Token', price: 1000, fees: { Customer: 100, Vendor: 50, Admin: 0, "Super Admin": 0 }, status: 'Active' },
+                { examBody: 'JAMB', pinTypeId: 'jamb-utme', name: 'JAMB UTME/DE Pin', price: 4700, fees: { Customer: 100, Vendor: 50, Admin: 0, "Super Admin": 0 }, status: 'Active' },
             ];
             pins.forEach(pin => {
                 const pinDocRef = doc(educationPinTypesCollection);
@@ -352,33 +352,54 @@ export async function initializeServices(): Promise<string[]> {
 }
 
 export async function getUserData(uid: string): Promise<UserData | null> {
-    console.log(`[UserProvider] Fetching user data for UID: ${uid}`);
-    const userRef = doc(db, 'users', uid);
+  console.log(`[UserProvider] Fetching user data for UID: ${uid}`);
+  const userRef = doc(db, 'users', uid);
+  try {
     const userSnap = await getDoc(userRef);
 
     if (userSnap.exists()) {
-        const data = userSnap.data();
-        // Convert Firestore Timestamp to JavaScript Date object
-        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
-        const lastLogin = data.lastLogin?.toDate ? data.lastLogin.toDate() : createdAt;
-        
-        const userData = {
-            ...data,
-            uid: userSnap.id,
-            createdAt: createdAt.toISOString(),
-            lastLogin: lastLogin.toISOString()
-        } as UserData;
-        console.log(`[UserProvider] Data fetch complete for ${uid}`);
-        return userData;
+      const data = userSnap.data();
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+      const lastLogin = data.lastLogin?.toDate ? data.lastLogin.toDate() : createdAt;
+      
+      const userData = {
+          ...data,
+          uid: userSnap.id,
+          createdAt: createdAt.toISOString(),
+          lastLogin: lastLogin.toISOString()
+      } as UserData;
+      console.log(`[UserProvider] Data fetch complete for ${uid}`);
+      return userData;
     } else {
-        console.log(`[UserProvider] No user data found for UID: ${uid}`);
-        return null;
+      console.log(`[UserProvider] No user data found for UID: ${uid}`);
+      return null;
     }
+  } catch (serverError: any) {
+    if (serverError.code === 'permission-denied') {
+      const permissionError = new FirestorePermissionError({
+        path: userRef.path,
+        operation: 'get',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    }
+    // Return null to prevent app crash and let the listener handle the UI.
+    return null;
+  }
 }
 
 export async function updateUserData(uid: string, data: { fullName: string; phone: string; }) {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, data);
+    updateDoc(userRef, data).catch(async (serverError) => {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: data
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+        throw serverError; // Rethrow for the UI to handle
+    });
 }
 
 export async function fundWallet(uid: string, amount: number, email?: string | null, fullName?: string | null) {
@@ -394,7 +415,7 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
              userFullName = authUser.displayName;
         }
 
-        await setDoc(userRef, {
+        setDoc(userRef, {
             uid,
             email: userEmail,
             fullName: userFullName,
@@ -403,19 +424,49 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
             walletBalance: 0,
             lastLogin: new Date(),
             status: 'Active',
+        }).catch(async (serverError) => {
+            if (serverError.code === 'permission-denied') {
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'create',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+            throw serverError;
         });
-        await updateDoc(userRef, {
+
+        updateDoc(userRef, {
             walletBalance: increment(amount)
+        }).catch(async (serverError) => {
+            if (serverError.code === 'permission-denied') {
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'update',
+                    requestResourceData: { walletBalance: `increment(${amount})` }
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+            throw serverError;
         });
     } else {
         userEmail = userSnap.data().email;
-        await updateDoc(userRef, {
+        updateDoc(userRef, {
             walletBalance: increment(amount)
+        }).catch(async (serverError) => {
+            if (serverError.code === 'permission-denied') {
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'update',
+                    requestResourceData: { walletBalance: `increment(${amount})` }
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
+            throw serverError;
         });
     }
     
     // Log the transaction
-    addDoc(collection(db, 'transactions'), {
+    const transactionData = {
         userId: uid,
         userEmail: userEmail,
         description: 'Wallet Funding',
@@ -423,13 +474,16 @@ export async function fundWallet(uid: string, amount: number, email?: string | n
         type: 'Credit',
         status: 'Successful',
         date: new Date(),
-    }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'transactions',
-            operation: 'create',
-            requestResourceData: { amount, type: 'Credit' }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    };
+    addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'transactions',
+                operation: 'create',
+                requestResourceData: transactionData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -444,12 +498,14 @@ export async function manualFundWallet(uid: string, amount: number, adminId: str
     
     const userData = { walletBalance: increment(amount) };
     updateDoc(userRef, userData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: userData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: userData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
         throw serverError; // rethrow to be caught by the UI
     });
 
@@ -463,12 +519,14 @@ export async function manualFundWallet(uid: string, amount: number, adminId: str
         date: new Date(),
     };
     addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'transactions',
-            operation: 'create',
-            requestResourceData: transactionData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'transactions',
+                operation: 'create',
+                requestResourceData: transactionData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -486,12 +544,14 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
     
     const userData = { walletBalance: increment(-amount) };
     updateDoc(userRef, userData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: userData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: userData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
         throw serverError;
     });
 
@@ -505,12 +565,14 @@ export async function manualDeductFromWallet(uid: string, amount: number, adminI
         date: new Date(),
     };
     addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'transactions',
-            operation: 'create',
-            requestResourceData: transactionData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'transactions',
+                operation: 'create',
+                requestResourceData: transactionData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -609,12 +671,14 @@ export async function purchaseService(uid: string, serviceId: string, variationI
     }
     
     updateDoc(userRef, { walletBalance: increment(-totalCost) }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: { walletBalance: increment(-totalCost) }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: { walletBalance: `increment(${-totalCost})` }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
     
     const transactionData = {
@@ -629,12 +693,14 @@ export async function purchaseService(uid: string, serviceId: string, variationI
         apiProvider: successfulProvider.name,
     };
     addDoc(collection(db, 'transactions'), transactionData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'transactions',
-            operation: 'create',
-            requestResourceData: transactionData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'transactions',
+                operation: 'create',
+                requestResourceData: transactionData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 
     return apiResponse;
@@ -670,7 +736,7 @@ export async function getTransactionById(id: string): Promise<Transaction | null
             });
             errorEmitter.emit('permission-error', permissionError);
         }
-        throw serverError;
+        return null;
     }
 }
 
@@ -678,12 +744,14 @@ export async function updateTransactionStatus(id: string, status: 'Successful' |
     const transactionRef = doc(db, 'transactions', id);
     const updateData = { status: status };
     updateDoc(transactionRef, updateData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: transactionRef.path,
-            operation: 'update',
-            requestResourceData: updateData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: transactionRef.path,
+                operation: 'update',
+                requestResourceData: updateData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -725,12 +793,11 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
     } catch (serverError: any) {
         if (serverError.code === 'permission-denied') {
             const permissionError = new FirestorePermissionError({
-                path: `users (query with roles: ${roles?.join(',') || 'all'})`,
+                path: `users (query)`,
                 operation: 'list',
             });
             errorEmitter.emit('permission-error', permissionError);
         }
-        // Return an empty array or handle as needed, but don't re-throw to avoid generic error overlay
         return [];
     }
 }
@@ -739,12 +806,14 @@ export async function getAllUsers(roles?: ('Admin' | 'Super Admin')[]): Promise<
 export async function updateUser(uid: string, data: { role: 'Customer' | 'Vendor' | 'Admin' | 'Super Admin'; status: 'Active' | 'Pending' | 'Blocked' }) {
     const userRef = doc(db, 'users', uid);
     updateDoc(userRef, data).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: data
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: data
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
         throw serverError;
     });
 }
@@ -859,12 +928,14 @@ export async function addService(data: { name: string; category: string }) {
         endpoint: '',
     };
     addDoc(servicesCol, serviceData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'services',
-            operation: 'create',
-            requestResourceData: serviceData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'services',
+                operation: 'create',
+                requestResourceData: serviceData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -872,23 +943,27 @@ export async function addService(data: { name: string; category: string }) {
 export async function updateService(id: string, data: Partial<Service>) {
     const serviceRef = doc(db, 'services', id);
     updateDoc(serviceRef, data).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: serviceRef.path,
-            operation: 'update',
-            requestResourceData: data
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: serviceRef.path,
+                operation: 'update',
+                requestResourceData: data
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function deleteService(id: string) {
     const serviceRef = doc(db, 'services', id);
     deleteDoc(serviceRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: serviceRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: serviceRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -932,12 +1007,14 @@ export async function generateVirtualAccountForUser(userId: string): Promise<voi
             },
         };
         updateDoc(userRef, updateData).catch(async (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: updateData
-            });
-            errorEmitter.emit('permission-error', permissionError);
+            if (serverError.code === 'permission-denied') {
+                const permissionError = new FirestorePermissionError({
+                    path: userRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
             throw new Error(`Failed to create Paylony virtual account: ${error instanceof Error ? error.message : 'Unknown error'}`);
         });
     } catch (error) {
@@ -987,35 +1064,41 @@ export async function getApiProviders(): Promise<ApiProvider[]> {
 export async function addApiProvider(provider: Omit<ApiProvider, 'id'>) {
     const providersCol = collection(db, 'apiProviders');
     addDoc(providersCol, provider).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'apiProviders',
-            operation: 'create',
-            requestResourceData: provider
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'apiProviders',
+                operation: 'create',
+                requestResourceData: provider
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function updateApiProvider(id: string, data: Partial<Omit<ApiProvider, 'id'>>) {
     const providerRef = doc(db, 'apiProviders', id);
     updateDoc(providerRef, data).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: providerRef.path,
-            operation: 'update',
-            requestResourceData: data
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: providerRef.path,
+                operation: 'update',
+                requestResourceData: data
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function deleteApiProvider(id: string) {
     const providerRef = doc(db, 'apiProviders', id);
     deleteDoc(providerRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: providerRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: providerRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1030,40 +1113,45 @@ export async function bulkAddDataPlans(plans: Omit<DataPlan, 'id'>[]) {
     });
 
     batch.commit().catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'dataPlans',
-            operation: 'create',
-            requestResourceData: { note: `${plans.length} plans in a batch write` }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'dataPlans',
+                operation: 'create',
+                requestResourceData: { note: `${plans.length} plans in a batch write` }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function addDataPlan(plan: Omit<DataPlan, 'id'>) {
     addDoc(collection(db, 'dataPlans'), plan).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'dataPlans',
-            operation: 'create',
-            requestResourceData: plan
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'dataPlans',
+                operation: 'create',
+                requestResourceData: plan
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function getDataPlans(): Promise<DataPlan[]> {
-    const snapshot = await getDocsWithContext<DataPlan>(query(collection(db, 'dataPlans')));
-    return snapshot;
+    return await getDocsWithContext<DataPlan>(query(collection(db, 'dataPlans')));
 }
 
 export async function updateDataPlanStatus(id: string, status: 'Active' | 'Inactive') {
     const planRef = doc(db, 'dataPlans', id);
     updateDoc(planRef, { status }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: planRef.path,
-            operation: 'update',
-            requestResourceData: { status }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: planRef.path,
+                operation: 'update',
+                requestResourceData: { status }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1073,9 +1161,9 @@ export async function updateDataPlansStatusByType(networkName: string, planType:
         where('networkName', '==', networkName),
         where('planType', '==', planType)
     );
-    const snapshot = await getDocs(plansQuery);
+    const snapshot = await getDocs(plansQuery).catch(e => { if (e.code === 'permission-denied') return null });
     
-    if (snapshot.empty) return;
+    if (!snapshot || snapshot.empty) return;
 
     const batch = writeBatch(db);
     snapshot.docs.forEach(doc => {
@@ -1083,23 +1171,27 @@ export async function updateDataPlansStatusByType(networkName: string, planType:
     });
 
     batch.commit().catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: `dataPlans (query: ${networkName}/${planType})`,
-            operation: 'update',
-            requestResourceData: { status }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: `dataPlans (batch update)`,
+                operation: 'update',
+                requestResourceData: { status }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function deleteDataPlan(id: string) {
     const planRef = doc(db, 'dataPlans', id);
     deleteDoc(planRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: planRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: planRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1107,12 +1199,14 @@ export async function deleteDataPlan(id: string) {
 export async function addCablePlan(plan: Omit<CablePlan, 'id'>) {
     const planData = {...plan, status: 'Active'};
     addDoc(collection(db, 'cablePlans'), planData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'cablePlans',
-            operation: 'create',
-            requestResourceData: planData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'cablePlans',
+                operation: 'create',
+                requestResourceData: planData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1123,12 +1217,14 @@ export async function getCablePlans(): Promise<CablePlan[]> {
 export async function updateCablePlanStatus(id: string, status: 'Active' | 'Inactive') {
     const planRef = doc(db, 'cablePlans', id);
     updateDoc(planRef, { status }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: planRef.path,
-            operation: 'update',
-            requestResourceData: { status }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: planRef.path,
+                operation: 'update',
+                requestResourceData: { status }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1136,11 +1232,13 @@ export async function updateCablePlanStatus(id: string, status: 'Active' | 'Inac
 export async function deleteCablePlan(id: string) {
     const planRef = doc(db, 'cablePlans', id);
     deleteDoc(planRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: planRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: planRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1148,12 +1246,14 @@ export async function deleteCablePlan(id: string) {
 export async function addDisco(disco: Omit<Disco, 'id'>) {
     const discoData = {...disco, status: 'Active'};
     addDoc(collection(db, 'discos'), discoData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'discos',
-            operation: 'create',
-            requestResourceData: discoData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'discos',
+                operation: 'create',
+                requestResourceData: discoData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1164,12 +1264,14 @@ export async function getDiscos(): Promise<Disco[]> {
 export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive') {
     const discoRef = doc(db, 'discos', id);
     updateDoc(discoRef, { status }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: discoRef.path,
-            operation: 'update',
-            requestResourceData: { status }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: discoRef.path,
+                operation: 'update',
+                requestResourceData: { status }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1177,11 +1279,13 @@ export async function updateDiscoStatus(id: string, status: 'Active' | 'Inactive
 export async function deleteDisco(id: string) {
     const discoRef = doc(db, 'discos', id);
     deleteDoc(discoRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: discoRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: discoRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1189,12 +1293,14 @@ export async function deleteDisco(id: string) {
 export async function addRechargeCardDenomination(denomination: Omit<RechargeCardDenomination, 'id'>) {
     const denomData = { ...denomination, status: 'Active' };
     addDoc(collection(db, 'rechargeCardDenominations'), denomData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'rechargeCardDenominations',
-            operation: 'create',
-            requestResourceData: denomData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'rechargeCardDenominations',
+                operation: 'create',
+                requestResourceData: denomData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1205,23 +1311,27 @@ export async function getRechargeCardDenominations(): Promise<RechargeCardDenomi
 export async function updateRechargeCardDenominationStatus(id: string, status: 'Active' | 'Inactive') {
     const denominationRef = doc(db, 'rechargeCardDenominations', id);
     updateDoc(denominationRef, { status }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: denominationRef.path,
-            operation: 'update',
-            requestResourceData: { status }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: denominationRef.path,
+                operation: 'update',
+                requestResourceData: { status }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function deleteRechargeCardDenomination(id: string) {
     const denomRef = doc(db, 'rechargeCardDenominations', id);
     deleteDoc(denomRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: denomRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: denomRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1229,12 +1339,14 @@ export async function deleteRechargeCardDenomination(id: string) {
 export async function addEducationPinType(pinType: Omit<EducationPinType, 'id'>) {
     const pinData = { ...pinType, status: 'Active' };
     addDoc(collection(db, 'educationPinTypes'), pinData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'educationPinTypes',
-            operation: 'create',
-            requestResourceData: pinData
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: 'educationPinTypes',
+                operation: 'create',
+                requestResourceData: pinData
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
@@ -1249,23 +1361,27 @@ export async function getEducationPinTypes(examBody?: string): Promise<Education
 export async function updateEducationPinTypeStatus(id: string, status: 'Active' | 'Inactive') {
     const pinTypeRef = doc(db, 'educationPinTypes', id);
     updateDoc(pinTypeRef, { status }).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: pinTypeRef.path,
-            operation: 'update',
-            requestResourceData: { status }
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: pinTypeRef.path,
+                operation: 'update',
+                requestResourceData: { status }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 
 export async function deleteEducationPinType(id: string) {
     const pinTypeRef = doc(db, 'educationPinTypes', id);
     deleteDoc(pinTypeRef).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: pinTypeRef.path,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: pinTypeRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
 }
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -13,6 +14,8 @@ import {
 import { getFirestore, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { app } from './client-app';
 import { createPaylonyVirtualAccount } from '@/services/paylony';
+import { errorEmitter } from './error-emitter';
+import { FirestorePermissionError } from './errors';
 
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -65,7 +68,17 @@ async function createUserDocument(user: User, phone: string) {
     lastLogin: new Date(),
     reservedAccount: null,
   };
-  await setDoc(userRef, initialData);
+  setDoc(userRef, initialData).catch(async (serverError) => {
+    if (serverError.code === 'permission-denied') {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'create',
+            requestResourceData: initialData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+    throw serverError;
+  });
   console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}.`);
 
   if (isSuperAdmin) {
@@ -91,13 +104,23 @@ async function createUserDocument(user: User, phone: string) {
       gender: 'Male', // Placeholder
     });
     
-    await updateDoc(userRef, {
+    const accountData = {
       reservedAccount: {
         provider: 'Paylony',
         accountNumber: paylonyAccount.account_number,
         accountName: paylonyAccount.account_name,
         bankName: paylonyAccount.bank_name,
       },
+    };
+    updateDoc(userRef, accountData).catch(async (serverError) => {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: accountData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
     });
      console.log(`[Auth] Paylony virtual account created and saved for ${user.uid}.`);
 
@@ -120,7 +143,17 @@ export async function signInWithEmailAndPassword(email: string, password: string
 
     // After successful sign-in, update lastLogin
     const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, { lastLogin: new Date() });
+    const updateData = { lastLogin: new Date() };
+    updateDoc(userRef, updateData).catch(async (serverError) => {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: userRef.path,
+                operation: 'update',
+                requestResourceData: updateData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+    });
 
     // Check if the user is the designated super admin and set the claim if needed.
     if (user.email === 'horlarworyeh200@gmail.com') {
