@@ -11,7 +11,7 @@ import {
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
   type User,
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, updateDoc, increment } from 'firebase/firestore';
 import { app } from './client-app';
 import { createPaylonyVirtualAccount } from '@/services/paylony';
 import { errorEmitter } from './error-emitter';
@@ -44,13 +44,13 @@ async function setAdminClaim(uid: string): Promise<{ success: boolean; message: 
 }
 
 
-async function createUserDocument(user: User, phone: string) {
-  if (!user.email || !user.displayName) {
-    throw new Error('User email or display name is missing.');
+async function createUserDocument(user: User, fullName: string, phone: string) {
+  if (!user.email) {
+    throw new Error('User email is missing.');
   }
 
   const userRef = doc(db, 'users', user.uid);
-  const [firstname, ...lastnameParts] = user.displayName.split(' ');
+  const [firstname, ...lastnameParts] = fullName.split(' ');
   const lastname = lastnameParts.join(' ') || firstname;
   
   const isSuperAdmin = user.email === 'horlarworyeh200@gmail.com';
@@ -59,7 +59,7 @@ async function createUserDocument(user: User, phone: string) {
   const initialData = {
     uid: user.uid,
     email: user.email,
-    fullName: user.displayName,
+    fullName: fullName,
     phone: phone,
     role: userRole,
     createdAt: new Date(),
@@ -68,7 +68,11 @@ async function createUserDocument(user: User, phone: string) {
     lastLogin: new Date(),
     reservedAccount: null,
   };
-  setDoc(userRef, initialData).catch(async (serverError) => {
+  
+  try {
+    await setDoc(userRef, initialData);
+    console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}.`);
+  } catch (serverError: any) {
     if (serverError.code === 'permission-denied') {
         const permissionError = new FirestorePermissionError({
             path: userRef.path,
@@ -77,9 +81,9 @@ async function createUserDocument(user: User, phone: string) {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-    throw serverError;
-  });
-  console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}.`);
+    throw serverError; // Re-throw the original error
+  }
+
 
   if (isSuperAdmin) {
       const claimResult = await setAdminClaim(user.uid);
@@ -112,17 +116,8 @@ async function createUserDocument(user: User, phone: string) {
         bankName: paylonyAccount.bank_name,
       },
     };
-    updateDoc(userRef, accountData).catch(async (serverError) => {
-        if (serverError.code === 'permission-denied') {
-            const permissionError = new FirestorePermissionError({
-                path: userRef.path,
-                operation: 'update',
-                requestResourceData: accountData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-        }
-    });
-     console.log(`[Auth] Paylony virtual account created and saved for ${user.uid}.`);
+    await updateDoc(userRef, accountData);
+    console.log(`[Auth] Paylony virtual account created and saved for ${user.uid}.`);
 
   } catch (error) {
     console.error(`[Auth] Failed to create Paylony virtual account for ${user.uid}:`, error);
@@ -133,7 +128,7 @@ export async function signUpWithEmailAndPassword(email: string, password: string
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   const { user } = userCredential;
   await updateProfile(user, { displayName: fullName });
-  await createUserDocument(user, phone);
+  await createUserDocument(user, fullName, phone);
   return userCredential;
 }
 
