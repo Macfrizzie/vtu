@@ -1036,28 +1036,45 @@ export async function getApiProvidersForSelect(): Promise<Pick<ApiProvider, 'id'
 export async function getApiProviders(): Promise<ApiProvider[]> {
     const providersCol = collection(db, 'apiProviders');
     const snapshot = await getDocsWithContext<ApiProvider>(query(providersCol));
-    
+
     if (snapshot.length === 0) {
-        const initialProvider: Omit<ApiProvider, 'id'> = { 
-            name: 'HusmoData', 
+        console.log('[getApiProviders] No providers found. Seeding default providers.');
+        const batch = writeBatch(db);
+
+        const husmoProvider: Omit<ApiProvider, 'id'> = {
+            name: 'HusmoData',
             providerType: 'Service API',
-            description: 'Primary provider for VTU services.', 
-            baseUrl: 'https://husmodata.com/api', 
-            status: 'Active', 
-            priority: 'Primary', 
-            auth_type: 'Token', 
-            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', 
-            apiSecret: '', 
-            requestHeaders: '{}', 
-            transactionCharge: 0 
+            description: 'Primary provider for VTU services.',
+            baseUrl: 'https://husmodata.com/api',
+            status: 'Active',
+            priority: 'Primary',
+            auth_type: 'Token',
+            apiKey: '8f00fa816b1e3b485baca8f44ae5d361ef803311', // Placeholder key
+            apiSecret: '',
+            requestHeaders: '{}',
+            transactionCharge: 0,
         };
         
-        await addApiProvider(initialProvider);
-        
-        const newSnapshot = await getDocsWithContext<ApiProvider>(query(providersCol));
-        return newSnapshot;
+        const paylonyProvider: Omit<ApiProvider, 'id'> = {
+            name: 'Paylony',
+            providerType: 'Payment Gateway',
+            description: 'Primary provider for virtual accounts.',
+            baseUrl: 'https://api.paylony.com/api/v1',
+            status: 'Active',
+            priority: 'Primary',
+            auth_type: 'Paylony',
+            paylony_secretKey: 'YOUR_PAYLONY_SECRET_KEY', // IMPORTANT: Replace with actual key
+        };
+
+        batch.set(doc(collection(db, 'apiProviders')), husmoProvider);
+        batch.set(doc(collection(db, 'apiProviders')), paylonyProvider);
+
+        await batch.commit();
+        console.log('[getApiProviders] Default providers seeded. Refetching...');
+        // Refetch to return the newly created providers
+        return await getDocsWithContext<ApiProvider>(query(providersCol));
     }
-    
+
     return snapshot;
 }
 
