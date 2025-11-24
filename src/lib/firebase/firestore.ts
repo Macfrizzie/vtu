@@ -15,20 +15,24 @@ const db = getFirestore(app);
 
 // Helper function to handle getDocs with contextual errors
 async function getDocsWithContext<T>(q: any, operation: 'list' = 'list'): Promise<T[]> {
-  try {
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-  } catch (serverError: any) {
-    if (serverError.code === 'permission-denied') {
-        const permissionError = new FirestorePermissionError({
-            path: q.path || 'unknown collection (check query)',
-            operation: operation,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    const querySnapshot = await getDocs(q).catch((serverError) => {
+        if (serverError.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({
+                path: q.path || 'unknown collection (check query)',
+                operation: operation,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        }
+        // Return null to signify an error occurred
+        return null;
+    });
+
+    if (!querySnapshot) {
+        // Error was handled by the emitter, return empty array to prevent app crash
+        return [];
     }
-    // Return empty array to prevent app crash and let the listener show the error.
-    return [];
-  }
+    
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
 }
 
 
