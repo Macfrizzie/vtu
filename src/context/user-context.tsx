@@ -2,9 +2,10 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { onAuthStateChangedHelper } from '@/lib/firebase/auth';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
+import { app } from '@/lib/firebase/client-app';
 import { getUserData } from '@/lib/firebase/firestore';
-import type { User } from 'firebase/auth';
 import type { UserData } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -17,6 +18,7 @@ type UserContextType = {
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
+const auth = getAuth(app);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -31,7 +33,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChangedHelper(async (authUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
       setLoading(true);
       if (authUser) {
         setUser(authUser);
@@ -66,15 +68,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const value = { user, userData, loading, forceRefetch };
 
-  if (loading) {
-    const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup') || pathname.startsWith('/forgot-password') || pathname === '/';
-    if (!isAuthPage) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-        );
-    }
+  const isAuthPage = pathname.startsWith('/login') || pathname.startsWith('/signup') || pathname.startsWith('/forgot-password') || pathname === '/';
+  if (loading && !isAuthPage) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
   }
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

@@ -9,7 +9,7 @@ import { Loader2, User, Mail, Wallet, Calendar, Phone } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProfilePage() {
-  const { user, userData, loading } = useUser();
+  const { userData, loading } = useUser();
 
   const getInitials = (name: string | undefined | null) => {
     if (!name) return 'U';
@@ -53,7 +53,7 @@ export default function ProfilePage() {
                 <InfoItem icon={<User className="h-5 w-5 text-muted-foreground" />} label="Full Name" value={userData?.fullName} />
                 <InfoItem icon={<Mail className="h-5 w-5 text-muted-foreground" />} label="Email Address" value={userData?.email} />
                 <InfoItem icon={<Phone className="h-5 w-5 text-muted-foreground" />} label="Phone Number" value={userData?.phone} />
-                <InfoItem icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Wallet Balance" value={`₦${(userData?.walletBalance || 0).toLocaleString()}`} />
+                <InfoItem icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Wallet Balance" value={`₦${(userData?.walletBalance ?? 0).toLocaleString()}`} />
                 <InfoItem icon={<Calendar className="h-5 w-5 text-muted-foreground" />} label="Member Since" value={joinDate} />
             </div>
           )}
