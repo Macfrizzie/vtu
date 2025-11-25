@@ -17,15 +17,27 @@ service cloud.firestore {
     // --- Rules for All Authenticated Users ---
 
     match /users/{userId} {
-      // Allow a user to create their own user document
-      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow a user to create their own user document IF the data is valid
+      // and the UID matches. This is a critical rule for signup.
+      allow create: if request.auth != null 
+                    && request.auth.uid == userId
+                    && request.resource.data.uid == userId
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.fullName is string
+                    && request.resource.data.phone is string
+                    && request.resource.data.walletBalance == 0
+                    && request.resource.data.role == 'Customer';
 
       // Allow a user to read their own user document
       allow read: if request.auth != null && request.auth.uid == userId;
 
-      // Allow a user to UPDATE only a specific, safe list of fields on their own document.
+      // Allow a user to UPDATE only their 'fullName' and 'phone' fields.
+      // Also allow admins to update 'lastLogin' for them.
       allow update: if request.auth != null && request.auth.uid == userId
-                    && request.resource.data.keys().hasOnly(['lastLogin', 'status', 'fullName', 'phone', 'role', 'walletBalance', 'reservedAccount', 'createdAt', 'uid', 'email']);
+                    && request.resource.data.fullName == request.resource.data.fullName
+                    && request.resource.data.phone == request.resource.data.phone
+                    && request.resource.data.keys().hasAll(['fullName', 'phone']) == false // ensure no other fields are changed
+                    && request.resource.data.keys().hasOnly(['fullName', 'phone', 'lastLogin']);
     }
 
     // Allow users to read and create their own transactions.

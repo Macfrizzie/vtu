@@ -70,6 +70,8 @@ async function createUserDocument(user: User, fullName: string, phone: string) {
   };
   
   try {
+    // This setDoc creates the user document upon signup.
+    // The security rules MUST allow this operation.
     await setDoc(userRef, initialData);
     console.log(`[Auth] User document created for ${user.uid} with role: ${userRole}.`);
   } catch (serverError: any) {
@@ -81,7 +83,8 @@ async function createUserDocument(user: User, fullName: string, phone: string) {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-    throw serverError; // Re-throw the original error
+    // Re-throw the original error to be caught by the signup form's try/catch
+    throw serverError;
   }
 
 
@@ -97,6 +100,8 @@ async function createUserDocument(user: User, fullName: string, phone: string) {
       }
   }
 
+  // Attempt to create a virtual account. This is non-critical for signup success.
+  // If it fails, the user can still log in.
   try {
     const paylonyAccount = await createPaylonyVirtualAccount({
       firstname: firstname,

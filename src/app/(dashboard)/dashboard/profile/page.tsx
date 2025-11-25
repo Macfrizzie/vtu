@@ -53,7 +53,7 @@ export default function ProfilePage() {
                 <InfoItem icon={<User className="h-5 w-5 text-muted-foreground" />} label="Full Name" value={userData?.fullName} />
                 <InfoItem icon={<Mail className="h-5 w-5 text-muted-foreground" />} label="Email Address" value={userData?.email} />
                 <InfoItem icon={<Phone className="h-5 w-5 text-muted-foreground" />} label="Phone Number" value={userData?.phone} />
-                <InfoItem icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Wallet Balance" value={`₦${(userData?.walletBalance ?? 0).toLocaleString()}`} />
+                <InfoItem icon={<Wallet className="h-5 w-5 text-muted-foreground" />} label="Wallet Balance" value={`₦${(userData?.walletBalance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
                 <InfoItem icon={<Calendar className="h-5 w-5 text-muted-foreground" />} label="Member Since" value={joinDate} />
             </div>
           )}
