@@ -51,6 +51,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error("Failed to fetch user data:", error);
           setUserData(null);
+        } finally {
+          setLoading(false);
         }
       } else {
         setUser(null);
@@ -59,8 +61,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (isProtectedRoute) {
            router.push('/login');
         }
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
